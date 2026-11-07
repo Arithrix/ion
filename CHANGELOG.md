@@ -5,6 +5,44 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-07
+
+### Added
+- **The FM library.** One flat list of every DX7 patch you've imported. No banks to manage, and duplicates are merged.
+  - Press `i` (Library or Instrument screen) and give it a folder: every `.syx` underneath is imported, sub-folders included, in about a second for a thousand files.
+  - Corrupt banks are skipped and listed in `~/.local/share/ion/import.log`.
+  - Importing the same folder again adds nothing.
+  - Each patch remembers every bank it was found in (`from rom1a · +8 more`).
+- **The FM browser (`I` on an FM track).**
+  - Moving the cursor loads the patch onto the track **straight away**, while the OXI plays.
+  - `/` filters as you type, by name, tag, category or bank. ← → switch between all, ★ favourites, recent, the program list, and rough categories (bass, keys, brass, …).
+  - `*` makes a favourite, and `t` tags a patch.
+  - The patch pane draws the algorithm as on the DX7 chart.
+- **Changing patch never cuts a note.** Notes that are sounding finish with the old patch, and new notes play the new one. Scrolling fast through the list with notes held doesn't click.
+- **Six macros** on every FM track: Bright, Attack, Release, Feedback, Detune and Velocity.
+  - They adjust the patch without overwriting it, and respond at once and smoothly, even on held notes.
+  - They're MIDI-learnable (`l`) and saved with the project. `u` puts them back to 0.
+  - They also show on the Tracks screen under the patch.
+- **Save as (`a`):** bakes the macros into a new patch in your library, which sounds exactly the same as the edited one.
+- **Export (`e`):** writes whatever the browser is listing (a filter, your favourites, a category) as standard 32-voice `.syx` banks in `~/ion/exports/`. They load in Dexed or on a DX7.
+- **Program change.** Each project has a program list of up to 128 patches: `+` in the browser adds the current one. Program change N from the OXI loads entry N onto the FM tracks on that channel. It can be turned off in Settings.
+- **Library screen:** projects show what's on each track, and FM shows patch counts per category and the last import.
+- **Settings:** program change on/off, and **FM preview** (play a short C3 whenever browsing loads a patch).
+- `ion --import FOLDER` imports from the command line. `ion --syx FILE` now also adds the bank to the library.
+- The demo project ("demo v0.2.0") adds macro edits on the bass, CC 74 / CC 71 on channel 1 mapped to the piano's Bright / Release, and an 8-patch program list.
+
+### Changed
+- Projects are now format 2. Format 1 projects from 0.1.0 open as before, but 0.1.0 can't open projects saved by 0.2.0.
+- Choosing FM for an empty track goes straight to the browser.
+
+### Fixed
+- Synth_Dexed sent held notes straight to their sustain stage whenever a sound parameter changed. Notes still in their attack were cut short, and could go silent while a knob was being turned. ion's copy keeps each note where it is in its envelope.
+
+### Known issues
+- FM is the only engine so far (Drum is next, in Phase 3).
+- Only exact duplicates are merged: different edits that share a name (there are six "E.PIANO 1"s in the collection) stay separate.
+- A program change on a channel shared by two tracks loads on both; the status line names only one.
+
 ## [0.1.0] - 2026-11-06
 
 ### Added
