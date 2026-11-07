@@ -376,7 +376,7 @@ void Module::handleCommand(const Command& c) noexcept {
       if (c.engine) {
         const auto table = engineParams(c.engine->type());
         for (std::size_t i = 0; i < table.size(); ++i) {
-          const ParamRef ref{static_cast<uint8_t>(track), static_cast<uint8_t>(kEngineParamBase + i)};
+          const ParamRef ref{static_cast<uint8_t>(track), static_cast<uint16_t>(kEngineParamBase + i)};
           values_[track][ref.index] = table[i].def;
           store_.publish(ref, table[i].def);
         }

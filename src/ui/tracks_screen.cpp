@@ -211,7 +211,7 @@ class TracksScreen final : public Screen {
     auto engineRow = [&](std::size_t i) {
       std::string label = table[i].label;
       if (!label.empty()) label[0] = static_cast<char>(std::tolower(static_cast<unsigned char>(label[0])));
-      rows.push_back({Row::Param, label, ParamRef{tt, static_cast<uint8_t>(kEngineParamBase + i)}});
+      rows.push_back({Row::Param, label, ParamRef{tt, static_cast<uint16_t>(kEngineParamBase + i)}});
     };
     // FM: the macros up front (they're what you play with), the voice
     // settings after the mixer rows.

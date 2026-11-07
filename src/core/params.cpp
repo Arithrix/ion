@@ -102,8 +102,22 @@ float stepValue(const ParamInfo& info, float value, int direction, bool coarse) 
   }
 }
 
+std::string noteName(int note) {
+  static const char* names[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+  note = std::clamp(note, 0, 127);
+  return std::string(names[note % 12]) + std::to_string(note / 12 - 2);
+}
+
 std::string formatValue(const ParamInfo& info, float v) {
   char buf[32];
+  if (info.maxLabel && v >= info.max) return info.maxLabel;
+  if (info.unit == Unit::Note) return noteName(static_cast<int>(std::lround(v)));
+  if (info.unit == Unit::Cents) {
+    const long n = std::lround(v);
+    if (n == 0) return "0 ct";
+    std::snprintf(buf, sizeof buf, "%s%ld ct", n > 0 ? "+" : "−", std::labs(n));
+    return buf;
+  }
   switch (info.curve) {
     case Curve::Toggle:
       return v >= 0.5f ? "on" : "off";
@@ -141,8 +155,15 @@ std::string formatValue(const ParamInfo& info, float v) {
     case Unit::Semitones:
       std::snprintf(buf, sizeof buf, "%+.0f st", static_cast<double>(v));
       break;
+    case Unit::Ms:
+      if (v >= 1000.0f) std::snprintf(buf, sizeof buf, "%.2f s", static_cast<double>(v / 1000.0f));
+      else if (v >= 100.0f) std::snprintf(buf, sizeof buf, "%.0f ms", static_cast<double>(v));
+      else std::snprintf(buf, sizeof buf, "%.1f ms", static_cast<double>(v));
+      break;
     case Unit::None:
     case Unit::Offset:
+    case Unit::Note:
+    case Unit::Cents:
       std::snprintf(buf, sizeof buf, info.max - info.min > 20 ? "%.0f" : "%.2f", static_cast<double>(v));
       break;
   }

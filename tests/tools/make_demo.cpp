@@ -87,14 +87,14 @@ int main(int argc, char** argv) {
   // Macros: the bass a little darker with a shorter release, so "edited"
   // shows in the browser and save-as has something to bake.
   auto macro = [&](int track, int p, float v) {
-    s.setParam({static_cast<uint8_t>(track), static_cast<uint8_t>(kEngineParamBase + p)}, v);
+    s.setParam({static_cast<uint8_t>(track), static_cast<uint16_t>(kEngineParamBase + p)}, v);
   };
   macro(1, FmEngine::kBright, -6.0f);
   macro(1, FmEngine::kRelease, -10.0f);
 
   // Mappings to try from the OXI: cc 74 on channel 1 is the piano's Bright
   // macro, cc 71 its Release; cc 7 on channel 2 rides the bass fader (kept audible).
-  auto fmRef = [](int track, int p) { return ParamRef{static_cast<uint8_t>(track), static_cast<uint8_t>(kEngineParamBase + p)}; };
+  auto fmRef = [](int track, int p) { return ParamRef{static_cast<uint8_t>(track), static_cast<uint16_t>(kEngineParamBase + p)}; };
   s.addMapping(0, 74, fmRef(0, FmEngine::kBright));
   s.addMapping(0, 71, fmRef(0, FmEngine::kRelease));
   s.addMapping(1, 7, {1, kFader}, 0.4f, 1.0f);

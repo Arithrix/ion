@@ -238,7 +238,7 @@ class InstrumentScreen final : public Screen {
   // Macro-pane rows: the six macros first, then the engine settings.
   ParamRef param(Context& ctx) const {
     const int index = row_ < dx7::kMacroCount ? FmEngine::kFirstMacro + row_ : row_ - dx7::kMacroCount;
-    return {static_cast<uint8_t>(ctx.track), static_cast<uint8_t>(kEngineParamBase + index)};
+    return {static_cast<uint8_t>(ctx.track), static_cast<uint16_t>(kEngineParamBase + index)};
   }
 
   int listRows(const Context& ctx) const { return std::max(4, ctx.height - 12); }
@@ -405,7 +405,7 @@ class InstrumentScreen final : public Screen {
     for (int i = 0; i < shown; ++i) {
       const int index = i < dx7::kMacroCount ? FmEngine::kFirstMacro + i : i - dx7::kMacroCount;
       const ParamInfo& pi = table[static_cast<std::size_t>(index)];
-      const ParamRef ref{static_cast<uint8_t>(ctx.track), static_cast<uint8_t>(kEngineParamBase + index)};
+      const ParamRef ref{static_cast<uint8_t>(ctx.track), static_cast<uint16_t>(kEngineParamBase + index)};
       const float v = s.param(ref);
       const bool on = focused && i == row_;
       if (i == dx7::kMacroCount) out.push_back(text(""));  // only reached when roomy

@@ -141,9 +141,9 @@ struct SnapshotRig {
       if (p.name == "BASS 1") lib.setFavourite(p.id, true);
     session.loadPatch(2, *lib.find(id));
     session.toggleProgram(lib.find(id)->voice, "cart_17");
-    session.setParam({2, static_cast<uint8_t>(kEngineParamBase + FmEngine::kBright)}, 12.0f);
-    session.setParam({2, static_cast<uint8_t>(kEngineParamBase + FmEngine::kRelease)}, -8.0f);
-    session.addMapping(0, 74, {2, static_cast<uint8_t>(kEngineParamBase + FmEngine::kBright)});
+    session.setParam({2, static_cast<uint16_t>(kEngineParamBase + FmEngine::kBright)}, 12.0f);
+    session.setParam({2, static_cast<uint16_t>(kEngineParamBase + FmEngine::kRelease)}, -8.0f);
+    session.addMapping(0, 74, {2, static_cast<uint16_t>(kEngineParamBase + FmEngine::kBright)});
     session.setParam({0, kPan}, -0.3f);
     session.setParam({0, kB1Gain}, 6.0f);
     session.setParam({0, kHpOn}, 1.0f);

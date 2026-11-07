@@ -58,7 +58,7 @@ std::string nowIso() {
 
 ParamRef mixerRef(int scope, int index) { return {static_cast<uint8_t>(scope), static_cast<uint8_t>(index)}; }
 ParamRef engineRef(int track, int index) {
-  return {static_cast<uint8_t>(track), static_cast<uint8_t>(kEngineParamBase + index)};
+  return {static_cast<uint8_t>(track), static_cast<uint16_t>(kEngineParamBase + index)};
 }
 
 // Brings an older project file up to kProjectFormat. Each bump adds a step.
@@ -530,7 +530,7 @@ void Session::tick() {
   // Pull in values the audio thread changed on its own (CC moves).
   const ParamStore& store = module_.params();
   for (std::size_t i = 0; i < values_.size(); ++i) {
-    const float s = store.get({static_cast<uint8_t>(i / ParamStore::kPerScope), static_cast<uint8_t>(i % ParamStore::kPerScope)});
+    const float s = store.get({static_cast<uint8_t>(i / ParamStore::kPerScope), static_cast<uint16_t>(i % ParamStore::kPerScope)});
     if (s != lastStore_[i]) {
       lastStore_[i] = s;
       values_[i] = s;
@@ -593,7 +593,7 @@ void Session::reset() {
   defaultValues();
   for (std::size_t i = 0; i < values_.size(); ++i) {
     if (values_[i] == before[i]) continue;
-    const ParamRef ref{static_cast<uint8_t>(i / ParamStore::kPerScope), static_cast<uint8_t>(i % ParamStore::kPerScope)};
+    const ParamRef ref{static_cast<uint8_t>(i / ParamStore::kPerScope), static_cast<uint16_t>(i % ParamStore::kPerScope)};
     if (!ref.isEngine()) setValue(ref, values_[i]);
   }
 }
