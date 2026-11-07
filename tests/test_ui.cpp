@@ -9,6 +9,7 @@
 #include "audio/wav.h"
 #include "core/version.h"
 #include "engine/drum/drum_engine.h"
+#include "engine/fx/effects.h"
 #include "engine/fm/fm_engine.h"
 #include "engine/module.h"
 #include "library/fm_library.h"
@@ -195,6 +196,14 @@ struct SnapshotRig {
     session.setParam({2, kFader}, -9.0f);
     session.setParam({2, kMute}, 1.0f);
 
+    // Track 3's inserts and sends (the FX mockup): compressor and chorus, sends to both buses.
+    session.setInsert(2, 0, EffectType::Compressor);
+    session.setInsert(2, 1, EffectType::Chorus);
+    session.setParam({2, kSendA}, -12.0f);
+    session.setParam({2, kSendB}, -8.0f);
+    session.setParam({kReverbScope, kFader}, -4.5f);
+    session.setParam(insertOnRef(kMasterScope, 0), 1.0f);
+
     // Track 4: a drum kit (the DrumKit mockup), from generated samples.
     makeSamples(kSnapshotRoot / "samples");
     config.sampleRoots = {(kSnapshotRoot / "samples").string()};
@@ -279,6 +288,10 @@ TEST_CASE("ui snapshots: every screen at the handoff's sizes") {
       {"drum_params_130x36", ui::ScreenId::Instrument, 130, 36, false, false, 3, {"Tab", "Tab", "Down", "Down"}},
       {"drum_params_60x35", ui::ScreenId::Instrument, 60, 35, false, false, 3, {"Tab", "Tab", "Down", "Down"}},
       {"piano_drum_130x36", ui::ScreenId::Instrument, 130, 36, true, false, 3},
+      {"fx_130x36", ui::ScreenId::Fx, 130, 36, false, false, 2, {"Down", "Down", "Down", "Down", "Down", "Down", "Down", "Tab", "Down"}},
+      {"fx_80x24", ui::ScreenId::Fx, 80, 24, false, false, 2},
+      {"fx_60x35", ui::ScreenId::Fx, 60, 35, false, false, 2},
+      {"fx_picker_130x36", ui::ScreenId::Fx, 130, 36, false, false, 2, {"Down", "Down", "Return"}},
       {"library_kits_130x36", ui::ScreenId::Library, 130, 36, false, false, 3, {"Tab", "Down", "Down", "Right"}},
   };
   for (const Case& c : cases) {

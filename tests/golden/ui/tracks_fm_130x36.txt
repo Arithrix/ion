@@ -16,15 +16,15 @@
 │                                                                               ││fader      ████▎░░░░░ -9.0 dB                  │
 │                                                                               ││pan        █████░░░░░ C                        │
 │                                                                               ││eq         flat                                │
+│                                                                               ││inserts    COMP · CHORUS · —                   │
+│                                                                               ││send A     ███▌░░░░░░ -12.0 dB                 │
+│                                                                               ││send B     ████▌░░░░░ -8.0 dB                  │
 │                                                                               ││midi ch    3                                   │
 │                                                                               ││                                               │
 │                                                                               ││voice                                          │
 │                                                                               ││polyphony  8                                   │
 │                                                                               ││bend range 2                                   │
 │                                                                               ││mono       off                                 │
-│                                                                               ││                                               │
-│                                                                               ││inserts · sends   arrive in Phase 4            │
-│                                                                               ││                                               │
 │                                                                               ││                                               │
 │                                                                               ││                                               │
 │                                                                               ││                                               │

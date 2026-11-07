@@ -16,9 +16,9 @@
 │                                          ││fader      ███████▏░░ 0.0 dB      │
 │                                          ││pan        ███▌░░░░░░ L30         │
 │                                          ││eq         hp 40 · 400 +6.0       │
-│                                          ││midi ch    1                      │
-├──────────────────────────────────────────┤│                                  │
-│ 3 of 8 tracks in use · 0 voices          ││voice                             │
+│                                          ││inserts    — · — · —              │
+├──────────────────────────────────────────┤│send A     ░░░░░░░░░░ −∞ dB       │
+│ 3 of 8 tracks in use · 0 voices          ││send B     ░░░░░░░░░░ −∞ dB       │
 ╰──────────────────────────────────────────╯╰──────────────────────────────────╯
  midi MIDI off  ·  last: nothing yet
  1-8  Track   ↑↓  Move   ←→  Fader   Tab  Pane   ⏎  Edit   m  Mute   s  Solo

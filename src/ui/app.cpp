@@ -81,8 +81,7 @@ class App {
     screens_[static_cast<int>(ScreenId::Tracks)] = makeTracksScreen();
     screens_[static_cast<int>(ScreenId::Instrument)] = makeInstrumentScreen();
     screens_[static_cast<int>(ScreenId::Mixer)] = makeMixerScreen();
-    screens_[static_cast<int>(ScreenId::Fx)] =
-        makePlaceholderScreen("Effects", "Compressor, chorus, delay and reverb, insert slots and send buses arrive in Phase 4.");
+    screens_[static_cast<int>(ScreenId::Fx)] = makeFxScreen();
     screens_[static_cast<int>(ScreenId::Rec)] =
         makePlaceholderScreen("Resample", "Clock-synced recording, slicing onto pads and loading into the sampler arrive in Phase 6.");
     screens_[static_cast<int>(ScreenId::Library)] = makeLibraryScreen();
@@ -266,6 +265,7 @@ class App {
         break;
       case Context::Request::ShowMixer: show(ScreenId::Mixer); break;
       case Context::Request::ShowInstrument: show(ScreenId::Instrument); break;
+      case Context::Request::ShowFx: show(ScreenId::Fx); break;
       case Context::Request::Audition: audition(); break;
       case Context::Request::Import: startImport(ctx_.importPath); break;
       case Context::Request::Prompt:

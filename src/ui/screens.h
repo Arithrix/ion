@@ -43,7 +43,7 @@ struct Context {
   bool narrow() const { return width < 80; }
 
   // Requests from screens to the app.
-  enum class Request { None, ChooseEngine, ShowMixer, ShowInstrument, Prompt, Audition, Import };
+  enum class Request { None, ChooseEngine, ShowMixer, ShowInstrument, ShowFx, Prompt, Audition, Import };
   Request request = Request::None;
   std::string flash;  // a one-line message for the status line
 
@@ -91,12 +91,17 @@ class Screen {
 
 // What a track plays, in a few words: the FM patch, the kit, "— empty —".
 std::string trackSoundName(const Session& s, int t);
+// A scope's EQ in a few words: "hp 40 · lo +2.0", "flat", "bypassed".
+std::string eqSummary(const Session& s, int scope);
+// An insert in a few words: "thr −18 · 3:1", "hall · 2.4 s", "empty".
+std::string insertSummary(const Session& s, int scope, int slot);
 
 // Asks for a folder and starts an FM library import (Instrument and Library screens).
 void requestImport(Context& ctx);
 
 std::unique_ptr<Screen> makeTracksScreen();
 std::unique_ptr<Screen> makeMixerScreen();
+std::unique_ptr<Screen> makeFxScreen();
 std::unique_ptr<Screen> makeInstrumentScreen();
 std::unique_ptr<Screen> makeDrumScreen();  // the Instrument screen for DRUM tracks
 std::unique_ptr<Screen> makeSettingsScreen();

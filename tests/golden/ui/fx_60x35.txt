@@ -1,0 +1,35 @@
+ ion Trk Ins Mix Fx Rec Lib                     0% no audio
+╭ Chain · Tab ⇄ ───────────────────────────────────────────╮
+│track 3 · SYN-BAS 4                                       │
+│   EQ          flat                                     ● │
+│ 1 COMP        thr −18 · 3.0:1                          ● │
+│ 2 CHORUS      rate 0.40 · 50%                          ● │
+│ 3 —           empty                                      │
+│ A → delay     -12.0 dB                                   │
+│ B → reverb    -8.0 dB                                    │
+│   sends       post-fader                                 │
+│                                                          │
+│send buses                                                │
+│ A DELAY       1/8D · fb 40% · 0 dB                     ● │
+│ B REVERB      hall · 2.4 s · −5 dB                     ● │
+│                                                          │
+│master                                                    │
+│   EQ          flat                                     ● │
+│ 1 COMP        thr −12 · 2.0:1                          ● │
+│ 2 —           empty                                      │
+│ 3 —           empty                                      │
+│   LIMIT       ceiling −0.3 dB                          ● │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+╰──────────────────────────────────────────────────────────╯
+ midi MIDI off · nothing yet
+ ↑↓  Slot   ⏎  Edit   a  Add   x  Remove   b  Bypass

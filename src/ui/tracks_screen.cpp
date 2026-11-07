@@ -7,6 +7,7 @@
 #include <cstdio>
 
 #include "engine/drum/drum_engine.h"
+#include "engine/fx/effect.h"
 #include "engine/module.h"
 #include "engine/fm/fm_engine.h"
 #include "library/fm_library.h"
@@ -19,32 +20,6 @@ namespace {
 
 using namespace ftxui;
 using Clock = std::chrono::steady_clock;
-
-// "hp 40 · lo +2 · 420 −1.5 · 2.5k +1.5"
-std::string eqSummary(const Session& s, int t) {
-  auto p = [&](MixerParam m) { return s.param({static_cast<uint8_t>(t), m}); };
-  if (p(kEqBypass) >= 0.5f) return "bypassed";
-  auto freq = [](float f) {
-    char b[16];
-    if (f >= 1000) std::snprintf(b, sizeof b, "%.1fk", static_cast<double>(f / 1000));
-    else std::snprintf(b, sizeof b, "%.0f", static_cast<double>(f));
-    return std::string(b);
-  };
-  auto gain = [](float g) {
-    char b[16];
-    std::snprintf(b, sizeof b, "%+.1f", static_cast<double>(g));
-    return std::string(b);
-  };
-  std::string out;
-  auto add = [&](const std::string& part) { out += (out.empty() ? "" : " · ") + part; };
-  if (p(kHpOn) >= 0.5f) add("hp " + freq(p(kHpFreq)));
-  if (p(kLsOn) >= 0.5f && p(kLsGain) != 0) add("lo " + gain(p(kLsGain)));
-  if (p(kB1On) >= 0.5f && p(kB1Gain) != 0) add(freq(p(kB1Freq)) + " " + gain(p(kB1Gain)));
-  if (p(kB2On) >= 0.5f && p(kB2Gain) != 0) add(freq(p(kB2Freq)) + " " + gain(p(kB2Gain)));
-  if (p(kHsOn) >= 0.5f && p(kHsGain) != 0) add("hi " + gain(p(kHsGain)));
-  if (p(kLpOn) >= 0.5f) add("lp " + freq(p(kLpFreq)));
-  return out.empty() ? "flat" : out;
-}
 
 class TracksScreen final : public Screen {
  public:
@@ -159,6 +134,7 @@ class TracksScreen final : public Screen {
       if (e == Event::Return) {
         if (r.kind == Row::Patch || r.kind == Row::Pad) ctx.request = Context::Request::ShowInstrument;
         else if (r.kind == Row::Eq) ctx.request = Context::Request::ShowMixer;
+        else if (r.kind == Row::Inserts) ctx.request = Context::Request::ShowFx;
         else if (r.kind == Row::Engine) ctx.request = Context::Request::ChooseEngine;
         return true;
       }
@@ -187,7 +163,7 @@ class TracksScreen final : public Screen {
 
  private:
   struct Row {
-    enum Kind { Param, Patch, Pad, Channel, Eq, Engine } kind;
+    enum Kind { Param, Patch, Pad, Channel, Eq, Inserts, Engine } kind;
     std::string label;
     std::optional<ParamRef> param;
   };
@@ -223,6 +199,9 @@ class TracksScreen final : public Screen {
     rows.push_back({Row::Param, "fader", ParamRef{tt, kFader}});
     rows.push_back({Row::Param, "pan", ParamRef{tt, kPan}});
     rows.push_back({Row::Eq, "eq", std::nullopt});
+    rows.push_back({Row::Inserts, "inserts", std::nullopt});
+    rows.push_back({Row::Param, "send A", ParamRef{tt, kSendA}});
+    rows.push_back({Row::Param, "send B", ParamRef{tt, kSendB}});
     rows.push_back({Row::Channel, "midi ch", std::nullopt});
     for (std::size_t i = 0; i < first; ++i) engineRow(i);
     return rows;
@@ -271,6 +250,15 @@ class TracksScreen final : public Screen {
         }
         case Row::Channel: value = std::to_string(tr.channel + 1); break;
         case Row::Eq: value = fit(eqSummary(s, t), 24); break;
+        case Row::Inserts: {
+          for (int slot = 0; slot < kInsertSlots; ++slot) {
+            const EffectType type = s.insert(t, slot);
+            std::string label = effectLabel(type);
+            if (type != EffectType::None && s.param(insertOnRef(t, slot)) < 0.5f) label = "(" + label + ")";
+            value += (slot ? " · " : "") + label;
+          }
+          break;
+        }
         case Row::Param: {
           const ParamInfo* pi = s.paramInfo(*r.param);
           const float v = s.param(*r.param);
@@ -289,8 +277,6 @@ class TracksScreen final : public Screen {
       }
       out.push_back(paramRow(r.label, value, f, 10, bar));
     }
-    out.push_back(text(""));
-    out.push_back(text("inserts · sends   arrive in Phase 4") | color(palette::faint));
     out.push_back(filler());
     out.push_back(separatorLight() | color(palette::borderSubtle));
     char foot[64];
@@ -330,6 +316,32 @@ std::string trackSoundName(const Session& s, int t) {
     }
     default: return engineLabel(tr.engine);
   }
+}
+
+// "hp 40 · lo +2 · 420 −1.5 · 2.5k +1.5"
+std::string eqSummary(const Session& s, int t) {
+  auto p = [&](MixerParam m) { return s.param({static_cast<uint8_t>(t), m}); };
+  if (p(kEqBypass) >= 0.5f) return "bypassed";
+  auto freq = [](float f) {
+    char b[16];
+    if (f >= 1000) std::snprintf(b, sizeof b, "%.1fk", static_cast<double>(f / 1000));
+    else std::snprintf(b, sizeof b, "%.0f", static_cast<double>(f));
+    return std::string(b);
+  };
+  auto gain = [](float g) {
+    char b[16];
+    std::snprintf(b, sizeof b, "%+.1f", static_cast<double>(g));
+    return std::string(b);
+  };
+  std::string out;
+  auto add = [&](const std::string& part) { out += (out.empty() ? "" : " · ") + part; };
+  if (p(kHpOn) >= 0.5f) add("hp " + freq(p(kHpFreq)));
+  if (p(kLsOn) >= 0.5f && p(kLsGain) != 0) add("lo " + gain(p(kLsGain)));
+  if (p(kB1On) >= 0.5f && p(kB1Gain) != 0) add(freq(p(kB1Freq)) + " " + gain(p(kB1Gain)));
+  if (p(kB2On) >= 0.5f && p(kB2Gain) != 0) add(freq(p(kB2Freq)) + " " + gain(p(kB2Gain)));
+  if (p(kHsOn) >= 0.5f && p(kHsGain) != 0) add("hi " + gain(p(kHsGain)));
+  if (p(kLpOn) >= 0.5f) add("lp " + freq(p(kLpFreq)));
+  return out.empty() ? "flat" : out;
 }
 
 std::unique_ptr<Screen> makeTracksScreen() { return std::make_unique<TracksScreen>(); }
