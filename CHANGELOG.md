@@ -5,6 +5,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 
 ## [Unreleased]
 
+## [0.0.1] - 2026-11-06
+
 ### Added
 - **First playable prototype (Phase 0).** Track 1 is a DX7-compatible FM synth. Load any DX7 `.syx` bank with `ion --syx FILE` and play it from the OXI on MIDI channel 1.
 - Step through the 32 voices in the bank with ← and →. Space plays a short C3 so you can hear a patch without the OXI.
