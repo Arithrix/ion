@@ -46,3 +46,34 @@ TEST_CASE("dx7: algorithm topology matches the DX7 chart") {
     MESSAGE("alg " << a + 1 << ": " << summary(a));
   }
 }
+
+// ---- algorithm diagrams (ui) ----
+
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+
+#include "ui/algorithm_diagram.h"
+
+TEST_CASE("algorithm diagrams: all 32, both sizes, match the reviewed golden file") {
+  std::ostringstream all;
+  for (int a = 0; a < dx7::kAlgorithms; ++a) {
+    for (bool boxed : {true, false}) {
+      all << "algorithm " << a + 1 << (boxed ? " boxed" : " compact") << " · " << summary(a) << "\n";
+      const auto lines = ui::algorithmDiagram(a, boxed);
+      REQUIRE(!lines.empty());
+      for (const std::string& l : lines) all << "  " << l << "\n";
+    }
+  }
+  const std::filesystem::path golden = std::filesystem::path(ION_TEST_DATA_DIR) / "algorithms.txt";
+  const char* update = std::getenv("ION_UPDATE_GOLDEN");
+  if ((update && *update == '1') || !std::filesystem::exists(golden)) {
+    std::ofstream(golden) << all.str();
+    WARN_MESSAGE(false, "wrote " << golden.string() << ": review every diagram before committing");
+    return;
+  }
+  std::ifstream in(golden);
+  const std::string expected((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  CHECK(all.str() == expected);
+}

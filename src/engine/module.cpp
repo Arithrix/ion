@@ -68,11 +68,16 @@ Module::Module() : clock_(kSampleRate) {
 
 Module::~Module() {
   for (Engine* e : engines_) delete e;
-  while (auto n = notifications_.pop())
+  delete programs_;
+  while (auto n = notifications_.pop()) {
     if (n->type == Notification::Type::EngineRetired) delete n->engine;
-  // Engines still in flight to the audio thread.
-  while (auto c = commandQueue_.pop())
+    if (n->type == Notification::Type::ProgramsRetired) delete n->programs;
+  }
+  // Engines and tables still in flight to the audio thread.
+  while (auto c = commandQueue_.pop()) {
     if (c->type == Command::Type::SetEngine) delete c->engine;
+    if (c->type == Command::Type::SetPrograms) delete c->programs;
+  }
 }
 
 bool Module::pushMidi(const MidiEvent& e) {
@@ -311,6 +316,15 @@ void Module::dispatch(const MidiMessage& m, int64_t frame) noexcept {
       case 0x80: e->noteOff(m.data1); break;
       case 0xB0: e->controlChange(m.data1, m.data2); break;
       case 0xE0: e->pitchBend(((m.data2 << 7) | m.data1) - 8192); break;
+      case 0xC0:
+        if (programs_ && m.data1 < programs_->count && e->type() == EngineType::Fm) {
+          static_cast<FmEngine*>(e)->loadVoice(programs_->voices[m.data1]);
+          Notification n{Notification::Type::ProgramChanged};
+          n.track = static_cast<uint8_t>(t);
+          n.program = m.data1;
+          notify(n);
+        }
+        break;
       default: break;
     }
   }
@@ -387,6 +401,16 @@ void Module::handleCommand(const Command& c) noexcept {
     case Command::Type::SetTiming:
       timing_ = c.value >= 0.5f ? MidiTiming::Immediate : MidiTiming::Tight;
       break;
+    case Command::Type::SetPrograms: {
+      ProgramTable* old = programs_;
+      programs_ = c.programs;
+      if (old) {
+        Notification n{Notification::Type::ProgramsRetired};
+        n.programs = old;
+        notify(n);
+      }
+      break;
+    }
   }
 }
 

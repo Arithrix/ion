@@ -20,6 +20,10 @@ struct Config {
   int gateMs = 300;
   std::string lowerRow = "zsxdcvgbhnjm,l.;/";  // C … E, base octave
   std::string upperRow = "q2w3er5t6y7ui9o0p";  // C … E, one octave up
+  // [fm]
+  bool programChange = true;   // program change on a track's channel picks from the project's program list
+  bool previewOnMove = false;  // play a short C3 each time the browser loads a patch
+  std::string importFolder;    // the last folder imported, offered next time
   // [project]
   int autosaveMinutes = 2;
   bool openLastProject = true;

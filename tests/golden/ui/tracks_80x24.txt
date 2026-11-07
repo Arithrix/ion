@@ -3,22 +3,22 @@
 │ #  ch  engine  sounlevel       dB        ││SNAP TEST                         │
 │ 1  01  FM      SNAP ░░░░░░░░░░   0.0  ·  ││from unit                         │
 │ 2  02  —       — em ░░░░░░░░░░        ·  ││                                  │
-│ 3  03  FM      INIT ░░░░░░░░░░  -9.0  · M││engine     FM                     │
-│ 4  04  —       — em ░░░░░░░░░░        ·  ││patch      no bank (--syx)        │
-│ 5  05  —       — em ░░░░░░░░░░        ·  ││polyphony  8                      │
-│ 6  06  —       — em ░░░░░░░░░░        ·  ││bend range 2                      │
-│ 7  07  —       — em ░░░░░░░░░░        ·  ││mono       off                    │
-│ 8  08  —       — em ░░░░░░░░░░        ·  ││bright     0                      │
-│                                          ││attack     0                      │
-│                                          ││release    0                      │
-│                                          ││feedback   0                      │
+│ 3  03  FM      SYN- ░░░░░░░░░░  -9.0  · M││engine     FM                     │
+│ 4  04  —       — em ░░░░░░░░░░        ·  ││patch      ◀ SNAP TEST ▶          │
+│ 5  05  —       — em ░░░░░░░░░░        ·  ││bright     0                      │
+│ 6  06  —       — em ░░░░░░░░░░        ·  ││attack     0                      │
+│ 7  07  —       — em ░░░░░░░░░░        ·  ││release    0                      │
+│ 8  08  —       — em ░░░░░░░░░░        ·  ││feedback   0                      │
 │                                          ││detune     0                      │
 │                                          ││velocity   0                      │
 │                                          ││                                  │
 │                                          ││mixer                             │
 │                                          ││fader      ███████▏░░ 0.0 dB      │
-├──────────────────────────────────────────┤│pan        ███▌░░░░░░ L30         │
-│ 2 of 8 tracks in use · 0 voices          ││eq         hp 40 · 400 +6.0       │
+│                                          ││pan        ███▌░░░░░░ L30         │
+│                                          ││eq         hp 40 · 400 +6.0       │
+│                                          ││midi ch    1                      │
+├──────────────────────────────────────────┤│                                  │
+│ 2 of 8 tracks in use · 0 voices          ││voice                             │
 ╰──────────────────────────────────────────╯╰──────────────────────────────────╯
  midi MIDI off  ·  last: nothing yet
  1-8  Track   ↑↓  Move   ←→  Fader   Tab  Pane   ⏎  Edit   m  Mute   s  Solo

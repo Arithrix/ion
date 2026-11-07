@@ -15,6 +15,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "library/syx.h"
@@ -77,6 +78,8 @@ class FmLibrary {
   bool reload(std::string& error);
 
   const std::vector<FmPatch>& patches() const { return patches_; }
+  // Changes whenever anything in patches() does (pointers into it may then be stale).
+  uint64_t generation() const { return generation_; }
   const FmPatch* find(int64_t id) const;
   const FmPatch* findVoice(const syx::Voice& voice) const;  // by hash, ignoring the name
 
@@ -110,6 +113,9 @@ class FmLibrary {
 
   sqlite3* db_ = nullptr;
   std::vector<FmPatch> patches_;
+  std::unordered_map<uint64_t, std::size_t> byHash_;  // fmVoiceHash → index in patches_
+  std::unordered_map<int64_t, std::size_t> byId_;
+  uint64_t generation_ = 0;
 };
 
 }  // namespace ion

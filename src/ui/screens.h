@@ -20,6 +20,8 @@ class AlsaSeqInput;
 
 namespace ion::ui {
 
+class FmBrowse;
+
 // What every screen can see and do.
 struct Context {
   Context(Session& s, Module& m, PipeWireOutput* a, AlsaSeqInput* mi) : session(s), module(m), audio(a), midi(mi) {}
@@ -27,6 +29,7 @@ struct Context {
   Module& module;
   PipeWireOutput* audio = nullptr;  // null in tests and offline
   AlsaSeqInput* midi = nullptr;
+  FmBrowse* fm = nullptr;  // the FM library browser's state, shared by Tracks and Instrument
   int track = 0;        // selected track, 0-7
   int width = 130;      // terminal size this frame
   int height = 36;
@@ -36,9 +39,14 @@ struct Context {
   bool narrow() const { return width < 80; }
 
   // Requests from screens to the app.
-  enum class Request { None, ChooseEngine, ShowMixer, ShowInstrument, Prompt };
+  enum class Request { None, ChooseEngine, ShowMixer, ShowInstrument, Prompt, Audition, Import };
   Request request = Request::None;
   std::string flash;  // a one-line message for the status line
+
+  // For Request::Import: a folder or file to add to the FM library, on a worker thread.
+  std::string importPath;
+  // While an import runs: files done / total (total 0 = none running).
+  int importDone = 0, importTotal = 0;
 
   // For Request::Prompt: a one-line text entry.
   std::string promptTitle;
@@ -68,7 +76,13 @@ class Screen {
   virtual Hints hints(Context& ctx) = 0;
   // The parameter `l` would learn a CC for.
   virtual std::optional<ParamRef> focusedParam(Context&) { return std::nullopt; }
+  // True while the screen is taking typed text (a filter): letters, digits and
+  // Backspace then go to onEvent instead of being shortcuts.
+  virtual bool capturesText(Context&) { return false; }
 };
+
+// Asks for a folder and starts an FM library import (Instrument and Library screens).
+void requestImport(Context& ctx);
 
 std::unique_ptr<Screen> makeTracksScreen();
 std::unique_ptr<Screen> makeMixerScreen();

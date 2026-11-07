@@ -177,8 +177,15 @@ class SettingsScreen final : public Screen {
       if (st.clockPresent.load()) std::snprintf(clock, sizeof clock, "%.1f BPM · %s", st.bpm.load(), st.running.load() ? "running" : "stopped");
       else std::snprintf(clock, sizeof clock, "no clock");
       m.fields.push_back({"clock", clock, nullptr, nullptr, nullptr});
+      m.fields.push_back({"program change",
+                          c.programChange ? "on · " + std::to_string(s.programs().size()) + " in this project's list" : "off",
+                          [&ctx, &s](int, bool) {
+                            s.setProgramChange(!s.config().programChange);
+                            saveConfig(ctx);
+                          },
+                          nullptr, nullptr});
       m.fields.push_back({"panic", "p sends all notes off", nullptr, nullptr, nullptr});
-      m.note = "program change (favourites list) arrives in Phase 2";
+      m.note = "program change N on a track's channel loads entry N of the program list (+ in the FM browser adds)";
       out.push_back(std::move(m));
     }
 
@@ -191,6 +198,11 @@ class SettingsScreen final : public Screen {
                           },
                           nullptr, nullptr});
       k.fields.push_back({"piano rows", c.lowerRow + " / " + c.upperRow, nullptr, nullptr, nullptr});
+      k.fields.push_back({"FM preview", c.previewOnMove ? "play C3 when browsing loads a patch" : "off", [&ctx, &c](int, bool) {
+                            c.previewOnMove = !c.previewOnMove;
+                            saveConfig(ctx);
+                          },
+                          nullptr, nullptr});
       k.fields.push_back({"autosave", c.autosaveMinutes ? "every " + std::to_string(c.autosaveMinutes) + " min" : "off",
                           [&ctx, &c](int d, bool) {
                             c.autosaveMinutes = std::clamp(c.autosaveMinutes + d, 0, 30);

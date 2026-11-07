@@ -282,6 +282,7 @@ bool FmLibrary::reload(std::string& error) {
   }
   patches_ = std::move(out);
   sortPatches();
+  ++generation_;
   return true;
 }
 
@@ -290,19 +291,22 @@ void FmLibrary::sortPatches() {
     const std::string x = upper(a.name), y = upper(b.name);
     return x != y ? x < y : a.id < b.id;
   });
+  byHash_.clear();
+  byId_.clear();
+  for (std::size_t i = 0; i < patches_.size(); ++i) {
+    byHash_[fmVoiceHash(patches_[i].voice)] = i;
+    byId_[patches_[i].id] = i;
+  }
 }
 
 const FmPatch* FmLibrary::find(int64_t id) const {
-  for (const FmPatch& p : patches_)
-    if (p.id == id) return &p;
-  return nullptr;
+  const auto it = byId_.find(id);
+  return it == byId_.end() ? nullptr : &patches_[it->second];
 }
 
 const FmPatch* FmLibrary::findVoice(const syx::Voice& voice) const {
-  const uint64_t h = fmVoiceHash(syx::normalize(voice));
-  for (const FmPatch& p : patches_)
-    if (fmVoiceHash(p.voice) == h) return &p;
-  return nullptr;
+  const auto it = byHash_.find(fmVoiceHash(syx::normalize(voice)));
+  return it == byHash_.end() ? nullptr : &patches_[it->second];
 }
 
 std::vector<int> FmLibrary::filter(const std::string& text, const std::string& category, bool favouritesOnly,
@@ -347,8 +351,8 @@ std::vector<int> FmLibrary::filter(const std::string& text, const std::string& c
 bool FmLibrary::setFavourite(int64_t id, bool on) {
   Stmt q(db_, "UPDATE voice SET favourite = ? WHERE id = ?");
   if (!q.bind(1, on ? 1 : 0).bind(2, id).run()) return false;
-  for (FmPatch& p : patches_)
-    if (p.id == id) p.favourite = on;
+  if (auto it = byId_.find(id); it != byId_.end()) patches_[it->second].favourite = on;
+  ++generation_;
   return true;
 }
 
@@ -368,8 +372,8 @@ bool FmLibrary::setTags(int64_t id, const std::vector<std::string>& tags) {
   }
   if (!exec(db_, "COMMIT", error)) return false;
   std::sort(clean.begin(), clean.end());
-  for (FmPatch& p : patches_)
-    if (p.id == id) p.tags = clean;
+  if (auto it = byId_.find(id); it != byId_.end()) patches_[it->second].tags = clean;
+  ++generation_;
   return true;
 }
 
@@ -377,8 +381,8 @@ bool FmLibrary::markUsed(int64_t id) {
   const int64_t t = now();
   Stmt q(db_, "UPDATE voice SET last_used = ? WHERE id = ?");
   if (!q.bind(1, t).bind(2, id).run()) return false;
-  for (FmPatch& p : patches_)
-    if (p.id == id) p.lastUsed = t;
+  if (auto it = byId_.find(id); it != byId_.end()) patches_[it->second].lastUsed = t;
+  ++generation_;
   return true;
 }
 

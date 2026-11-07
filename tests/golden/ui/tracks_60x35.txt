@@ -3,7 +3,7 @@
 │ #  ch  engine  sound                          level      │
 │ 1  01  FM      SNAP TEST                       ░░░░░░ ·  │
 │ 2  02  —       — empty —                       ░░░░░░ ·  │
-│ 3  03  FM      INIT VOICE                      ░░░░░░ · M│
+│ 3  03  FM      SYN-BAS 4                       ░░░░░░ · M│
 │ 4  04  —       — empty —                       ░░░░░░ ·  │
 │ 5  05  —       — empty —                       ░░░░░░ ·  │
 │ 6  06  —       — empty —                       ░░░░░░ ·  │

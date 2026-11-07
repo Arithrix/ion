@@ -5,7 +5,9 @@
 #include <memory>
 
 #include "core/version.h"
+#include "engine/fm/fm_engine.h"
 #include "engine/module.h"
+#include "library/fm_library.h"
 #include "project/config.h"
 #include "project/paths.h"
 #include "project/session.h"
@@ -74,13 +76,46 @@ std::string mask(std::string s) {
   return s;
 }
 
+const fs::path kSnapshotRoot = "/tmp/ion-ui-snapshot";  // fixed: it appears in the snapshots
+
+// A small FM library of generated voices (no copyrighted data), imported the
+// way a user would.
+void makeLibrary(const fs::path& root) {
+  const char* names[] = {"BASS 1", "SYN-BAS 4", "SLAP BASS", "SUB BASS 2", "E.PIANO 1", "RHODES MK1", "STRINGS 1", "BRASS 1",
+                         "TUB BELLS", "KOTO", "FLUTE 1", "VOICE 1", "SYN-LEAD 1", "E.ORGAN 1", "WARM PAD", "TAKE OFF"};
+  std::vector<syx::Voice> voices;
+  for (int i = 0; i < 16; ++i) {
+    syx::Voice v = syx::initVoice();
+    for (std::size_t b = 0; b < 145; ++b) v[b] = static_cast<uint8_t>((b * 37 + static_cast<std::size_t>(i) * 11) % 100);
+    v = syx::normalize(v);
+    v[134] = static_cast<uint8_t>(i == 1 ? 4 : i * 2);  // SYN-BAS 4 on algorithm 5, as in the mockup
+    char n[11];
+    std::snprintf(n, sizeof n, "%-10s", names[i]);
+    std::copy(n, n + 10, v.begin() + 145);
+    voices.push_back(v);
+  }
+  const auto bank = syx::makeBanks(voices).at(0);
+  fs::create_directories(root / "syx");
+  std::string error;
+  writeFileAtomic(root / "syx" / "cart_17.syx", std::string(bank.begin(), bank.end()), error);
+  const Paths paths = Paths::under(root);
+  FmLibrary::import(paths.libraryFile(), root / "syx", paths.importLog());
+}
+
 struct SnapshotRig {
   std::unique_ptr<Module> module = std::make_unique<Module>();
   Config config;
-  Session session{*module, Paths::under("/tmp/ion-ui-snapshot"), config};
+  std::unique_ptr<Session> owned = [this] {
+    fs::remove_all(kSnapshotRoot);
+    makeLibrary(kSnapshotRoot);
+    return std::make_unique<Session>(*module, Paths::under(kSnapshotRoot), config);
+  }();
+  Session& session = *owned;
 
   SnapshotRig() {
     config.autosaveMinutes = 0;
+    std::string error;
+    REQUIRE(session.openLibrary(error));
     session.newProject("snapshot");
     session.setEngine(0, EngineType::Fm);
     syx::Voice v{};
@@ -92,6 +127,23 @@ struct SnapshotRig {
     std::copy(name, name + 10, v.begin() + 145);
     session.setVoice(0, v, "unit");
     session.setEngine(2, EngineType::Fm);
+    // Track 3 browses the library: SYN-BAS 4, a favourite with tags and macro
+    // edits, in the program list, with a CC on Bright (the FMBrowser mockup).
+    FmLibrary& lib = *session.library();
+    const FmPatch* synbas = nullptr;
+    for (const FmPatch& p : lib.patches())
+      if (p.name == "SYN-BAS 4") synbas = &p;
+    REQUIRE(synbas);
+    const int64_t id = synbas->id;
+    lib.setFavourite(id, true);
+    lib.setTags(id, {"bass", "garage"});
+    for (const FmPatch& p : lib.patches())
+      if (p.name == "BASS 1") lib.setFavourite(p.id, true);
+    session.loadPatch(2, *lib.find(id));
+    session.toggleProgram(lib.find(id)->voice, "cart_17");
+    session.setParam({2, static_cast<uint8_t>(kEngineParamBase + FmEngine::kBright)}, 12.0f);
+    session.setParam({2, static_cast<uint8_t>(kEngineParamBase + FmEngine::kRelease)}, -8.0f);
+    session.addMapping(0, 74, {2, static_cast<uint8_t>(kEngineParamBase + FmEngine::kBright)});
     session.setParam({0, kPan}, -0.3f);
     session.setParam({0, kB1Gain}, 6.0f);
     session.setParam({0, kHpOn}, 1.0f);
@@ -127,6 +179,7 @@ TEST_CASE("ui snapshots: every screen at the handoff's sizes") {
     ui::ScreenId screen;
     int w, h;
     bool piano = false, help = false;
+    int track = 0;
   };
   const Case cases[] = {
       {"tracks_130x36", ui::ScreenId::Tracks, 130, 36},
@@ -137,6 +190,10 @@ TEST_CASE("ui snapshots: every screen at the handoff's sizes") {
       {"mixer_80x24", ui::ScreenId::Mixer, 80, 24},
       {"mixer_60x35", ui::ScreenId::Mixer, 60, 35},
       {"instrument_130x36", ui::ScreenId::Instrument, 130, 36},
+      {"fm_browser_130x36", ui::ScreenId::Instrument, 130, 36, false, false, 2},
+      {"fm_browser_80x24", ui::ScreenId::Instrument, 80, 24, false, false, 2},
+      {"fm_browser_60x35", ui::ScreenId::Instrument, 60, 35, false, false, 2},
+      {"tracks_fm_130x36", ui::ScreenId::Tracks, 130, 36, false, false, 2},
       {"settings_130x36", ui::ScreenId::Settings, 130, 36},
       {"settings_60x35", ui::ScreenId::Settings, 60, 35},
       {"library_130x36", ui::ScreenId::Library, 130, 36},
@@ -144,7 +201,7 @@ TEST_CASE("ui snapshots: every screen at the handoff's sizes") {
       {"piano_60x35", ui::ScreenId::Tracks, 60, 35, true, false},
   };
   for (const Case& c : cases) {
-    const std::string frame = mask(ui::snapshot(r.session, *r.module, c.screen, c.w, c.h, c.piano, c.help));
+    const std::string frame = mask(ui::snapshot(r.session, *r.module, c.screen, c.w, c.h, c.piano, c.help, c.track));
     // Never wider than the terminal.
     std::size_t start = 0;
     for (std::size_t nl = frame.find('\n'); nl != std::string::npos; nl = frame.find('\n', start)) {

@@ -1,6 +1,7 @@
 #include "project/session.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <ctime>
 #include <sstream>
@@ -60,8 +61,9 @@ ParamRef engineRef(int track, int index) {
   return {static_cast<uint8_t>(track), static_cast<uint8_t>(kEngineParamBase + index)};
 }
 
-// Brings an older project file up to kProjectFormat. Format 1 is the first, so
-// there's nothing to migrate yet; this is where each future bump goes.
+// Brings an older project file up to kProjectFormat. Each bump adds a step.
+//   1 → 2: FM macros and the program list were added. Both are optional
+//          fields with defaults, so a format-1 file reads as it is.
 bool migrate(json& j, std::string& error) {
   if (!j.contains("format") || !j["format"].is_number_integer()) {
     error = "not an ion project (no \"format\")";
@@ -158,17 +160,18 @@ void Session::setEngine(int t, EngineType type) {
   if (type != EngineType::Fm) {
     tr.hasVoice = false;
     tr.voiceSource.clear();
-    tr.bankIndex = -1;
+    tr.libraryId = 0;
   }
   markDirty();
 }
 
-void Session::setVoice(int t, const syx::Voice& voice, const std::string& source, int bankIndex) {
+void Session::setVoice(int t, const syx::Voice& voice, const std::string& source) {
   TrackState& tr = tracks_[static_cast<std::size_t>(t)];
   tr.hasVoice = true;
-  tr.voice = voice;
+  tr.voice = syx::normalize(voice);
   tr.voiceSource = source;
-  tr.bankIndex = bankIndex;
+  linkLibrary(tr);
+  loadedAt_[static_cast<std::size_t>(t)] = std::chrono::steady_clock::now();
   if (tr.engine == EngineType::Fm) {
     Command c;
     c.type = Command::Type::LoadVoice;
@@ -358,17 +361,133 @@ void Session::panic() {
   send(c);
 }
 
-void Session::setBank(std::vector<syx::Voice> voices, std::string name) {
-  bank_ = std::move(voices);
-  bankName_ = std::move(name);
+// ---- the FM library ---------------------------------------------------------------
+
+bool Session::openLibrary(std::string& error) {
+  library_ = FmLibrary::open(paths_.libraryFile(), error);
+  if (!library_) return false;
+  for (TrackState& tr : tracks_) linkLibrary(tr);
+  return true;
 }
 
-void Session::stepBank(int t, int step) {
-  if (bank_.empty() || tracks_[static_cast<std::size_t>(t)].engine != EngineType::Fm) return;
-  const int n = static_cast<int>(bank_.size());
-  int idx = tracks_[static_cast<std::size_t>(t)].bankIndex;
-  idx = idx < 0 ? (step > 0 ? 0 : n - 1) : ((idx + step) % n + n) % n;
-  setVoice(t, bank_[static_cast<std::size_t>(idx)], bankName_, idx);
+void Session::linkLibrary(TrackState& tr) {
+  const FmPatch* p = library_ && tr.hasVoice ? library_->findVoice(tr.voice) : nullptr;
+  tr.libraryId = p ? p->id : 0;
+}
+
+void Session::loadPatch(int t, const FmPatch& patch) {
+  setVoice(t, patch.voice, patch.source);
+  tracks_[static_cast<std::size_t>(t)].libraryId = patch.id;
+}
+
+dx7::Macros Session::macros(int t) const {
+  auto v = [&](int i) { return static_cast<int>(std::lround(param(engineRef(t, FmEngine::kFirstMacro + i)))); };
+  if (tracks_[static_cast<std::size_t>(t)].engine != EngineType::Fm) return {};
+  return {v(0), v(1), v(2), v(3), v(4), v(5)};
+}
+
+void Session::resetMacros(int t) {
+  for (int i = 0; i < dx7::kMacroCount; ++i) setParam(engineRef(t, FmEngine::kFirstMacro + i), 0.0f);
+}
+
+int64_t Session::savePatchAs(int t, const std::string& name, std::string& error) {
+  TrackState& tr = tracks_[static_cast<std::size_t>(t)];
+  if (tr.engine != EngineType::Fm || !tr.hasVoice) {
+    error = "no FM patch on this track";
+    return 0;
+  }
+  if (!library_) {
+    error = "the library isn't open";
+    return 0;
+  }
+  syx::Voice baked = dx7::applyMacros(tr.voice, macros(t));
+  // DX7 names are 10 printable ASCII characters.
+  std::string n = name.substr(0, syx::kNameLength);
+  n.resize(syx::kNameLength, ' ');
+  for (std::size_t i = 0; i < syx::kNameLength; ++i) {
+    const auto c = static_cast<unsigned char>(n[i]);
+    baked[syx::kNameOffset + i] = (c >= 32 && c <= 126) ? c : static_cast<uint8_t>(' ');
+  }
+  const bool existed = library_->findVoice(baked) != nullptr;
+  const int64_t id = library_->addUser(baked, {}, error);
+  if (!id) return 0;
+  const FmPatch* p = library_->find(id);
+  // The track now plays the baked voice with the macros at zero: it sounds
+  // exactly the same, and "edited" goes away.
+  resetMacros(t);
+  if (p) loadPatch(t, *p);
+  message_ = existed && p ? "already in the library as " + p->name : "saved to the library: " + syx::name(baked);
+  return id;
+}
+
+bool Session::exportVoices(const std::vector<syx::Voice>& voices, const std::string& name,
+                           std::vector<fs::path>& written, std::string& error) {
+  if (voices.empty()) {
+    error = "nothing to export";
+    return false;
+  }
+  if (!validProjectName(name)) {
+    error = "names can use letters, digits, spaces, - _ and .";
+    return false;
+  }
+  const auto banks = syx::makeBanks(voices);
+  for (std::size_t i = 0; i < banks.size(); ++i) {
+    const std::string file = banks.size() == 1 ? name + ".syx" : name + " " + std::to_string(i + 1) + ".syx";
+    const fs::path path = paths_.exportsDir / file;
+    std::error_code ec;
+    if (fs::exists(path, ec)) {
+      error = "\"" + file + "\" already exists in " + paths_.exportsDir.string();
+      return false;
+    }
+    if (!writeFileAtomic(path, std::string(banks[i].begin(), banks[i].end()), error)) return false;
+    written.push_back(path);
+  }
+  return true;
+}
+
+// ---- program change -------------------------------------------------------------------
+
+int Session::programIndex(const syx::Voice& voice) const {
+  const uint64_t h = fmVoiceHash(syx::normalize(voice));
+  for (std::size_t i = 0; i < programs_.size(); ++i)
+    if (fmVoiceHash(programs_[i].voice) == h) return static_cast<int>(i);
+  return -1;
+}
+
+bool Session::toggleProgram(const syx::Voice& voice, const std::string& source) {
+  if (const int i = programIndex(voice); i >= 0) {
+    programs_.erase(programs_.begin() + i);
+  } else {
+    if (static_cast<int>(programs_.size()) >= kMaxPrograms) return false;
+    programs_.push_back({syx::normalize(voice), source});
+  }
+  sendPrograms();
+  markDirty();
+  return true;
+}
+
+void Session::moveProgram(int index, int delta) {
+  const int to = index + delta;
+  if (index < 0 || to < 0 || index >= static_cast<int>(programs_.size()) || to >= static_cast<int>(programs_.size())) return;
+  std::swap(programs_[static_cast<std::size_t>(index)], programs_[static_cast<std::size_t>(to)]);
+  sendPrograms();
+  markDirty();
+}
+
+void Session::setProgramChange(bool on) {
+  config_.programChange = on;
+  sendPrograms();
+}
+
+void Session::sendPrograms() {
+  Command c;
+  c.type = Command::Type::SetPrograms;
+  if (config_.programChange && !programs_.empty()) {
+    c.programs = new ProgramTable();
+    c.programs->count = static_cast<int>(programs_.size());
+    for (std::size_t i = 0; i < programs_.size(); ++i) c.programs->voices[i] = programs_[i].voice;
+  }
+  send(c);
 }
 
 // ---- tick ----------------------------------------------------------------------------
@@ -378,6 +497,23 @@ void Session::tick() {
     switch (n->type) {
       case Notification::Type::EngineRetired:
         delete n->engine;
+        break;
+      case Notification::Type::ProgramsRetired:
+        delete n->programs;
+        break;
+      case Notification::Type::ProgramChanged:
+        // The audio thread has already loaded it; keep the document in step.
+        if (n->program < programs_.size() && n->track < kTrackCount) {
+          TrackState& tr = tracks_[n->track];
+          tr.hasVoice = true;
+          tr.voice = programs_[n->program].voice;
+          tr.voiceSource = programs_[n->program].source;
+          linkLibrary(tr);
+          loadedAt_[n->track] = std::chrono::steady_clock::now();
+          markDirty();
+          message_ = "program " + std::to_string(n->program + 1) + " → track " + std::to_string(n->track + 1) + ": " +
+                     syx::name(tr.voice);
+        }
         break;
       case Notification::Type::CcLearned: {
         if (addMapping(n->channel, n->cc, n->param) >= 0)
@@ -398,6 +534,18 @@ void Session::tick() {
     if (s != lastStore_[i]) {
       lastStore_[i] = s;
       values_[i] = s;
+    }
+  }
+
+  // A patch that has stayed on a track for a few seconds counts as used.
+  if (library_) {
+    const auto now = std::chrono::steady_clock::now();
+    for (std::size_t t = 0; t < tracks_.size(); ++t) {
+      const int64_t id = tracks_[t].libraryId;
+      if (id && usedMarked_[t] != id && now - loadedAt_[t] >= std::chrono::seconds(3)) {
+        library_->markUsed(id);
+        usedMarked_[t] = id;
+      }
     }
   }
 
@@ -437,6 +585,10 @@ void Session::reset() {
   }
   for (int i = 0; i < kMaxCcMappings; ++i)
     if (cc_[static_cast<std::size_t>(i)].used) removeMapping(i);
+  if (!programs_.empty()) {
+    programs_.clear();
+    sendPrograms();
+  }
   const Values before = values_;
   defaultValues();
   for (std::size_t i = 0; i < values_.size(); ++i) {
@@ -497,6 +649,10 @@ std::string Session::toJson() const {
     cc.push_back(jc);
   }
   j["cc"] = cc;
+  json programs = json::array();
+  for (const ProgramEntry& p : programs_)
+    programs.push_back({{"name", syx::name(p.voice)}, {"source", p.source}, {"voice", toHex(p.voice.data(), p.voice.size())}});
+  j["programs"] = programs;
   return j.dump(2) + "\n";
 }
 
@@ -532,6 +688,7 @@ bool Session::fromJson(const std::string& text, std::string& error) {
             tr.hasVoice = true;
             tr.voice = syx::normalize(v);
             tr.voiceSource = je.value("source", std::string());
+            linkLibrary(tr);
           }
         }
         setEngine(t, type);
@@ -568,6 +725,17 @@ bool Session::fromJson(const std::string& text, std::string& error) {
         send(c);
         ++slot;
       }
+    }
+    if (j.contains("programs") && j["programs"].is_array()) {
+      for (const json& jp : j["programs"]) {
+        if (static_cast<int>(programs_.size()) >= kMaxPrograms) break;
+        ProgramEntry e;
+        if (!fromHex(jp.value("voice", std::string()), e.voice.data(), e.voice.size())) continue;
+        e.voice = syx::normalize(e.voice);
+        e.source = jp.value("source", std::string());
+        programs_.push_back(e);
+      }
+      sendPrograms();
     }
   } catch (const json::exception& e) {
     error = std::string("bad project file: ") + e.what();
@@ -678,6 +846,30 @@ std::vector<std::string> Session::listProjects() const {
   std::vector<std::string> names;
   for (auto& [time, name] : found) names.push_back(name);
   return names;
+}
+
+Session::ProjectSummary Session::projectSummary(const std::string& name) const {
+  ProjectSummary out;
+  std::string text;
+  if (!readFile(paths_.projectFile(name), text) && !readFile(paths_.autosaveFile(name), text)) return out;
+  const json j = json::parse(text, nullptr, false);
+  if (j.is_discarded() || !j.is_object()) return out;
+  try {
+    out.savedAt = j.value("saved_at", std::string());
+    if (j.contains("tracks") && j["tracks"].is_array())
+      for (const json& jt : j["tracks"]) {
+        const int t = jt.value("track", 0) - 1;
+        if (t < 0 || t >= kTrackCount) continue;
+        auto& tr = out.tracks[static_cast<std::size_t>(t)];
+        tr.engine = engineFromKey(jt.value("engine", std::string("none")).c_str());
+        if (tr.engine != EngineType::None && jt.contains(engineKey(tr.engine)))
+          tr.sound = jt[engineKey(tr.engine)].value("name", std::string());
+      }
+    if (j.contains("programs") && j["programs"].is_array()) out.programs = static_cast<int>(j["programs"].size());
+    out.ok = true;
+  } catch (const json::exception&) {
+  }
+  return out;
 }
 
 void Session::rememberLastProject() const {

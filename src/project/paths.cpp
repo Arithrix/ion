@@ -25,6 +25,7 @@ Paths Paths::defaults() {
   p.configFile = envPath("XDG_CONFIG_HOME", home / ".config") / "ion" / "config.toml";
   p.dataDir = envPath("XDG_DATA_HOME", home / ".local" / "share") / "ion";
   p.projectsDir = home / "ion" / "projects";
+  p.exportsDir = home / "ion" / "exports";
   return p;
 }
 
@@ -33,6 +34,7 @@ Paths Paths::under(const fs::path& root) {
   p.configFile = root / "config" / "config.toml";
   p.dataDir = root / "data";
   p.projectsDir = root / "projects";
+  p.exportsDir = root / "exports";
   return p;
 }
 

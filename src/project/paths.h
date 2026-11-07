@@ -10,6 +10,7 @@ struct Paths {
   std::filesystem::path configFile;   // ~/.config/ion/config.toml
   std::filesystem::path dataDir;      // ~/.local/share/ion
   std::filesystem::path projectsDir;  // ~/ion/projects
+  std::filesystem::path exportsDir;   // ~/ion/exports: .syx banks made with "export"
 
   // From $HOME, honouring $XDG_CONFIG_HOME and $XDG_DATA_HOME.
   static Paths defaults();
@@ -22,6 +23,8 @@ struct Paths {
     return projectDir(name) / "project.autosave.json";
   }
   std::filesystem::path stateFile() const { return dataDir / "state.toml"; }
+  std::filesystem::path libraryFile() const { return dataDir / "library.db"; }
+  std::filesystem::path importLog() const { return dataDir / "import.log"; }
 };
 
 // Writes `content` to `path` via a temporary file and rename, so a crash never

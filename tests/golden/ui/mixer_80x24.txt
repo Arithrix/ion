@@ -1,7 +1,7 @@
  ion  Tracks Instr Mixer Fx Rec Library            no clock   cpu 0%   no audio
 ╭───────╮╭───────╮╭───────╮╭───────╮╭───────╮╭───────╮╭───────╮╭───────╮╭──────╮
 │1 FM   ││2 —    ││3 FM   ││4 —    ││5 —    ││6 —    ││7 —    ││8 —    ││M OUT │
-│SNAP TE││empty  ││FM     ││empty  ││empty  ││empty  ││empty  ││empty  ││master│
+│SNAP TE││empty  ││SYN-BAS││empty  ││empty  ││empty  ││empty  ││empty  ││master│
 │▄▅▆▅▅▅ ││▅▅▅▅▅▅ ││▅▅▅▅▅▅ ││▅▅▅▅▅▅ ││▅▅▅▅▅▅ ││▅▅▅▅▅▅ ││▅▅▅▅▅▅ ││▅▅▅▅▅▅ ││      │
 │pan L30││pan C  ││pan C  ││pan C  ││pan C  ││pan C  ││pan C  ││pan C  ││      │
 │ ·· │  ││ ·· │  ││ ·· │  ││ ·· │  ││ ·· │  ││ ·· │  ││ ·· │  ││ ·· │  ││ ·· │ │

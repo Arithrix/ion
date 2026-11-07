@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdlib>
 #include <cstdio>
 
 namespace ion {
@@ -111,7 +112,7 @@ std::string formatValue(const ParamInfo& info, float v) {
       if (info.unit == Unit::Offset) {
         const long n = std::lround(v);
         if (n == 0) return "0";
-        std::snprintf(buf, sizeof buf, "%+ld", n);
+        std::snprintf(buf, sizeof buf, "%s%ld", n > 0 ? "+" : "−", std::labs(n));  // a real minus sign
         return buf;
       }
       return std::to_string(static_cast<int>(std::lround(v)));

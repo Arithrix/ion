@@ -43,6 +43,9 @@ Config Config::load(const std::filesystem::path& path, std::vector<std::string>&
   num("keyboard", "gate_ms", c.gateMs, 20, 5000);
   str("keyboard", "lower_row", c.lowerRow);
   str("keyboard", "upper_row", c.upperRow);
+  boolean("fm", "program_change", c.programChange);
+  boolean("fm", "preview_on_move", c.previewOnMove);
+  str("fm", "import_folder", c.importFolder);
   num("project", "autosave_minutes", c.autosaveMinutes, 0, 120);
   if (auto v = t["project"]["startup"].value<std::string>()) c.openLastProject = *v != "new";
   return c;
@@ -55,6 +58,8 @@ bool Config::save(const std::filesystem::path& path, std::string& error) const {
                            {"accept_all", midiAcceptAll},
                            {"timing", timing == MidiTiming::Tight ? "tight" : "immediate"}}},
       {"keyboard", toml::table{{"gate_ms", gateMs}, {"lower_row", lowerRow}, {"upper_row", upperRow}}},
+      {"fm", toml::table{{"program_change", programChange}, {"preview_on_move", previewOnMove},
+                         {"import_folder", importFolder}}},
       {"project", toml::table{{"autosave_minutes", autosaveMinutes},
                               {"startup", openLastProject ? "last" : "new"}}},
   };

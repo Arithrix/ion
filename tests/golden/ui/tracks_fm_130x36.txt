@@ -1,0 +1,36 @@
+ ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
+╭ Tracks ───────────────────────────────────────────────────────────────────────╮╭ Track 3 · FM ─────────────────────────────────╮
+│ #  ch  engine  sound                                    level       dB        ││SYN-BAS 4                                      │
+│ 1  01  FM      SNAP TEST                                 ░░░░░░░░░░   0.0  ·  ││from cart_17 · ● edited                        │
+│ 2  02  —       — empty —                                 ░░░░░░░░░░        ·  ││                                               │
+│ 3  03  FM      SYN-BAS 4                                 ░░░░░░░░░░  -9.0  · M││engine     FM                                  │
+│ 4  04  —       — empty —                                 ░░░░░░░░░░        ·  ││patch      ◀ SYN-BAS 4 ▶                       │
+│ 5  05  —       — empty —                                 ░░░░░░░░░░        ·  ││bright     +12                                 │
+│ 6  06  —       — empty —                                 ░░░░░░░░░░        ·  ││attack     0                                   │
+│ 7  07  —       — empty —                                 ░░░░░░░░░░        ·  ││release    −8                                  │
+│ 8  08  —       — empty —                                 ░░░░░░░░░░        ·  ││feedback   0                                   │
+│                                                                               ││detune     0                                   │
+│                                                                               ││velocity   0                                   │
+│                                                                               ││                                               │
+│                                                                               ││mixer                                          │
+│                                                                               ││fader      ████▎░░░░░ -9.0 dB                  │
+│                                                                               ││pan        █████░░░░░ C                        │
+│                                                                               ││eq         flat                                │
+│                                                                               ││midi ch    3                                   │
+│                                                                               ││                                               │
+│                                                                               ││voice                                          │
+│                                                                               ││polyphony  8                                   │
+│                                                                               ││bend range 2                                   │
+│                                                                               ││mono       off                                 │
+│                                                                               ││                                               │
+│                                                                               ││inserts · sends   arrive in Phase 4            │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+├───────────────────────────────────────────────────────────────────────────────┤├───────────────────────────────────────────────┤
+│ 2 of 8 tracks in use · 0 voices                                               ││midi ch 03 · 0 voices                          │
+╰───────────────────────────────────────────────────────────────────────────────╯╰───────────────────────────────────────────────╯
+ midi MIDI off  ·  last: nothing yet
+ 1-8  Track   ↑↓  Move   ←→  Fader   Tab  Pane   ⏎  Edit   m  Mute   s  Solo   Spc  Audition   ?  Help   q  Quit

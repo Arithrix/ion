@@ -7,23 +7,33 @@
 #include <string>
 #include <vector>
 
+#include "engine/fm/dx7_voice.h"
 #include "engine/module.h"
+#include "library/fm_library.h"
 #include "library/syx.h"
 #include "project/config.h"
 #include "project/paths.h"
 
 namespace ion {
 
-inline constexpr int kProjectFormat = 1;
+// 1: Phase 1. 2: FM macros, the program list, library ids (v0.2.0).
+inline constexpr int kProjectFormat = 2;
 
 struct TrackState {
   EngineType engine = EngineType::None;
   int channel = 0;  // 0-15
-  // FM
+  // FM. The voice is kept in the project too, so a project plays the same
+  // even on a machine whose library doesn't have it.
   bool hasVoice = false;
+  syx::Voice voice{};       // as stored, without macros
+  std::string voiceSource;  // bank it came from, e.g. "rom1a", or "saved"
+  int64_t libraryId = 0;    // in this machine's library, or 0
+};
+
+// One entry in the project's program-change list.
+struct ProgramEntry {
   syx::Voice voice{};
-  std::string voiceSource;  // bank it came from, e.g. "rom1a"
-  int bankIndex = -1;       // position in Session::bank(), when browsing
+  std::string source;
 };
 
 // The project document and everything that changes it.
@@ -51,6 +61,18 @@ class Session {
   // Writes the autosave now if anything changed since the last one (clean exit).
   void autosaveIfNeeded();
   std::vector<std::string> listProjects() const;
+  // What's in a saved project, for the Library screen, without loading it.
+  struct ProjectSummary {
+    struct Track {
+      EngineType engine = EngineType::None;
+      std::string sound;
+    };
+    std::array<Track, kTrackCount> tracks{};
+    int programs = 0;
+    std::string savedAt;  // ISO time from the file
+    bool ok = false;
+  };
+  ProjectSummary projectSummary(const std::string& name) const;
   std::string lastProject() const;  // from state.toml
   // A fresh name like "sketch 2026-11-06" that isn't taken.
   std::string freshName() const;
@@ -63,7 +85,7 @@ class Session {
   // ---- tracks ----
   const TrackState& track(int t) const { return tracks_[static_cast<std::size_t>(t)]; }
   void setEngine(int t, EngineType type);
-  void setVoice(int t, const syx::Voice& voice, const std::string& source, int bankIndex = -1);
+  void setVoice(int t, const syx::Voice& voice, const std::string& source);
   void setChannel(int t, int channel);
 
   // ---- parameters ----
@@ -96,11 +118,33 @@ class Session {
   void panic();
   void setTiming(MidiTiming timing);    // also stored in the config
 
-  // ---- the bank loaded with --syx (Phase 2 replaces this with the library) ----
-  void setBank(std::vector<syx::Voice> voices, std::string name);
-  const std::vector<syx::Voice>& bank() const { return bank_; }
-  const std::string& bankName() const { return bankName_; }
-  void stepBank(int t, int step);  // load the next/previous bank voice onto FM track t
+  // ---- the FM library ----
+  // Opens ~/.local/share/ion/library.db. Without it, browsing is empty but
+  // everything else works (projects carry their own voices).
+  bool openLibrary(std::string& error);
+  FmLibrary* library() { return library_.get(); }
+  const FmLibrary* library() const { return library_.get(); }
+  // Loads a library patch onto FM track t. Macros stay where they are: they
+  // apply to whatever patch is loaded.
+  void loadPatch(int t, const FmPatch& patch);
+  dx7::Macros macros(int t) const;
+  void resetMacros(int t);  // "undo edits"
+  // The track's voice with its macros baked in, as a new library voice named
+  // `name`, which then replaces it on the track with the macros at zero.
+  // Returns the library id (an existing one if the result is a duplicate).
+  int64_t savePatchAs(int t, const std::string& name, std::string& error);
+  // Writes `voices` as 32-voice banks: ~/ion/exports/<name>.syx, or
+  // <name> 1.syx, <name> 2.syx … when there are more than 32.
+  bool exportVoices(const std::vector<syx::Voice>& voices, const std::string& name,
+                    std::vector<std::filesystem::path>& written, std::string& error);
+
+  // ---- program change (HANDOFF §6.3): a per-project list of up to 128 voices ----
+  const std::vector<ProgramEntry>& programs() const { return programs_; }
+  int programIndex(const syx::Voice& voice) const;  // -1 if not in the list
+  // Adds the voice at the end, or removes it if it's already there. False if the list is full.
+  bool toggleProgram(const syx::Voice& voice, const std::string& source);
+  void moveProgram(int index, int delta);
+  void setProgramChange(bool on);  // also stored in the config
 
   // ---- JSON (exposed for tests and ion-render) ----
   std::string toJson() const;
@@ -117,6 +161,8 @@ class Session {
   void markDirty() { dirty_ = autosavedDirty_ = true; }
   void rememberLastProject() const;
   bool writeAutosave(std::string& error);
+  void sendPrograms();
+  void linkLibrary(TrackState& tr);  // finds the track's voice in the library
 
   Module& module_;
   Paths paths_;
@@ -125,9 +171,13 @@ class Session {
   std::array<TrackState, kTrackCount> tracks_{};
   std::array<CcMapping, kMaxCcMappings> cc_{};
   std::optional<ParamRef> learning_;
-  std::vector<syx::Voice> bank_;
-  std::string bankName_;
+  std::unique_ptr<FmLibrary> library_;
+  std::vector<ProgramEntry> programs_;
   std::string message_;
+  // Library "last used": a patch counts once it has stayed on a track a while,
+  // so scrolling past it doesn't.
+  std::array<std::chrono::steady_clock::time_point, kTrackCount> loadedAt_{};
+  std::array<int64_t, kTrackCount> usedMarked_{};
 
   // Parameter values as the user intends them. Edits update this at once (so
   // repeated key presses never read a value the audio thread hasn't applied

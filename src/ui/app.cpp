@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdio>
 #include <deque>
+#include <future>
 #include <thread>
 
 #include <ftxui/component/component.hpp>
@@ -19,8 +20,10 @@
 #include "audio/pipewire_out.h"
 #include "core/version.h"
 #include "engine/module.h"
+#include "library/fm_library.h"
 #include "midi/alsa_seq_in.h"
 #include "project/session.h"
+#include "ui/fm_browse.h"
 #include "ui/piano.h"
 #include "ui/screens.h"
 #include "ui/theme.h"
@@ -66,6 +69,7 @@ class App {
   App(Session& session, Module& module, PipeWireOutput* audio, AlsaSeqInput* midi)
       : ctx_(session, module, audio, midi),
         piano_(session.config().lowerRow, session.config().upperRow, session.config().gateMs) {
+    ctx_.fm = &fm_;
     screens_[static_cast<int>(ScreenId::Tracks)] = makeTracksScreen();
     screens_[static_cast<int>(ScreenId::Instrument)] = makeInstrumentScreen();
     screens_[static_cast<int>(ScreenId::Mixer)] = makeMixerScreen();
@@ -77,7 +81,15 @@ class App {
     screens_[static_cast<int>(ScreenId::Settings)] = makeSettingsScreen();
   }
 
+  ~App() {
+    if (import_.valid()) {
+      importProgress_.cancel = true;
+      import_.wait();
+    }
+  }
+
   void show(ScreenId id) { current_ = id; }
+  void selectTrack(int t) { ctx_.track = std::clamp(t, 0, kTrackCount - 1); }
   void setPiano(bool on) {
     if (!on) releasePiano();
     piano_.setOctave(3);
@@ -151,6 +163,9 @@ class App {
       return dispatchToScreen(e);  // arrows, Tab, ⏎ keep working
     }
 
+    // A screen taking typed text (the FM filter) gets letters before they're shortcuts.
+    if (screen().capturesText(ctx_) && (e.is_character() || e == Event::Backspace)) return dispatchToScreen(e);
+
     if (e.is_character()) {
       const std::string& c = e.character();
       if (c.size() == 1) {
@@ -219,6 +234,7 @@ class App {
       }
     }
     if (!ctx_.flash.empty()) flash(std::exchange(ctx_.flash, {}));
+    pollImport();
   }
 
  private:
@@ -241,6 +257,8 @@ class App {
         break;
       case Context::Request::ShowMixer: show(ScreenId::Mixer); break;
       case Context::Request::ShowInstrument: show(ScreenId::Instrument); break;
+      case Context::Request::Audition: audition(); break;
+      case Context::Request::Import: startImport(ctx_.importPath); break;
       case Context::Request::Prompt:
         overlay_ = Overlay::Prompt;
         promptTitle_ = ctx_.promptTitle;
@@ -275,6 +293,49 @@ class App {
       return;
     }
     ctx_.session.learn(*p);
+  }
+
+  // ---- FM library import, on a worker thread so the UI (and audio) carry on ----
+
+  void startImport(const std::string& path) {
+    if (import_.valid()) return;
+    Session& s = ctx_.session;
+    if (!s.library()) {
+      flash("the FM library isn't open");
+      return;
+    }
+    s.config().importFolder = path;
+    std::string error;
+    s.config().save(s.paths().configFile, error);
+    importProgress_.filesDone = 0;
+    importProgress_.filesTotal = 0;
+    importProgress_.cancel = false;
+    const Paths paths = s.paths();
+    import_ = std::async(std::launch::async, [this, paths, path] {
+      return FmLibrary::import(paths.libraryFile(), path, paths.importLog(), &importProgress_);
+    });
+    ctx_.importTotal = 1;  // "running" until the worker has counted the files
+    flash("importing " + path + " …");
+  }
+
+  void pollImport() {
+    if (!import_.valid()) return;
+    ctx_.importDone = importProgress_.filesDone;
+    ctx_.importTotal = std::max(1, importProgress_.filesTotal.load());
+    if (import_.wait_for(std::chrono::seconds(0)) != std::future_status::ready) return;
+    const ImportReport r = import_.get();
+    ctx_.importTotal = ctx_.importDone = 0;
+    Session& s = ctx_.session;
+    std::string error;
+    if (s.library()) s.library()->reload(error);
+    if (!r.error.empty()) {
+      flash("import failed: " + r.error);
+      return;
+    }
+    std::string msg = std::to_string(r.files) + " files · " + std::to_string(r.banks) + " banks · " + std::to_string(r.voices) +
+                      " voices · " + std::to_string(r.added) + " new";
+    if (r.corrupt || r.unreadable) msg += " · " + std::to_string(r.corrupt + r.unreadable) + " skipped (see import log)";
+    flash(msg);
   }
 
   void audition() {
@@ -313,8 +374,8 @@ class App {
           const EngineType t = options[picker_];
           if (t == EngineType::Fm || t == EngineType::None) {
             s.setEngine(ctx_.track, t);
-            if (t == EngineType::Fm && !s.bank().empty() && !s.track(ctx_.track).hasVoice) s.stepBank(ctx_.track, 1);
             overlay_ = Overlay::None;
+            if (t == EngineType::Fm) show(ScreenId::Instrument);  // straight to the library
             flash(t == EngineType::None ? "track " + std::to_string(ctx_.track + 1) + " cleared"
                                         : "track " + std::to_string(ctx_.track + 1) + " is now FM");
           }
@@ -576,6 +637,9 @@ class App {
   std::string promptTitle_, promptText_;
   std::function<void(Context&, const std::string&)> promptDone_;
   std::deque<MonitorLine> monitor_;
+  FmBrowse fm_;
+  ImportProgress importProgress_;
+  std::future<ImportReport> import_;
   int64_t monitorStart_ = 0;
   uint32_t clockTicks_ = 0;
 };
@@ -612,8 +676,9 @@ int run(Session& session, Module& module, const RunOptions& options) {
   return 0;
 }
 
-std::string snapshot(Session& session, Module& module, ScreenId id, int width, int height, bool piano, bool help) {
+std::string snapshot(Session& session, Module& module, ScreenId id, int width, int height, bool piano, bool help, int track) {
   App app(session, module, nullptr, nullptr);
+  app.selectTrack(track);
   app.show(id);
   if (piano) app.setPiano(true);
   if (help) app.showHelp();

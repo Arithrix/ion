@@ -75,8 +75,11 @@ target_link_libraries(ion_engine
 
 # ---- executables -----------------------------------------------------------
 add_library(ion_ui STATIC
+  src/ui/algorithm_diagram.cpp
   src/ui/app.cpp
+  src/ui/fm_browse.cpp
   src/ui/instrument_screen.cpp
+  src/ui/library_screen.cpp
   src/ui/mixer_screen.cpp
   src/ui/piano.cpp
   src/ui/settings_screen.cpp
