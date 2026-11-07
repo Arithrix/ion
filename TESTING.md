@@ -1,108 +1,88 @@
-# Testing ion 0.2.1 — Phase 2: FM library and macros
+# Testing ion 0.3.0 — Phase 3: drum sampler
 
 This checkpoint should show:
-- your DX7 collection is in one searchable list, with no banks and no duplicates;
-- scrolling loads each patch while the OXI plays, **without cutting notes or clicking**;
-- the six macros shape a patch without overwriting it;
-- an edited patch can be saved as a new one and exported as a `.syx` that loads in Dexed.
+- you can build a garage kit from your deep house pack by browsing and listening, without leaving the keyboard;
+- the kit plays from the OXI: pads fire on time, hats choke each other, nothing clicks;
+- the kit saves, loads onto another track, and the project can carry its own copies of the samples.
 
 Allow about 30 minutes. **Wired headphones or speakers please**: Bluetooth adds 150–250 ms of delay.
 
 ## 0. Before you start
-1. Run `ion --version`. It should print `ion 0.2.1 (…)`.
+1. Run `ion --version`. It should print `ion 0.3.0 (…)`.
 2. Open the demo project, which was installed with this release:
    ```
-   ion --project "demo v0.2.1"
+   ion --project "demo v0.3.0"
    ```
-   - In the header, `no RT` must **not** appear. If it does, tell me; it's still unconfirmed from 0.0.1.
+   - If the header says `no RT`, there will be the odd dropout (they happen with or without drums). Tell me if you see it; it's still unconfirmed from 0.0.1.
 
-## 1. Import the collection (3 min)
-Your library starts empty. The DX7 banks I downloaded are in `~/ion/downloads/dx7/x`:
-- the Yamaha factory ROMs (ROM1A has E.PIANO 1);
-- the big public archives;
-- the 33 banks that ship with Dexed.
+## 1. Point the browser at your samples (1 min)
+The deep house pack I downloaded is in `~/ion/downloads/drums/`. The browser starts in `~/ion/samples`, which doesn't exist yet, so add the pack:
+1. Press `,` (Settings), then Tab until **Samples** is lit.
+2. ↓ to **add a root**, ⏎, type `~/ion/downloads/drums` (Tab completes folder names), ⏎.
+3. Your own sample folders can go in the same way. `x` on a root removes it (it only forgets the folder; nothing is deleted).
 
-1. Press `L` (Library), then `i`. The prompt starts at `~/ion/downloads/` and lists what's there.
-   - Type `dx`, press **Tab** (→ `dx7/`), press **Tab** again (→ `dx7/x/`), then ⏎.
-   - Or clear it and type the whole path: `~/ion/downloads/dx7/x`.
-   - A folder that doesn't exist is caught: the prompt says "Not found" and lets you fix it.
-2. It takes about a second. The status line should say `1040 files · 1039 banks · 33248 voices · 12876 new · 1 skipped`.
-   - The one skipped bank has a bad checksum. It's listed in `~/.local/share/ion/import.log`.
-3. Press `i` again with the same folder. This time it should report **0 new**: duplicates are merged.
-4. Later you can import anything else the same way: your own `.syx` files, or folders full of them. Sub-folders are searched.
+## 2. The demo kit (3 min)
+1. Press `5` (track 5, a DRUM track), then `I`. On the left is the sample browser; on the right the 16 pads, and the selected pad's settings below them.
+2. Press Tab to reach the pads. Arrows move between pads; ⏎ or Space plays the selected one. The pad's light flashes when it plays.
+3. Press `` ` `` (piano mode): the Z row plays pads 1–16 (`Z` = kick, `S` = snare, `X` = clap …). Esc leaves piano mode.
+4. From the OXI: send notes **C1–D#2** on **channel 5**.
+   - If the OXI sends other notes, `~` shows exactly what's arriving.
+   - Either set the OXI to C1–D#2, or change each pad's **Note** (last row of the pad settings) to match.
 
-## 2. Browse while the OXI plays (8 min)
-1. Press `1` for track 1 (E.PIANO 1), then `I`. This is the FM browser: one list of every unique patch.
-2. Start a sequence on OXI track 1 (channel 1) and press ↓ repeatedly. Each move **loads the patch straight away**.
-   - Notes already sounding finish with the old patch. Listen for **cut-off notes and clicks**; there should be none, even when you hold ↓ to scroll fast.
-   - Track 4 (strings) is layered on channel 1. Turn it down in the Mixer if it's in the way.
-3. Press `/` and type `bass`. The list filters as you type. ⏎ finishes typing; Esc clears the filter.
-   - The filter matches names, tags, categories and bank names: try `rom1a`, `dexed`, `piano`, `gar`.
-4. ← → change the view: `all`, `★ favourites`, `recent`, `program list`, then the rough categories (`bass`, `keys`, `brass`…).
-   - Categories come from patch names and are rough by design; tags are better.
-5. On a patch you like:
-   - press `*` to make it a favourite (★);
-   - press `t` and type a few tags, e.g. `garage bass dark`;
-   - check that the favourites view and the filter find it.
-6. ⏎ (or Space) plays a short C3 of the current patch.
-   - To hear a preview every time the cursor moves: Settings (`,`) → Keyboard + project → **FM preview**.
-7. On the right: the algorithm drawn as on the DX7 chart, which banks the patch came from (`from rom1a · +8 more`), and its tags.
+## 3. Build a garage kit (12 min)
+1. Make an empty track a drum track: `T`, select track 6, ⏎, choose **DRUM**, ⏎. You land on its drum screen.
+2. In the browser (left), ⏎ into `~/ion/downloads/drums/`, then `soundpacks-deep-house/x/Deep House Drum Samples/`. There are folders of kicks, claps, hats, percussion, rides, shakers, snares and toms.
+3. In `bd_kick/`, press ↓ through the files. **Each one plays as you reach it**, with its length and a waveform at the bottom.
+   - Scrolling fast should never stutter or pile up sounds.
+   - Settings → Samples turns the preview off, or changes its level.
+4. On the kick you want, press ⏎: it goes onto the **selected pad** (pad 1 to start), and the status line says `pad 1 ← …`.
+5. To fill other pads, Tab to the pads, move to the next pad, then Tab Tab back to the browser and ⏎ on a file. A layout that suits the OXI's drum lanes:
+   - 1 kick, 2 snare, 3 clap, 4 rim;
+   - 5 closed hat, 6 open hat, 7 shaker, 8 ride;
+   - 9–12 percussion and toms.
+6. **Choke the hats:** select pad 5 and press `c` (choke group A), then pad 6 and `c`. Now play the open hat and then the closed hat: the open hat stops, quickly but **without a click**.
+7. **Shape the pads** (Tab to the pad settings; ↑ ↓ picks a row, ← → changes it, Shift for bigger steps):
+   - **Tune** and **Fine**: pitch the snare up a couple of semitones, the kick down.
+   - **Hold** / **Decay**: hold "full" plays the whole sample. Shorten Hold, and Decay then fades it out: tight hats, short kicks.
+   - **Mode** gate: the pad plays only while the note is held (from the OXI, gate length matters).
+   - **Filter** LP/HP/BP with **Cutoff** and **Resonance**: high-pass a clap, low-pass a shaker.
+   - **Drive**: grit on the kick.
+   - **Start**: skip into a sample. **Reverse**: play it backwards.
+   - **Vel→level** / **Vel→filter**: how much the OXI's velocity changes level and brightness.
+   - Changes apply **to sounds already playing**, smoothly. Turn Tune or Cutoff while a long sample rings.
+8. **MIDI-learn** any pad setting: focus it, press `l`, move an OXI knob. The demo kit already has **CC 74 on channel 5 → open hat decay**.
+9. Program a garage beat on the OXI on channel 6 and play it for a while: kick, clap on 2 and 4, shuffled hats with the open hat choked.
 
-## 3. Macros (7 min)
-1. In the browser press Tab to reach the macros. ↑ ↓ picks one; ← → adjusts it (Shift = bigger steps).
-2. Hold a long note or chord on the OXI and move each macro:
-   - **Bright**: modulator levels. More bite and harmonics.
-   - **Attack**: + is slower, − is snappier.
-   - **Release**: + is longer tails. It applies to the next notes you release.
-   - **Feedback**: the patch's feedback (grit on most patches).
-   - **Detune**: + spreads the operators for a chorus-like width; − pulls them together.
-   - **Velocity**: how much your touch changes the level.
-   - Changes should be heard **at once, smoothly, with no clicks**. On held notes nothing should jump or restart.
-3. The patch pane says `● edited: bright +12, …`. The stored patch is untouched: `u` puts every macro back to 0.
-4. Browse to other patches with macros set. They stay where they are, so you can audition the library "brighter". Is that what you want, or should they reset per patch?
-5. MIDI-learn a macro: in the macros pane, press `l`, then move an OXI knob or CC lane. The demo already has **CC 74 on channel 1 → piano Bright** and **CC 71 → Release**. Try those first.
-6. The Tracks screen (`T`) also shows the macros for the selected track, under the patch. ◀ ▶ on the patch row steps through the browser's list.
+## 4. Save, load, collect (5 min)
+1. Press `k` and give the kit a name, e.g. `Garage 01`. It's saved in `~/ion/kits/`, and the pads' title shows it.
+2. `L` (Library), Tab, ↓ ↓ to **Drum kits**, →: the kit is listed, and its 16 pads on the right. Select another drum track (e.g. `5`), and ⏎ on the kit loads it there, replacing that track's pads.
+3. The kit is also in the browser's top level under **drum kits**: ⏎ on it loads it onto the current track.
+4. Back on track 6, press `g` (collect). The samples are copied into the project's own `samples/` folder; then `w` saves. The project no longer depends on `~/ion/downloads`.
+5. `W` (save as) under a new name copies the samples folder along with it.
+6. Tracks (`T`) on a drum track shows the selected pad (◀ ▶ picks another) with its level, tune, decay, pan and cutoff.
 
-## 4. Save as, export (5 min)
-1. With some macros set, press `a` and name the result, e.g. `DARK EP` (10 characters).
-   - The macros go back to 0, and the patch sounds **exactly** the same: the edits are baked in.
-   - It's in the library now with `from saved`. Filter for it.
-2. Make a filter or view you'd like as a bank, e.g. `★ favourites`, then press `e` and give it a name.
-   - The files land in `~/ion/exports/` (`name.syx`, or `name 1.syx`, `name 2.syx` … for more than 32).
-3. If you have Dexed (or a DX7), load the exported `.syx`. The patches, including `DARK EP`, should sound the same as in ion.
-
-## 5. Program change (3 min)
-The demo has an 8-entry program list: E.PIANO 1, BASS 1, BRASS 1, STRINGS 1, PIANO 1, VIBE 1, HARPSICH 1, TUB BELLS.
-1. From the OXI, send program change 3 on channel 2. The bass track becomes BRASS 1, and the status line says so. Program change 2 brings BASS 1 back.
-2. Program changes on channel 1 change **both** tracks 1 and 4 (they share the channel).
-3. In the browser, `+` adds or removes the current patch; the `pc` column shows its number. In the `program list` view, Shift+↑ ↓ reorders.
-4. Settings → MIDI + clock → **program change** turns it off.
-
-## 6. Library screen and small screen (2 min)
-1. `L`: Projects lists each project's tracks. FM patches shows counts per view and the last import (`… banks → … voices → … new`).
-2. Narrow the terminal below 80 columns (or `ion --ui-snapshot 60x35 --screen instrument`). The browser becomes the Comet layout: list with the macros in one line, Tab for the macros pane.
+## 5. Small screen (1 min)
+Narrow the terminal below 80 columns, or run `ion --ui-snapshot 60x35 --screen instrument --track 5`. The browser gets the whole screen, and Tab switches to the pads with their settings underneath.
 
 ## What to send back
-- Did any note get cut off, or any click happen, while scrolling or moving macros?
-- The macro ranges: too much, too little, which feel useless? (I'll tune them by ear with you.)
-- Should macros stay put when you change patch (now), or reset?
-- Do the categories help at all, or is the filter plus tags enough?
-- Did the exported bank load in Dexed and sound right?
-- From earlier: is `no RT` gone, how does the latency feel, and what does `ion --list-midi` print with the OXI connected?
+- Did anything click, cut off oddly, or arrive late from the OXI?
+- The defaults: Vel→level is 50%. Too much or too little touch? Is a decay of 500 ms after a short hold a useful start?
+- Is 4 overlapping hits per pad enough for rides and open hats, or do you hear them being cut?
+- Drive: useful amount, or too much at the top?
+- How did building the kit feel? What slowed you down?
+- From earlier: is `no RT` gone, how does the latency feel, and what does `ion --list-midi` print with the OXI connected? The macro ranges too.
 
 ## Known issues
-- FM is the only engine (Drum is Phase 3).
-- Near-identical patches stay separate: six different "E.PIANO 1" edits are six entries, because only exact duplicates are merged.
-- A patch's "from" names the first bank it was found in by path order, not necessarily the factory one.
-- A program change on a channel shared by two tracks loads on both; the status line names only the last one.
-- Holding a key in piano mode plays the note once more after about half a second (key repeat).
+- A pad's name is its file's name, and pads can't be copied to another pad yet.
+- The browser reads folders as they are; there's no search across the whole collection yet.
+- While the header says `no RT`, expect the occasional dropout. They happen with nothing playing too; real-time priority fixes them.
 
 ## Rolling back
 ```
-~/projects/ion/scripts/use-version.sh 0.1.0   # back to Phase 1
+~/projects/ion/scripts/use-version.sh 0.2.1   # back to Phase 2
 ~/projects/ion/scripts/use-version.sh         # list installed versions
 ```
-Projects saved by 0.2.0 are format 2, and **0.1.0 won't open them** ("saved by a newer ion"). It refuses rather than silently dropping the macros and program list. Projects from 0.1.0 open fine in 0.2.0. The library (`~/.local/share/ion/library.db`) is only used by 0.2.0 and later.
+Projects saved by 0.3.0 are format 3, and **0.2.x won't open them** ("saved by a newer ion"). It refuses rather than silently losing the drum tracks. Projects from 0.1.0 and 0.2.x open fine in 0.3.0. Kits in `~/ion/kits` are only used by 0.3.0 and later.
 
 ## Extra tools in this release folder
-`ion-render` (project + .mid → .wav), `ion-bench`, `fake-oxi` (a pretend OXI; `--programs N` sends program changes), `make-demo`.
+`ion-render` (project + .mid → .wav), `ion-bench` (now with drum scenes), `fake-oxi` (a pretend OXI), `make-demo`.

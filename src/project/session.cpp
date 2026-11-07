@@ -728,7 +728,8 @@ bool Session::saveKit(int t, const std::string& name, std::string& error) {
     json jp;
     jp["pad"] = pad + 1;
     const std::string& stored = tr.pads[static_cast<std::size_t>(pad)].sample;
-    jp["sample"] = stored.empty() ? std::string() : resolveSample(stored).string();
+    // Absolute, so the kit works from any project; "~/" keeps it working under another user name.
+    jp["sample"] = stored.empty() ? std::string() : abbreviateHome(resolveSample(stored).string());
     json params;
     for (int p = 0; p < DrumEngine::kPadParamCount; ++p)
       params[table[static_cast<std::size_t>(p)].key] = param(engineRef(t, DrumEngine::param(pad, p)));
@@ -772,8 +773,8 @@ bool Session::loadKit(int t, const fs::path& file, std::string& error) {
         const char* key = table[static_cast<std::size_t>(p)].key;
         float v = pi.def;
         if (jp && jp->contains("params") && (*jp)["params"].contains(key) && (*jp)["params"][key].is_number())
-          v = (*jp)["params"][key].get<float>();
-        setParam(engineRef(t, DrumEngine::param(pad, p)), v);
+          v = clampValue(pi, (*jp)["params"][key].get<float>());
+        if (v != param(engineRef(t, DrumEngine::param(pad, p)))) setParam(engineRef(t, DrumEngine::param(pad, p)), v);
       }
       setPadSample(t, pad, jp ? jp->value("sample", std::string()) : std::string());
     }
@@ -1042,10 +1043,14 @@ bool Session::fromJson(const std::string& text, std::string& error) {
         }
         setEngine(t, type);
         if (je.contains("params") && je["params"].is_object()) {
+          // The new engine is already at its defaults: send only what differs
+          // (a kit has 272 parameters, and the command queue holds 2048).
           const auto table = engineParams(type);
           for (std::size_t i = 0; i < table.size(); ++i)
-            if (je["params"].contains(table[i].key) && je["params"][table[i].key].is_number())
-              setParam(engineRef(t, static_cast<int>(i)), je["params"][table[i].key].get<float>());
+            if (je["params"].contains(table[i].key) && je["params"][table[i].key].is_number()) {
+              const float v = clampValue(table[i], je["params"][table[i].key].get<float>());
+              if (v != param(engineRef(t, static_cast<int>(i)))) setParam(engineRef(t, static_cast<int>(i)), v);
+            }
         }
       }
     }

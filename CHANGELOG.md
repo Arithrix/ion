@@ -5,6 +5,34 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 
 ## [Unreleased]
 
+### Added
+- **Drum tracks.** Choose DRUM for any track: 16 pads, played on notes C1–D#2 (36–51) of the track's channel.
+  - **The drum screen (`I` on a drum track):** the sample browser on the left, the 4×4 pads top right, and the selected pad's settings below.
+  - **The browser:**
+    - ↑ ↓ moves through folders and files, and **each file plays as you reach it**, with its length and a waveform.
+    - ⏎ puts the file on the selected pad; ← goes up a folder; `/` filters.
+    - WAV, AIFF and FLAC load at any sample rate, converted to 48 kHz without slowing anything down.
+  - **Per pad:** tune (±24 semitones plus fine), level, pan, start point, reverse, one-shot or gate, hold and decay, filter (low-, high- or band-pass) with cutoff and resonance, drive, velocity → level and velocity → filter, and which note plays it.
+    - Every one can be MIDI-learned with `l`.
+  - **Choke groups A–D (`c`):** a hit stops the other pads in its group, e.g. closed hat stops open hat. A pad in a group of its own is mono.
+  - A pad plays up to 4 overlapping hits. Stopping a sound (choke, a fifth hit) fades it in 5 ms instead of cutting it.
+  - `x` clears a pad. Space plays the selected pad, and so does ⏎ on the pads.
+- **Kits (`k`):** save the 16 pads, samples and settings, as a kit in `~/ion/kits/`. Load one from the browser's "drum kits" folder, or from Library → Drum kits.
+- **Collect (`g`):** copies every sample the project uses into the project's own `samples/` folder, so it can be moved or backed up whole. Save as takes them along.
+- **Piano mode on a drum track** starts at octave 1, so the Z row plays pads 1–16.
+- **Tracks** shows the selected pad (◀ ▶ picks another) with its level, tune, decay, pan and cutoff.
+- **Settings → Samples:** the folders the browser starts in, preview on/off, preview level.
+- The demo project ("demo v0.3.0") adds a small synthesised kit on track 5 (channel 5), with the hats choked together and CC 74 on channel 5 mapped to the open hat's decay.
+
+### Changed
+- Projects are now format 3. Projects from 0.1.0 and 0.2.x open as before, but 0.2.x can't open projects saved by 0.3.0.
+- The Mixer and Library show a drum track's kit name.
+
+### Known issues
+- A pad's name is its file's name, and pads can't be copied yet.
+- The browser reads folders as they are; there's no search across your whole sample collection yet.
+- Dropouts while the header says `no RT` are expected: they happen with or without drums (measured while idle). Real-time priority fixes them.
+
 ## [0.2.1] - 2026-11-07
 
 ### Fixed

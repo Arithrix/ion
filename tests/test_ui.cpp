@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <memory>
+#include <regex>
 
 #include "audio/wav.h"
 #include "core/version.h"
@@ -76,6 +77,9 @@ std::string mask(std::string s) {
   std::string placeholder = "ion VERSION";
   placeholder.resize(v.size(), ' ');
   for (auto at = s.find(v); at != std::string::npos; at = s.find(v, at)) s.replace(at, v.size(), placeholder);
+  // DSP load depends on the build (sanitizers, debug): always show it as 0%.
+  s = std::regex_replace(s, std::regex("cpu [0-9]%"), "cpu 0%");
+  s = std::regex_replace(s, std::regex(" [0-9]% no audio"), " 0% no audio");
   return s;
 }
 

@@ -816,3 +816,36 @@ TEST_CASE("session: previews play once and are handed back") {
   }
   CHECK(r.session.previewError(r.root.path / "nope.wav") == "file not found");
 }
+
+TEST_CASE("session: eight drum kits load with no audio thread and nothing is lost") {
+  // ion-render and make-demo load projects with nobody draining the command
+  // queue (2048 commands). Eight full kits must still arrive whole.
+  Rig r;
+  r.session.newProject("eight kits");
+  const fs::path smp = r.write("x.wav", 0.5f);
+  for (int t = 0; t < kTrackCount; ++t) {
+    r.session.setEngine(t, EngineType::Drum);
+    for (int pad = 0; pad < DrumEngine::kPads; ++pad) {
+      r.session.setPadSample(t, pad, smp.string());
+      r.session.setParam(engineParamRef(t, DrumEngine::param(pad, DrumEngine::kTune)), static_cast<float>(pad % 5));
+      r.session.setParam(engineParamRef(t, DrumEngine::param(pad, DrumEngine::kDecay)), 100.0f + static_cast<float>(t));
+    }
+    r.run();
+  }
+  r.settle();
+  std::string error;
+  REQUIRE(r.session.save(error));
+
+  Rig r2;
+  fs::create_directories(r2.root.path / "projects");
+  fs::copy(r.root.path / "projects" / "eight kits", r2.root.path / "projects" / "eight kits", fs::copy_options::recursive);
+  REQUIRE(r2.session.load("eight kits", error));  // the module isn't processing yet
+  CHECK(r2.session.takeMessage().empty());        // no "an edit was lost"
+  r2.settle();
+  for (int t = 0; t < kTrackCount; ++t) {
+    CHECK(r2.module->params().get(engineParamRef(t, DrumEngine::param(15, DrumEngine::kTune))) == 0.0f);  // 15 % 5
+    CHECK(r2.module->params().get(engineParamRef(t, DrumEngine::param(14, DrumEngine::kTune))) == 4.0f);
+    CHECK(r2.module->params().get(engineParamRef(t, DrumEngine::param(3, DrumEngine::kDecay))) == 100.0f + static_cast<float>(t));
+    CHECK(r2.session.padStatus(t, 15) == Session::PadStatus::Ready);
+  }
+}

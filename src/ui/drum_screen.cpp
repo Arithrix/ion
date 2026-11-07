@@ -120,6 +120,8 @@ class DrumScreen final : public Screen {
       if (e == Event::ArrowUp || e == Event::ArrowDown) b.typing = false;  // and fall through to move
     }
 
+    if (e == Event::Escape && b.filter.empty() && ctx.module.status().previewing.load(std::memory_order_relaxed))
+      ctx.session.stopPreview();  // and Esc still goes back
     if (e == Event::Tab) { pane_ = (pane_ + 1) % 3; return true; }
     if (e == Event::TabReverse) { pane_ = (pane_ + 2) % 3; return true; }
 
@@ -210,12 +212,16 @@ class DrumScreen final : public Screen {
     if (e == Event::Escape && !b.filter.empty()) { b.setFilter({}); return true; }
     if (e == Event::ArrowLeft || e == Event::Backspace) {
       b.up(s);
+      moved(ctx);
       return true;
     }
     const SampleBrowse::Entry* cur = b.current(s);
     if (!cur) return false;
     if (e == Event::ArrowRight || e == Event::Return) {
-      if (b.open(s, *cur)) return true;
+      if (b.open(s, *cur)) {
+        moved(ctx);
+        return true;
+      }
       if (e != Event::Return) return true;
       const int t = ctx.track, pad = ctx.pad[static_cast<std::size_t>(t)];
       if (cur->kind == SampleBrowse::Entry::Kind::Audio) {
@@ -231,10 +237,13 @@ class DrumScreen final : public Screen {
     return false;
   }
 
+  // Moving onto a file previews it; moving off one stops the preview (a long
+  // loop shouldn't keep playing under the next thing).
   void moved(Context& ctx) {
     Session& s = ctx.session;
     const SampleBrowse::Entry* cur = ctx.samples->current(s);
     if (cur && cur->kind == SampleBrowse::Entry::Kind::Audio) s.preview(cur->path, s.config().samplePreview);
+    else if (ctx.module.status().previewing.load(std::memory_order_relaxed)) s.stopPreview();
   }
 
   Element browser(Context& ctx, int width, int height) {

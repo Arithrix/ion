@@ -1,40 +1,48 @@
 # Status
 
-**Phase:** 2 · FM + library — done; release 0.2.0 is the checkpoint build.
-**Branch:** `phase/2-fm-library`, merged to `main` for the release.
+**Phase:** 3 · Drum sampler — done; release 0.3.0 is the checkpoint build.
+**Branch:** `phase/3-drum-sampler`, merged to `main` for the release.
 **Updated:** 2026-11-07
 
-## Done (Phase 2)
-- **Library:** SQLite (vendored 3.54.1).
-  - Recursive `.syx`/`.snd` import on a worker thread. Bulk, single, headerless, concatenated and unterminated dumps all import; corrupt dumps are logged and skipped.
-  - De-duplicated on normalised parameters; the first-seen name and every source bank are kept.
-  - Favourites, tags, recent, rough categories.
-  - The 1,040 downloaded files give 12,876 unique voices in 0.25 s.
-- **FM engine:** click-free patch handover (three Synth_Dexed instances, D-27) and six macros as CC-mappable parameters (D-29). Synth_Dexed's `Env::update` is patched so parameter changes don't restart held envelopes (D-28).
+## Done (Phase 3)
+- **Samples:**
+  - WAV, AIFF and FLAC are decoded on a disk thread and converted to 48 kHz with libsamplerate (vendored 0.2.2, BSD-2).
+  - They're cached, so a sample on several pads is decoded once.
+  - Previews coalesce, so scrolling never queues a backlog (D-35).
+  - Samples are pinned by the Session until the audio thread hands them back, and a replaced sample finishes its tails first (D-36).
+- **Drum engine:**
+  - 16 pads, each with 17 CC-mappable settings: note, tune and fine, level, pan, start, reverse, one-shot or gate, hold, decay, filter (LP/HP/BP SVF) with cutoff and resonance, drive, velocity to level and to filter, choke group (D-37).
+  - Up to 64 voices, 4 per pad; chokes and steals fade over 5 ms.
+  - The shared voice allocator (D-26) arrived with it.
+- **Kits** in `~/ion/kits` with every pad setting. **Collect** copies samples into the project, and save-as takes them along (D-38).
+- **Project format 3** (D-39). The parameter index grew to 16 bits, so every pad setting is a normal parameter.
 - **UI:**
-  - FM browser: filter, views, auto-load, favourites, tags, program list, the 32 algorithm diagrams (boxed or compact), macro pane, save as, export, import with progress. Comet layout too.
-  - Library screen with project contents and FM counts.
-  - Macros on Tracks.
-  - Settings for program change and FM preview.
-- **Program change:** a per-project list of up to 128 voices, applied on the audio thread (D-32).
-- **Projects:** format 2, which reads format 1 unchanged (D-33).
-- **Tests:**
-  - handover (held notes, fast scrolling, retriggers, sustain);
-  - macro regressions against upstream Synth_Dexed;
-  - import edge cases and fuzzing, dedupe, export round-trip;
-  - session save/load of macros and programs, bake, program change;
-  - algorithm topology against the DX7 chart, and a golden file of all 32 diagrams;
-  - UI snapshots of the browser at 130×36, 80×24 and 60×35.
-- 82 test cases.
+  - Drum screen: browser with preview and waveform, 4×4 pads with activity and choke groups, two-column pad editor. Narrow layout too.
+  - Space and piano mode play pads (octave 1 = pads 1–16).
+  - Tracks shows the selected pad.
+  - Library lists kits.
+  - Settings has sample roots, preview and preview level (D-40, D-41).
+- **Tools:**
+  - `ion-render` waits for samples.
+  - `ion-bench` has drum scenes. 16 pads with every voice busy use 3.4% of a 128-frame buffer, or 9.7% with filter and drive.
+  - The demo project has a synthesised kit on track 5, collected into the project.
+- **Tests:** 103 cases.
+  - Loader formats and rates, cache and preview coalescing.
+  - Engine: mapping, tune, reverse, start, chokes without clicks, voice caps, gate and hold/decay, velocity, filter response and stability, sample release.
+  - Module hand-over; session pads, projects, kits, collect, previews.
+  - UI snapshots of the drum screen at 130×36, 80×24 and 60×35, with scripted key presses.
+  - Clean under AddressSanitizer and UBSan, apart from Synth_Dexed's own upstream warnings.
 
 ## Waiting on Michael
-- Try 0.2.0 (`TESTING.md`).
-- Tune the macros by ear together: ranges, and whether they should reset on a patch change.
-- Still unconfirmed from 0.0.1: real-time priority (`no RT` in the header), latency feel, `ion --list-midi` with the OXI.
+- Try 0.3.0 (`TESTING.md`): build a garage kit from the deep house pack and play it from the OXI.
+- Tune by ear: velocity → level default (50%), drive amount, decay range, 4 voices per pad.
+- Still open from earlier: real-time priority (`no RT` in the header; dropouts without it, see V-10), latency feel, `ion --list-midi` with the OXI, macro ranges.
 
-## Next (Phase 3: drum sampler)
-Disk thread and sample cache (decode and resample to 48 kHz off the audio thread), sample browser with preview, 16 pads with all per-pad parameters, SVF, choke groups, kits as JSON, collect. The shared voice allocator arrives with it (D-26).
+## Next (Phase 4: effects)
+Compressor, chorus, tempo-synced delay and reverb, 3 insert slots per track, two send buses, master chain with limiter, FX screen. Reverb chosen by sound first, A53 cost second; numbers at the checkpoint.
 
 ## Known gaps carried forward
 - Global default CC mappings (D-26).
-- Near-duplicate patches aren't folded together (D-30).
+- Near-duplicate FM patches aren't folded together (D-30).
+- No samples index in library.db yet; the browser reads folders (D-35).
+- Pads can't be copied or renamed yet; a pad's name is its file name.
