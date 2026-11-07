@@ -1,4 +1,4 @@
-# Testing ion 0.2.0 — Phase 2: FM library and macros
+# Testing ion 0.2.1 — Phase 2: FM library and macros
 
 This checkpoint should show:
 - your DX7 collection is in one searchable list, with no banks and no duplicates;
@@ -9,10 +9,10 @@ This checkpoint should show:
 Allow about 30 minutes. **Wired headphones or speakers please**: Bluetooth adds 150–250 ms of delay.
 
 ## 0. Before you start
-1. Run `ion --version`. It should print `ion 0.2.0 (…)`.
+1. Run `ion --version`. It should print `ion 0.2.1 (…)`.
 2. Open the demo project, which was installed with this release:
    ```
-   ion --project "demo v0.2.0"
+   ion --project "demo v0.2.1"
    ```
    - In the header, `no RT` must **not** appear. If it does, tell me; it's still unconfirmed from 0.0.1.
 
@@ -22,7 +22,10 @@ Your library starts empty. The DX7 banks I downloaded are in `~/ion/downloads/dx
 - the big public archives;
 - the 33 banks that ship with Dexed.
 
-1. Press `L` (Library), then `i`. Type `~/ion/downloads/dx7/x` and press ⏎.
+1. Press `L` (Library), then `i`. The prompt starts at `~/ion/downloads/` and lists what's there.
+   - Type `dx`, press **Tab** (→ `dx7/`), press **Tab** again (→ `dx7/x/`), then ⏎.
+   - Or clear it and type the whole path: `~/ion/downloads/dx7/x`.
+   - A folder that doesn't exist is caught: the prompt says "Not found" and lets you fix it.
 2. It takes about a second. The status line should say `1040 files · 1039 banks · 33248 voices · 12876 new · 1 skipped`.
    - The one skipped bank has a bad checksum. It's listed in `~/.local/share/ion/import.log`.
 3. Press `i` again with the same folder. This time it should report **0 new**: duplicates are merged.

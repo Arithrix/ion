@@ -213,3 +213,55 @@ TEST_CASE("ui snapshots: every screen at the handoff's sizes") {
     checkSnapshot(c.name, frame);
   }
 }
+
+// ---- the import prompt (0.2.1: a wrong folder used to fail quietly) ----
+
+#include "ui/screens.h"
+
+TEST_CASE("import prompt: a folder that doesn't exist asks again; a real one starts the import") {
+  const fs::path root = fs::temp_directory_path() / "ion-import-prompt";
+  fs::remove_all(root);
+  fs::create_directories(root / "banks" / "dx7");
+  auto module = std::make_unique<Module>();
+  Config config;
+  Session session(*module, Paths::under(root), config);
+  ui::Context ctx(session, *module, nullptr, nullptr);
+
+  ui::requestImport(ctx);
+  REQUIRE(ctx.request == ui::Context::Request::Prompt);
+  CHECK(ctx.promptPath);
+  REQUIRE(ctx.promptDone);
+
+  auto submit = [&](const std::string& text) {
+    auto done = std::move(ctx.promptDone);
+    ctx.request = ui::Context::Request::None;
+    done(ctx, text);
+  };
+  submit((root / "nope").string());
+  CHECK(ctx.request == ui::Context::Request::Prompt);  // asked again…
+  CHECK(ctx.promptTitle.rfind("Not found", 0) == 0);  // …saying why
+  CHECK(ctx.promptInitial == (root / "nope").string());  // with the text kept to fix
+  REQUIRE(ctx.promptDone);
+
+  submit((root / "banks").string() + "  ");  // trailing spaces are forgiven
+  CHECK(ctx.request == ui::Context::Request::Import);
+  CHECK(ctx.importPath == (root / "banks").string());
+  fs::remove_all(root);
+}
+
+TEST_CASE("import: a failed or empty import is still written to the log") {
+  const fs::path root = fs::temp_directory_path() / "ion-import-log";
+  fs::remove_all(root);
+  fs::create_directories(root / "empty");
+  const Paths paths = Paths::under(root);
+  const ImportReport missing = FmLibrary::import(paths.libraryFile(), root / "missing", paths.importLog());
+  CHECK_FALSE(missing.error.empty());
+  const ImportReport empty = FmLibrary::import(paths.libraryFile(), root / "empty", paths.importLog());
+  CHECK(empty.error.empty());
+  CHECK(empty.files == 0);
+  std::string log;
+  REQUIRE(readFile(paths.importLog(), log));
+  CHECK(log.find("failed: no such file or folder") != std::string::npos);
+  CHECK(log.find("no .syx or .snd files") != std::string::npos);
+  fs::remove_all(root);
+}

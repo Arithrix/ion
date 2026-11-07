@@ -8,7 +8,11 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <algorithm>
+#include <cctype>
+#include <cstdlib>
 #include <deque>
+#include <filesystem>
 #include <future>
 #include <thread>
 
@@ -97,9 +101,9 @@ class App {
   }
   void showHelp() { overlay_ = Overlay::Help; }
   void offerRecovery() { overlay_ = Overlay::Recovery; }
-  void flash(const std::string& msg) {
+  void flash(const std::string& msg, int ms = 3000) {
     flash_ = msg;
-    flashUntil_ = Clock::now() + std::chrono::milliseconds(3000);
+    flashUntil_ = Clock::now() + std::chrono::milliseconds(ms);
   }
   bool quitRequested() const { return quit_; }
 
@@ -264,6 +268,7 @@ class App {
         promptTitle_ = ctx_.promptTitle;
         promptText_ = ctx_.promptInitial;
         promptDone_ = std::move(ctx_.promptDone);
+        promptPath_ = std::exchange(ctx_.promptPath, false);
         break;
     }
     if (!ctx_.flash.empty()) flash(std::exchange(ctx_.flash, {}));
@@ -279,6 +284,7 @@ class App {
     overlay_ = Overlay::Prompt;
     promptTitle_ = "Save project as";
     promptText_ = ctx_.session.name();
+    promptPath_ = false;
     promptDone_ = [this](Context& cx, const std::string& name) {
       std::string error;
       if (cx.session.saveAs(name, error)) flash("saved as " + name);
@@ -293,6 +299,53 @@ class App {
       return;
     }
     ctx_.session.learn(*p);
+  }
+
+  // ---- path completion in prompts ----
+
+  // Splits the prompt text into the folder to look in and the name typed so far.
+  std::pair<std::filesystem::path, std::string> pathParts() const {
+    std::string t = promptText_;
+    std::string shownDir = t.substr(0, t.rfind('/') == std::string::npos ? 0 : t.rfind('/') + 1);
+    std::string prefix = t.substr(shownDir.size());
+    std::string dir = shownDir.empty() ? "." : shownDir;
+    if (dir.rfind("~", 0) == 0) {
+      const char* home = std::getenv("HOME");
+      dir = std::string(home ? home : "") + dir.substr(1);
+    }
+    return {std::filesystem::path(dir), prefix};
+  }
+
+  // Folders and .syx/.snd files in the typed folder that start with what's typed.
+  std::vector<std::string> pathMatches() const {
+    const auto [dir, prefix] = pathParts();
+    std::vector<std::string> out;
+    std::error_code ec;
+    for (const auto& entry : std::filesystem::directory_iterator(dir, ec)) {
+      const std::string name = entry.path().filename().string();
+      if (name.rfind(prefix, 0) != 0 || (prefix.empty() && name[0] == '.')) continue;
+      std::string ext = entry.path().extension().string();
+      for (char& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+      if (entry.is_directory(ec)) out.push_back(name + "/");
+      else if (ext == ".syx" || ext == ".snd") out.push_back(name);
+      if (out.size() > 200) break;
+    }
+    std::sort(out.begin(), out.end());
+    return out;
+  }
+
+  void completePath() {
+    const auto matches = pathMatches();
+    if (matches.empty()) return;
+    // The longest prefix all matches share.
+    std::string common = matches.front();
+    for (const std::string& m : matches) {
+      std::size_t n = 0;
+      while (n < common.size() && n < m.size() && common[n] == m[n]) ++n;
+      common.resize(n);
+    }
+    const std::string typedPrefix = pathParts().second;
+    if (common.size() > typedPrefix.size()) promptText_ += common.substr(typedPrefix.size());
   }
 
   // ---- FM library import, on a worker thread so the UI (and audio) carry on ----
@@ -315,7 +368,8 @@ class App {
       return FmLibrary::import(paths.libraryFile(), path, paths.importLog(), &importProgress_);
     });
     ctx_.importTotal = 1;  // "running" until the worker has counted the files
-    flash("importing " + path + " …");
+    importing_ = path;
+    flash("importing " + path + " …", 15000);
   }
 
   void pollImport() {
@@ -328,14 +382,19 @@ class App {
     Session& s = ctx_.session;
     std::string error;
     if (s.library()) s.library()->reload(error);
+    // Results stay up for a while, and on the Library screen until the next import.
+    std::string msg;
     if (!r.error.empty()) {
-      flash("import failed: " + r.error);
-      return;
+      msg = "import failed: " + r.error;
+    } else if (r.files == 0) {
+      msg = "no .syx or .snd files in " + importing_ + " or below it";
+    } else {
+      msg = "imported " + std::to_string(r.files) + " files · " + std::to_string(r.banks) + " banks · " + std::to_string(r.voices) +
+            " voices · " + std::to_string(r.added) + " new";
+      if (r.corrupt || r.unreadable) msg += " · " + std::to_string(r.corrupt + r.unreadable) + " skipped (see import log)";
     }
-    std::string msg = std::to_string(r.files) + " files · " + std::to_string(r.banks) + " banks · " + std::to_string(r.voices) +
-                      " voices · " + std::to_string(r.added) + " new";
-    if (r.corrupt || r.unreadable) msg += " · " + std::to_string(r.corrupt + r.unreadable) + " skipped (see import log)";
-    flash(msg);
+    ctx_.importMessage = msg;
+    flash(msg, 15000);
   }
 
   void audition() {
@@ -388,6 +447,8 @@ class App {
           overlay_ = Overlay::None;
           if (promptDone_) promptDone_(ctx_, promptText_);
           handleRequest();
+        } else if (e == Event::Tab && promptPath_) {
+          completePath();
         } else if (e == Event::Backspace) {
           while (!promptText_.empty() && (static_cast<unsigned char>(promptText_.back()) & 0xC0) == 0x80) promptText_.pop_back();
           if (!promptText_.empty()) promptText_.pop_back();
@@ -445,12 +506,18 @@ class App {
         }
         return pane("Engine for track " + std::to_string(ctx_.track + 1), vbox(rows), true);
       }
-      case Overlay::Prompt:
-        return pane(promptTitle_,
-                    vbox({hbox({text(promptText_) | color(palette::text), text(" ") | bgcolor(palette::accent)}),
-                          text("⏎ ok · Esc cancel") | color(palette::faint)}) |
-                        size(WIDTH, GREATER_THAN, 40),
-                    true);
+      case Overlay::Prompt: {
+        Elements rows = {hbox({text(promptText_) | color(palette::text), text(" ") | bgcolor(palette::accent)})};
+        if (promptPath_) {
+          // What Tab would complete to: the folders (and .syx files) here.
+          const auto matches = pathMatches();
+          for (std::size_t i = 0; i < std::min<std::size_t>(matches.size(), 8); ++i)
+            rows.push_back(text("  " + matches[i]) | color(palette::dim));
+          if (matches.size() > 8) rows.push_back(text("  … " + std::to_string(matches.size() - 8) + " more") | color(palette::faint));
+        }
+        rows.push_back(text(promptPath_ ? "Tab completes · ⏎ ok · Esc cancel" : "⏎ ok · Esc cancel") | color(palette::faint));
+        return pane(promptTitle_, vbox(rows) | size(WIDTH, GREATER_THAN, 40), true);
+      }
       case Overlay::Quit:
         return pane("Unsaved changes",
                     vbox({text(ctx_.session.name() + " has unsaved changes."),
@@ -603,7 +670,9 @@ class App {
       case Overlay::Help:
       case Overlay::Monitor: return {{"Esc", "Close"}};
       case Overlay::EnginePicker: return {{"↑↓", "Engine"}, {"⏎", "Choose"}, {"Esc", "Cancel"}};
-      case Overlay::Prompt: return {{"⏎", "OK"}, {"Esc", "Cancel"}};
+      case Overlay::Prompt:
+        if (promptPath_) return {{"Tab", "Complete"}, {"⏎", "OK"}, {"Esc", "Cancel"}};
+        return {{"⏎", "OK"}, {"Esc", "Cancel"}};
       case Overlay::Quit: return {{"w", "Save & quit"}, {"q", "Quit"}, {"Esc", "Stay"}};
       case Overlay::Recovery: return {{"r", "Recover"}, {"d", "Discard"}, {"Esc", "Later"}};
       case Overlay::None: break;
@@ -638,6 +707,8 @@ class App {
   std::function<void(Context&, const std::string&)> promptDone_;
   std::deque<MonitorLine> monitor_;
   FmBrowse fm_;
+  bool promptPath_ = false;
+  std::string importing_;
   ImportProgress importProgress_;
   std::future<ImportReport> import_;
   int64_t monitorStart_ = 0;

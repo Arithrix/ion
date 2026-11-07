@@ -421,8 +421,38 @@ std::optional<FmLibrary::LastImport> FmLibrary::lastImport() const {
 
 // ---- import ------------------------------------------------------------------------
 
+namespace {
+
+void writeLog(const fs::path& logPath, const fs::path& folder, const ImportReport& report) {
+  std::error_code ec;
+  fs::create_directories(logPath.parent_path(), ec);
+  std::ofstream log(logPath, std::ios::app);
+  if (!log) return;
+  char when[32];
+  const std::time_t tt = std::time(nullptr);
+  std::strftime(when, sizeof when, "%Y-%m-%d %H:%M:%S", std::localtime(&tt));
+  log << "== " << when << " import " << folder.string() << "\n";
+  if (!report.error.empty()) {
+    log << "  failed: " << report.error << "\n";
+    return;
+  }
+  log << report.files << " files, " << report.banks << " banks, " << report.voices << " voices, " << report.added
+      << " new, " << report.corrupt << " corrupt dumps skipped, " << report.unreadable << " files without voice data\n";
+  if (report.files == 0) log << "  no .syx or .snd files in that folder or below it\n";
+  for (const std::string& p : report.problems) log << "  " << p << "\n";
+}
+
+}  // namespace
+
 ImportReport FmLibrary::import(const fs::path& dbPath, const fs::path& folder, const fs::path& logPath,
                                ImportProgress* progress) {
+  // Every import is logged, including the ones that fail.
+  ImportReport report = importInto(dbPath, folder, progress);
+  writeLog(logPath, folder, report);
+  return report;
+}
+
+ImportReport FmLibrary::importInto(const fs::path& dbPath, const fs::path& folder, ImportProgress* progress) {
   ImportReport report;
   sqlite3* db = openDb(dbPath, report.error);
   if (!db) return report;
@@ -526,18 +556,6 @@ ImportReport FmLibrary::import(const fs::path& dbPath, const fs::path& folder, c
   if (!exec(db, "COMMIT", error)) report.error = error;
   sqlite3_close(db);
 
-  // import.log: appended, newest at the bottom.
-  fs::create_directories(logPath.parent_path(), ec);
-  if (std::ofstream log(logPath, std::ios::app); log) {
-    char when[32];
-    const std::time_t tt = std::time(nullptr);
-    std::strftime(when, sizeof when, "%Y-%m-%d %H:%M:%S", std::localtime(&tt));
-    log << "== " << when << " import " << folder.string() << "\n";
-    log << report.files << " files, " << report.banks << " banks, " << report.voices << " voices, " << report.added
-        << " new, " << report.corrupt << " corrupt dumps skipped, " << report.unreadable << " files without voice data\n";
-    for (const std::string& p : report.problems) log << "  " << p << "\n";
-    if (!report.error.empty()) log << "  error: " << report.error << "\n";
-  }
   return report;
 }
 
