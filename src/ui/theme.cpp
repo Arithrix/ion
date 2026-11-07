@@ -1,6 +1,7 @@
 #include "ui/theme.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 
@@ -58,14 +59,6 @@ std::string bars(int eighths, int width, std::string& rest) {
 
 }  // namespace
 
-Element levelBar(float linear, int width, bool selected) {
-  const float db = toDb(linear);
-  const float frac = std::clamp((db + 48.0f) / 54.0f, 0.0f, 1.0f);
-  std::string off;
-  const std::string on = bars(static_cast<int>(std::lround(frac * static_cast<float>(width * 8))), width, off);
-  const Color fill = selected ? palette::bg : (db > -3.0f ? palette::accent : palette::value);
-  return hbox({text(on) | ftxui::color(fill), text(off) | ftxui::color(selected ? palette::selectedOff : palette::border)});
-}
 
 Element valueBar(float n, int width, Color fill, bool selected) {
   std::string off;
@@ -75,17 +68,63 @@ Element valueBar(float n, int width, Color fill, bool selected) {
                text(off) | ftxui::color(selected ? palette::selectedOff : palette::border)});
 }
 
-Element verticalMeter(float linear, int height) {
+namespace {
+
+float meterFrac(float linear) { return std::clamp((toDb(linear) + 48.0f) / 54.0f, 0.0f, 1.0f); }
+
+double nowSeconds() {
+  return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+}  // namespace
+
+MeterReading PeakHold::update(float rms, float peak) {
+  const double now = nowSeconds();
+  if (peak >= hold_ || now - heldAt_ > 1.5) {
+    if (peak >= hold_) heldAt_ = now;
+    // After the hold time, fall at ~20 dB/s toward the live peak.
+    hold_ = peak >= hold_ ? peak : std::max(peak, hold_ * 0.93f);
+  }
+  return {rms, peak, hold_};
+}
+
+Element levelBar(const MeterReading& m, int width, bool selected) {
+  static const char* partial[] = {"", "▏", "▎", "▍", "▌", "▋", "▊", "▉"};
+  const int rmsE = static_cast<int>(std::lround(meterFrac(m.rms) * static_cast<float>(width * 8)));
+  const int peakCell = static_cast<int>(std::lround(meterFrac(m.peak) * static_cast<float>(width)));
+  const int holdCell = m.hold > 1e-5f ? std::clamp(static_cast<int>(std::lround(meterFrac(m.hold) * static_cast<float>(width))) - 1, 0, width - 1) : -1;
+  const bool hot = toDb(m.peak) > -3.0f;
+  const Color fill = selected ? palette::bg : (hot ? palette::accent : palette::value);
+  const Color off = selected ? palette::selectedOff : palette::border;
+  Elements cells;
+  for (int i = 0; i < width; ++i) {
+    const int lit = std::clamp(rmsE - i * 8, 0, 8);
+    if (lit == 8) cells.push_back(text("█") | ftxui::color(fill));
+    else if (i == holdCell) cells.push_back(text("▕") | ftxui::color(selected ? palette::bg : (toDb(m.hold) > -3.0f ? palette::record : palette::text)));
+    else if (lit > 0) cells.push_back(text(partial[lit]) | ftxui::color(fill));
+    else if (i < peakCell) cells.push_back(text("▒") | ftxui::color(fill));
+    else cells.push_back(text("░") | ftxui::color(off));
+  }
+  return hbox(cells);
+}
+
+Element levelBar(float linear, int width, bool selected) { return levelBar(MeterReading{linear, linear, 0}, width, selected); }
+
+Element verticalMeter(const MeterReading& m, int height) {
   static const char* partial[] = {" ", "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"};
-  const float db = toDb(linear);
-  const float frac = std::clamp((db + 48.0f) / 54.0f, 0.0f, 1.0f);
-  const int eighths = static_cast<int>(std::lround(frac * static_cast<float>(height * 8)));
+  const int rmsE = static_cast<int>(std::lround(meterFrac(m.rms) * static_cast<float>(height * 8)));
+  const int peakRow = static_cast<int>(std::lround(meterFrac(m.peak) * static_cast<float>(height)));
+  const int holdRow = m.hold > 1e-5f ? std::clamp(static_cast<int>(std::lround(meterFrac(m.hold) * static_cast<float>(height))) - 1, 0, height - 1) : -1;
   Elements rows;
   for (int row = height - 1; row >= 0; --row) {
-    const int lit = std::clamp(eighths - row * 8, 0, 8);
+    const int lit = std::clamp(rmsE - row * 8, 0, 8);
     const float rowDb = -48.0f + 54.0f * static_cast<float>(row + 1) / static_cast<float>(height);
     const Color c = rowDb > 0.0f ? palette::record : (rowDb > -6.0f ? palette::accent : palette::value);
-    rows.push_back(text(lit ? partial[lit] : "·") | ftxui::color(lit ? c : palette::borderSubtle));
+    if (lit == 8) rows.push_back(text("█") | ftxui::color(c));
+    else if (row == holdRow) rows.push_back(text("▔") | ftxui::color(rowDb > -3.0f ? palette::record : palette::text));
+    else if (lit > 0) rows.push_back(text(partial[lit]) | ftxui::color(c));
+    else if (row < peakRow) rows.push_back(text("▒") | ftxui::color(c));
+    else rows.push_back(text("·") | ftxui::color(palette::borderSubtle));
   }
   return vbox(rows);
 }

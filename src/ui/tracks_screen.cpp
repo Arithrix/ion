@@ -82,7 +82,9 @@ class TracksScreen final : public Screen {
       const Color dimFg = inverse ? palette::bg : palette::dim;
 
       const auto& m = st.track[static_cast<std::size_t>(t)];
-      const float peak = std::max(m.peakLeft.load(std::memory_order_relaxed), m.peakRight.load(std::memory_order_relaxed));
+      const MeterReading reading = holds_[static_cast<std::size_t>(t)].update(
+          std::max(m.rmsLeft.load(std::memory_order_relaxed), m.rmsRight.load(std::memory_order_relaxed)),
+          std::max(m.peakLeft.load(std::memory_order_relaxed), m.peakRight.load(std::memory_order_relaxed)));
       char head[16];
       std::snprintf(head, sizeof head, " %d  ", t + 1);
       char ch[16];
@@ -102,7 +104,7 @@ class TracksScreen final : public Screen {
               color(inverse ? palette::bg : engineColor(tr.engine)),
           text(soundName(s, t)) | color(fg) | flex,
           text(" "),
-          levelBar(peak, meterWidth, inverse),
+          levelBar(reading, meterWidth, inverse),
       };
       if (!ctx.narrow()) cells.push_back(text(empty ? "       " : " " + std::string(db)) | color(dimFg));
       cells.push_back(text(active ? " ● " : " · ") | color(inverse ? palette::bg : (active ? palette::value : palette::faint)));
@@ -274,6 +276,7 @@ class TracksScreen final : public Screen {
   int row_ = 0;
   std::array<uint32_t, kTrackCount> lastNotes_{};
   std::array<Clock::time_point, kTrackCount> lastActivity_{};
+  std::array<PeakHold, kTrackCount> holds_{};
 };
 
 }  // namespace

@@ -79,11 +79,22 @@ echo "== install to $DEST"
 mkdir -p "$DEST"
 objcopy --only-keep-debug "$BIN" "$DEST/ion.debug"
 objcopy --strip-debug --add-gnu-debuglink="$DEST/ion.debug" "$BIN" "$DEST/ion"
-objcopy --strip-debug build-release/ion-bench "$DEST/ion-bench"
-cp build-release/tests/fake-oxi "$DEST/fake-oxi"
+for tool in ion-bench ion-render; do objcopy --strip-debug "build-release/$tool" "$DEST/$tool"; done
+for tool in fake-oxi make-demo; do objcopy --strip-debug "build-release/tests/$tool" "$DEST/$tool"; done
 cp CHANGELOG.md TESTING.md "$DEST/"
 echo "$BENCH_OUT" > "$DEST/bench.txt"
-if [[ -d demo ]]; then cp -r demo "$DEST/demo"; fi
+
+# Demo project, built from the DX7 factory bank on this machine (it can't live
+# in the repo). Installed as a normal project so `ion --project "demo vX.Y.Z"` works.
+ROM="$HOME/ion/downloads/dx7/x/sysex/rom1a.syx"
+DEMO="demo $TAG"
+if [[ -f "$ROM" ]]; then
+  "$DEST/make-demo" --syx "$ROM" --projects "$HOME/ion/projects" --name "$DEMO"
+  mkdir -p "$DEST/demo"
+  cp -r "$HOME/ion/projects/$DEMO" "$DEST/demo/"
+else
+  echo "release: no $ROM, so no demo project this time"
+fi
 
 mkdir -p "$HOME/.local/bin"
 ln -sfn "$DEST/ion" "$HOME/.local/bin/ion"

@@ -43,12 +43,31 @@ using Hints = std::vector<Hint>;
 ftxui::Element pane(const std::string& title, ftxui::Element content, ftxui::Color borderColor);
 ftxui::Element pane(const std::string& title, ftxui::Element content, bool focused);
 
+// What a meter shows: RMS (the solid bar), peak (shaded on from the RMS) and
+// a held peak marker. All linear.
+struct MeterReading {
+  float rms = 0, peak = 0, hold = 0;
+};
+
+// Peak hold for one meter: holds the highest peak for 1.5 s, then falls.
+// Lives in the UI (it's about what you see, not the audio).
+class PeakHold {
+ public:
+  MeterReading update(float rms, float peak);
+
+ private:
+  float hold_ = 0;
+  double heldAt_ = 0;
+};
+
 // Horizontal level meter over −48…+6 dB with eighth-cell resolution.
 ftxui::Element levelBar(float linear, int width, bool selected = false);
+ftxui::Element levelBar(const MeterReading& m, int width, bool selected = false);
 // A value bar for a normalized 0…1 value.
 ftxui::Element valueBar(float normalized, int width, ftxui::Color fill, bool selected = false);
-// Vertical meter column (`height` rows) for a level in dB, −48…+6.
-ftxui::Element verticalMeter(float linear, int height);
+// Vertical meter column (`height` rows), −48…+6 dB: RMS solid, peak shaded,
+// held peak as a marker.
+ftxui::Element verticalMeter(const MeterReading& m, int height);
 
 // "Key Label" blocks for the bottom hint bar; hints that don't fit in `width`
 // are dropped from the end (the full list is in the ? overlay).

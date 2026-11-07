@@ -1,63 +1,97 @@
-# Testing ion 0.0.1 — Phase 0 prototype
+# Testing ion 0.1.0 — Phase 1: tracks, mixer, projects
 
-This build answers one question: **does the stack feel right?** Can you play a DX7 patch from the OXI with low enough latency and no glitches? The checkpoint is a go/no-go on that.
+This checkpoint should show:
+- the OXI's tracks route to ion's tracks;
+- the mixer and EQ work;
+- projects save and come back;
+- you can play everything from the laptop keyboard with the OXI unplugged.
 
-Allow about 15 minutes.
+Allow about 30 minutes. **Wired headphones or speakers please**: Bluetooth adds 150–250 ms of delay.
 
-## Before you start
-1. Log out and back in once, if you haven't since being added to the `pipewire` group. That's what gives ion real-time audio priority.
-2. Check the version:
+## 0. Before you start
+1. If you haven't logged out and back in since joining the `pipewire` group, do that now.
+2. Run `ion --version`. It should print `ion 0.1.0 (…)`.
+3. The demo project was installed with this release. Open it:
    ```
-   ion --version
+   ion --project "demo v0.1.0"
    ```
-   It should print `ion 0.0.1 (…)` with no `-dirty`.
+   - In the header, `no RT` must **not** appear. If it does, real-time priority isn't active; tell me.
 
-## 1. Sound without the OXI (2 min)
-1. Run:
-   ```
-   ion --syx ~/ion/downloads/dx7/x/sysex/rom1a.syx --voice 11
-   ```
-   The header should read `cpu …  48k · 128 · pipewire`.
-   - If it also says **`no RT`**, real-time priority isn't active: log out and back in.
-2. Track 1 shows **E.PIANO 1**. Press **Space**: you should hear a short electric piano note, and the meter should move.
-3. Press **→** a few times to step through the bank (E.PIANO 1 → GUITAR 1 → GUITAR 2 …), pressing Space on each.
-4. Start a YouTube video at the same time. Both should play.
+## 1. The demo, from the OXI (5 min)
+The demo has four FM tracks: E.PIANO 1 on channel 1, BASS 1 on 2, BRASS 1 on 3, and STRINGS 1 on track 4, **also on channel 1**.
+1. Set OXI track 1 to MIDI channel 1 and play.
+   - You should hear piano with strings underneath (the layer).
+   - Tracks 1 and 4 both light up in the track list.
+2. Set OXI track 2 to channel 2 and play: bass. Set OXI track 3 to channel 3: brass.
+3. Start the OXI's transport.
+   - The header should show `▶ 124.0 ext clock` (or whatever tempo you're at), steady to the decimal.
+   - Stop the transport: the ▶ changes to ■.
+4. Two CC mappings are already in the demo:
+   - an OXI CC lane or knob sending **CC 74 on channel 1** sweeps the piano's presence EQ (watch Mixer → track 1 → bell 1);
+   - **CC 7 on channel 2** rides the bass fader.
 
-## 2. Play it from the OXI (5 min)
-1. Plug the OXI into the laptop over USB.
-   - Within a second the bottom line should change from `no OXI found` to its name.
-2. Set one OXI track to **MIDI channel 1** and play some notes.
-   - You should hear them, and `last:` shows each note as it arrives.
-3. Try the FM patches you like: ←/→ while the OXI plays. (Held notes are cut when you change patch; that's a known Phase 0 limitation.)
-4. **Latency feel:** play fast repeated notes or a tight rhythm with wired headphones or the speakers. Does it feel immediate? **This is the main thing to report.**
-5. **Bluetooth:** switch to your Bluetooth headphones. The sound should move there by itself, and the delay will be clearly longer (Bluetooth adds 150–250 ms). Expected; tell me if anything else odd happens, like the headphones' quality dropping or another app losing sound.
+## 2. Mixer and EQ (8 min)
+1. Press `M`. Use ← → to pick a channel and ↑ ↓ to move its fader; Shift moves it faster. `[` `]` pan.
+2. `m` mutes the selected track, and `s` solos it: everything else goes quiet, solo-in-place. Press again to undo.
+3. Press Tab to reach the EQ:
+   - ↑ ↓ picks a band, ⏎ moves between on/freq/gain/Q, and ← → changes the value.
+   - Sweep bell 1's gain and frequency while playing. It should be smooth, with **no clicks or zipper noise**.
+4. Press `b` to bypass the EQ and compare. Switching should also be click-free.
+5. Turn on the 24 dB high-pass and drag it up to about 500 Hz on the bass.
 
-## 3. Unplug and replug (1 min)
-1. While ion is running, unplug the OXI. The bottom line goes back to `no OXI found`.
-2. Plug it back in and play. It should reconnect within a second, without restarting ion.
+## 3. MIDI learn (3 min)
+1. On the Mixer, select track 3's fader and press `l`. The bottom line asks you to move a control on the OXI.
+2. Move any OXI CC lane or knob. The status line confirms the mapping, and the fader now follows the OXI.
+3. Press `,` (Settings) → Tab to **CC map**. Your mapping is listed.
+   - ← → changes the top of its range, ⏎ inverts it, and `x` removes it.
 
-## 4. Stability (5+ min)
-1. Leave the OXI playing a busy pattern on channel 1 for five minutes or more.
-2. Watch the header:
-   - a red **`N dropouts`** means audio glitched (note roughly when, and what else was going on);
-   - **cpu** should stay in the low single digits.
-3. Press **p** at some point while notes are playing: everything should stop at once.
-4. **q** quits.
+## 4. Projects (4 min)
+1. Press `W` and save as "test one". The header shows the name; the ● (unsaved) dot disappears.
+2. Change something (a fader), then quit with `q`. ion asks what to do; choose `q` (quit anyway).
+3. Run `ion` again.
+   - It reopens "test one" and **offers to recover** the change.
+   - Press `r`: the fader is back where you left it. `w` saves it.
+4. Press `L` (Library) and open the demo again with ⏎.
+   - It warns about unsaved changes first; press ⏎ again to go ahead.
+
+## 5. Without the OXI: laptop keyboard (5 min)
+1. Unplug the OXI. On the Tracks screen select track 1 (`1`) and press `` ` `` (backtick).
+   - The status line reads `♪ PIANO · oct 3 · vel 100 · gate 300 ms` and the pane borders change colour.
+2. Play: the Z-row is C3 upwards, and the Q-row is an octave higher.
+   - `[` `]` change octave, `\` changes velocity.
+   - ← → still change the focused value, so you can tweak while playing.
+3. Each note plays for 300 ms. Settings → Keyboard changes that.
+4. Esc leaves piano mode. Select track 2 (bass) and play again.
+
+## 6. MIDI monitor and panic (2 min)
+1. Plug the OXI back in; it reconnects by itself.
+2. Press `~`: the last 20 messages scroll by, with the clock tempo on top. Esc closes it.
+3. Play a big chord and press `p`: everything stops at once.
+
+## 7. Small screen (2 min)
+Make the terminal narrow, under 80 columns (or try `ion --ui-snapshot 60x35`).
+- The tabs shorten to `Trk Ins Mix…` and one pane shows at a time; Tab swaps.
+- It should stay readable. This is the Comet layout.
 
 ## What to send back
-- Go / no-go on the feel of the latency (wired, not Bluetooth).
-- Any dropouts, and what you were doing at the time.
-- Anything that sounded wrong compared with the same patch elsewhere (Dexed, hardware).
-- The output of `ion --list-midi` with the OXI plugged in, so I can see how it names itself.
+- Did the four tracks route correctly, and did the layer on channel 1 work?
+- Is the tempo display steady with your OXI? How did timing feel compared with 0.0.1?
+- Any clicks when moving faders or the EQ.
+- Did recovery bring your change back?
+- Anything confusing about the keys. The `?` overlay lists them all.
 
-## Known issues in 0.0.1
-- Only track 1 makes sound.
-- Changing patch cuts held notes.
-- MIDI clock isn't used yet.
+## Known issues
+- FM is the only engine.
+- Changing patch while notes are held cuts them off (Phase 2).
+- Holding a key in piano mode plays the note once more after about half a second (key repeat; see CHANGELOG).
+- The demo needs `~/ion/downloads/dx7/x/sysex/rom1a.syx`. If the release didn't install "demo v0.1.0", that file was missing.
 
 ## Rolling back
-There's nothing earlier to go back to yet. From 0.0.2 on, `scripts/use-version.sh 0.0.1` switches `ion` back to this build, and running it with no arguments lists the installed versions.
+```
+~/projects/ion/scripts/use-version.sh 0.0.1   # back to the Phase 0 build
+~/projects/ion/scripts/use-version.sh         # list installed versions
+```
+0.1.0 projects don't affect 0.0.1, which doesn't read projects.
 
 ## Extra tools in this release folder
-- `ion-bench`: CPU cost per FM voice.
-- `fake-oxi`: pretends to be an OXI on the ALSA sequencer, if you want to test without the hardware.
+`ion-render` (project + .mid → .wav), `ion-bench`, `fake-oxi` (a pretend OXI for testing without the hardware), `make-demo`.

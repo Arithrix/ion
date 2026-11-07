@@ -86,6 +86,9 @@ class Session {
   void cancelLearn();
   std::optional<ParamRef> learning() const { return learning_; }
   void removeMapping(int slot);
+  // Maps a CC (channel 0-15 or kAnyChannel) to a parameter, replacing anything
+  // that CC or that parameter was mapped to. Returns the slot, or -1 if full.
+  int addMapping(uint8_t channel, uint8_t cc, ParamRef target, float lo = 0.0f, float hi = 1.0f);
   void setMappingRange(int slot, float lo, float hi);
 
   // ---- playing ----

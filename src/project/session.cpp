@@ -289,6 +289,28 @@ void Session::cancelLearn() {
   send(c);
 }
 
+int Session::addMapping(uint8_t channel, uint8_t cc, ParamRef target, float lo, float hi) {
+  // One control drives one parameter: drop whatever this CC or this parameter
+  // was mapped to before.
+  for (int i = 0; i < kMaxCcMappings; ++i) {
+    const CcMapping& m = cc_[static_cast<std::size_t>(i)];
+    if (m.used && ((m.cc == cc && m.channel == channel) || m.target == target)) removeMapping(i);
+  }
+  for (int i = 0; i < kMaxCcMappings; ++i) {
+    if (cc_[static_cast<std::size_t>(i)].used) continue;
+    const CcMapping m{true, channel, cc, target, std::clamp(lo, 0.0f, 1.0f), std::clamp(hi, 0.0f, 1.0f)};
+    cc_[static_cast<std::size_t>(i)] = m;
+    Command c;
+    c.type = Command::Type::SetCcMapping;
+    c.slot = i;
+    c.mapping = m;
+    send(c);
+    markDirty();
+    return i;
+  }
+  return -1;
+}
+
 void Session::removeMapping(int slot) {
   if (slot < 0 || slot >= kMaxCcMappings) return;
   cc_[static_cast<std::size_t>(slot)] = {};
@@ -358,26 +380,11 @@ void Session::tick() {
         delete n->engine;
         break;
       case Notification::Type::CcLearned: {
-        // One control drives one parameter: drop whatever this CC or this
-        // parameter was mapped to before.
-        for (int i = 0; i < kMaxCcMappings; ++i) {
-          CcMapping& m = cc_[static_cast<std::size_t>(i)];
-          if (m.used && ((m.cc == n->cc && m.channel == n->channel) || m.target == n->param)) removeMapping(i);
-        }
-        for (int i = 0; i < kMaxCcMappings; ++i) {
-          if (cc_[static_cast<std::size_t>(i)].used) continue;
-          CcMapping m{true, n->channel, n->cc, n->param, 0.0f, 1.0f};
-          cc_[static_cast<std::size_t>(i)] = m;
-          Command c;
-          c.type = Command::Type::SetCcMapping;
-          c.slot = i;
-          c.mapping = m;
-          send(c);
+        if (addMapping(n->channel, n->cc, n->param) >= 0)
           message_ = "learned: cc " + std::to_string(n->cc) + " ch " + std::to_string(n->channel + 1) + " → " +
                      paramLabel(n->param);
-          markDirty();
-          break;
-        }
+        else
+          message_ = "CC map is full (64 mappings)";
         learning_.reset();
         break;
       }
@@ -619,6 +626,9 @@ bool Session::writeAutosave(std::string& error) {
   if (!writeFileAtomic(paths_.autosaveFile(name_), toJson(), error)) return false;
   autosaved_ = values_;
   autosavedDirty_ = false;
+  // So the next start comes back here and offers the recovery, even for a
+  // sketch that was never saved.
+  rememberLastProject();
   return true;
 }
 

@@ -158,6 +158,27 @@ TEST_CASE("session: autosave and recovery") {
   CHECK_FALSE(fs::exists(r.session.paths().autosaveFile("draft")));
 }
 
+TEST_CASE("session: an unsaved sketch comes back after quitting") {
+  Rig r;
+  r.session.newProject("sketch x");
+  r.session.setEngine(0, EngineType::Fm);
+  r.session.setParam({0, kFader}, -7.0f);
+  r.run();
+  r.session.autosaveIfNeeded();  // quit without saving
+  // Next start: main() opens the last project; there's no project.json, only
+  // the autosave, so recovery is offered.
+  CHECK(r.session.lastProject() == "sketch x");
+  CHECK(r.session.hasRecovery("sketch x"));
+  CHECK(r.session.listProjects() == std::vector<std::string>{"sketch x"});
+  Rig r2;
+  Session s2(*r2.module, r.session.paths(), r2.config);
+  std::string error;
+  s2.newProject("sketch x");
+  REQUIRE(s2.recover("sketch x", error));
+  CHECK(s2.track(0).engine == EngineType::Fm);
+  CHECK(s2.param({0, kFader}) == doctest::Approx(-7.0f));
+}
+
 TEST_CASE("session: CC learn end to end") {
   Rig r;
   r.session.newProject("cc");

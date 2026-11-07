@@ -186,8 +186,14 @@ class MixerScreen final : public Screen {
         text(master ? " " : eqGlyph(s, index)) | color(eqBypassed || type == EngineType::None ? palette::faint : palette::value),
         text(master ? " " : "pan " + formatValue(mixerParam(kPan), s.param({scope, kPan}))) |
             color(type == EngineType::None ? palette::faint : palette::dim),
-        hbox({verticalMeter(m.peakLeft.load(std::memory_order_relaxed), meterHeight),
-              verticalMeter(m.peakRight.load(std::memory_order_relaxed), meterHeight), vbox(faderCol)}) | center,
+        hbox({verticalMeter(holds_[static_cast<std::size_t>(index)][0].update(m.rmsLeft.load(std::memory_order_relaxed),
+                                                                              m.peakLeft.load(std::memory_order_relaxed)),
+                            meterHeight),
+              verticalMeter(holds_[static_cast<std::size_t>(index)][1].update(m.rmsRight.load(std::memory_order_relaxed),
+                                                                              m.peakRight.load(std::memory_order_relaxed)),
+                            meterHeight),
+              vbox(faderCol)}) |
+            center,
         text(formatValue(mixerParam(kFader), fader)) | color(sel ? palette::text : palette::dim) | center,
         master ? text(" ")
                : hbox({text(" M ") | color(muted ? palette::bg : palette::faint) | bgcolor(muted ? palette::record : palette::bg),
@@ -216,13 +222,14 @@ class MixerScreen final : public Screen {
       const auto scope = static_cast<uint8_t>(i);
       const bool sel = i == strip_ && pane_ == 0;
       const MeterStatus& m = master ? st.master : st.track[static_cast<std::size_t>(i)];
-      const float peak = std::max(m.peakLeft.load(), m.peakRight.load());
+      const MeterReading reading = holds_[static_cast<std::size_t>(i)][0].update(std::max(m.rmsLeft.load(), m.rmsRight.load()),
+                                                                                 std::max(m.peakLeft.load(), m.peakRight.load()));
       std::string ms = master ? "" : (s.param({scope, kMute}) >= 0.5f ? "M" : (s.param({scope, kSolo}) >= 0.5f ? "S" : ""));
       Element row = hbox({
           text(master ? " M " : " " + std::to_string(i + 1) + " ") | bold,
           text(fit(master ? "master" : engineLabel(s.track(i).engine), 5)) | size(WIDTH, EQUAL, 6) |
               color(sel ? palette::bg : (master ? palette::accent : engineColor(s.track(i).engine))),
-          levelBar(peak, 6, sel),
+          levelBar(reading, 6, sel),
           text(" " + formatValue(mixerParam(kFader), s.param({scope, kFader}))) | size(WIDTH, EQUAL, 10),
           text(master ? "" : formatValue(mixerParam(kPan), s.param({scope, kPan}))) | size(WIDTH, EQUAL, 5),
           text(eqGlyph(s, std::min(i, kTrackCount - 1))) | color(sel ? palette::bg : palette::value),
@@ -318,6 +325,7 @@ class MixerScreen final : public Screen {
     return pane(title, body, pane_ == 1 ? palette::accent : palette::border);
   }
 
+  std::array<std::array<PeakHold, 2>, kMasterIndex + 1> holds_{};  // per strip, L and R
   int strip_ = 0;  // 0-7 tracks, 8 master
   int pane_ = 0;   // 0 strips, 1 EQ
   int band_ = 2;
