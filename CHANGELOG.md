@@ -5,6 +5,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-06
+
 ### Added
 - **Eight tracks, each on its own MIDI channel** (1–8 by default). Change the mapping in Settings (`,`). Two tracks on the same channel play together, for layering.
 - **Any track can be FM.** Press ⏎ on an empty track to choose an engine. Drum, Sampler and Plaits are listed and arrive in later phases.
