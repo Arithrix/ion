@@ -21,3 +21,15 @@ add_subdirectory(ftxui EXCLUDE_FROM_ALL)
 # ---- doctest (MIT) ----------------------------------------------------------
 add_library(doctest INTERFACE)
 target_include_directories(doctest SYSTEM INTERFACE doctest)
+
+# ---- nlohmann/json (MIT) — project files -------------------------------------
+add_library(nlohmann_json INTERFACE)
+target_include_directories(nlohmann_json SYSTEM INTERFACE nlohmann)
+
+# ---- toml++ (MIT) — config ----------------------------------------------------
+add_library(tomlplusplus INTERFACE)
+target_include_directories(tomlplusplus SYSTEM INTERFACE tomlplusplus)
+
+# ---- dr_wav (public domain / MIT-0) — WAV I/O ----------------------------------
+add_library(dr_libs INTERFACE)
+target_include_directories(dr_libs SYSTEM INTERFACE dr_libs)

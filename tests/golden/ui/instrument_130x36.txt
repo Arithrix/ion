@@ -1,0 +1,36 @@
+ ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
+╭ Bank ────────────────────────────────────────────────────────────────────╮╭ Patch ─────────────────────────────────────────────╮
+│No bank loaded.                                                           ││SNAP TEST                                           │
+│Start ion with --syx FILE to browse a DX7 bank here.                      ││from unit                                           │
+│The full FM library (import, search, favourites) is Phase 2.              ││                                                    │
+│                                                                          ││algorithm    5                                      │
+│                                                                          ││feedback     6                                      │
+│                                                                          ││transpose    0 st                                   │
+│                                                                          ││                                                    │
+│                                                                          ││engine                                              │
+│                                                                          ││Polyphony    8                                      │
+│                                                                          ││Bend range   2                                      │
+│                                                                          ││Mono         off                                    │
+│                                                                          ││                                                    │
+│                                                                          ││macros (bright, attack, release, feedback, detune,  │
+│                                                                          ││velocity) arrive in Phase 2                         │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+╰──────────────────────────────────────────────────────────────────────────╯╰────────────────────────────────────────────────────╯
+ midi MIDI off  ·  last: nothing yet
+ ↑↓  Patch   PgUp/Dn  Jump 8   Tab  Params   Spc  Audition   Esc  Back

@@ -1,0 +1,36 @@
+ ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
+╭ Tracks ───────────────────────────────────────────────────────────────────────╮╭ Track 1 · FM ─────────────────────────────────╮
+│ #  ch  engine  sound                                    level       dB        ││SNAP TEST                                      │
+│ 1  01  FM      SNAP TEST                                 ░░░░░░░░░░   0.0  ·  ││from unit                                      │
+│ 2  02  —       — empty —                                 ░░░░░░░░░░        ·  ││                                               │
+│ 3  03  FM                                                                                                                      │
+│ 4  04  —   ╭ Help ───────────────────────────────────────────────────────────────────────────────────────────────╮             │
+│ 5  05  —   │Everywhere                                                       Piano mode (`)                      │             │
+│ 6  06  —   │T I M F R L  Tracks · Instrument · Mixer · FX · Rec · Library    Z S X D C…   lower octave, from C   │             │
+│ 7  07  —   │,            Settings                                            Q 2 W 3 E…   upper octave           │             │
+│ 8  08  —   │1 – 8        select track                                        [  ]         octave down / up       │             │
+│            │↑ ↓ ← →      move · change the value (Shift = coarse)            \            velocity 64 / 100 / 127│             │
+│            │Tab          switch pane                                         Esc          leave piano mode       │             │
+│            │⏎            edit / open                                         notes play for 300 ms (gate mode)   │             │
+│            │Esc          back · cancel                                                                           │             │
+│            │Space        audition the selected track                         This screen                         │             │
+│            │m  s         mute · solo the selected track                      1-8          Track                  │             │
+│            │l            MIDI-learn the focused value                        ↑↓           Move                   │             │
+│            │p            panic: all notes off                                ←→           Fader                  │             │
+│            │w  W         save · save as                                      Tab          Pane                   │             │
+│            │`            piano mode                                          ⏎            Edit                   │             │
+│            │~            MIDI monitor                                        m            Mute                   │             │
+│            │q            quit                                                s            Solo                   │             │
+│            │                                                                 Spc          Audition               │             │
+│            │                                                                 ?            Help                   │             │
+│            │                                                                 q            Quit                   │             │
+│            │                                                                                                     │             │
+│            │ion VERSION                                                                                          │             │
+│            │Esc or ? closes                                                                                      │             │
+│            ╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯             │
+│                                                                                                                                │
+├───────────────────────────────────────────────────────────────────────────────┤├───────────────────────────────────────────────┤
+│ 2 of 8 tracks in use · 0 voices                                               ││midi ch 01 · 0 voices                          │
+╰───────────────────────────────────────────────────────────────────────────────╯╰───────────────────────────────────────────────╯
+ midi MIDI off  ·  last: nothing yet
+ Esc  Close

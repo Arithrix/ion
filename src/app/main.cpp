@@ -5,6 +5,7 @@
 #include <csignal>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <memory>
@@ -14,11 +15,13 @@
 
 #include "audio/pipewire_out.h"
 #include "core/version.h"
-#include "engine/fm/fm_engine.h"
 #include "engine/module.h"
 #include "library/syx.h"
 #include "midi/alsa_seq_in.h"
-#include "ui/shell.h"
+#include "project/config.h"
+#include "project/paths.h"
+#include "project/session.h"
+#include "ui/app.h"
 
 namespace {
 
@@ -27,26 +30,31 @@ struct Args {
   bool help = false;
   bool headless = false;
   bool listMidi = false;
+  std::string project;
+  std::string syxPath;
+  int voice = 1;          // 1-based
+  std::string midiMatch;  // overrides the settings for this run
+  bool midiAll = false;
+  unsigned latency = 0;   // 0 = from settings
   int snapshotWidth = 0;  // --ui-snapshot WxH (debug)
   int snapshotHeight = 0;
-  std::string syxPath;
-  int voice = 1;  // 1-based
-  std::string midiMatch = "OXI";
-  unsigned latency = 128;
+  std::string snapshotScreen = "tracks";
 };
 
 void printUsage() {
   std::puts(
       "usage: ion [options]\n"
       "\n"
-      "  --syx FILE        load a DX7 .syx bank onto track 1\n"
-      "  --voice N         start on voice N of the bank (1-32)\n"
-      "  --midi NAME       connect MIDI inputs whose name contains NAME (default OXI)\n"
+      "  --project NAME    open (or create) ~/ion/projects/NAME\n"
+      "  --syx FILE        load a DX7 .syx bank to browse (Instrument screen)\n"
+      "  --voice N         with --syx on an empty project: put voice N on track 1\n"
+      "  --midi NAME       connect MIDI inputs whose name contains NAME (default: from Settings)\n"
       "  --midi-all        connect every hardware MIDI input\n"
-      "  --latency FRAMES  requested audio buffer at 48 kHz (default 128)\n"
+      "  --latency FRAMES  requested audio buffer at 48 kHz (default: from Settings)\n"
       "  --headless        run without the UI; Ctrl+C to stop\n"
       "  --list-midi       list MIDI inputs and exit\n"
       "  --ui-snapshot WxH print one UI frame as text and exit (for bug reports)\n"
+      "  --screen NAME     with --ui-snapshot: tracks, instrument, mixer, library, settings, help, piano\n"
       "  --version         print the version and exit");
 }
 
@@ -64,17 +72,19 @@ bool parseArgs(int argc, char** argv, Args& a) {
     else if (arg == "--help" || arg == "-h") a.help = true;
     else if (arg == "--headless") a.headless = true;
     else if (arg == "--list-midi") a.listMidi = true;
-    else if (arg == "--midi-all") a.midiMatch.clear();
+    else if (arg == "--midi-all") a.midiAll = true;
+    else if (arg == "--project") { const char* v = value("--project"); if (!v) return false; a.project = v; }
     else if (arg == "--syx") { const char* v = value("--syx"); if (!v) return false; a.syxPath = v; }
     else if (arg == "--voice") { const char* v = value("--voice"); if (!v) return false; a.voice = std::atoi(v); }
     else if (arg == "--midi") { const char* v = value("--midi"); if (!v) return false; a.midiMatch = v; }
-    else if (arg == "--ui-snapshot") {
-      const char* v = value("--ui-snapshot");
-      if (!v || std::sscanf(v, "%dx%d", &a.snapshotWidth, &a.snapshotHeight) != 2) return false;
-    } else if (arg == "--latency") {
+    else if (arg == "--screen") { const char* v = value("--screen"); if (!v) return false; a.snapshotScreen = v; }
+    else if (arg == "--latency") {
       const char* v = value("--latency");
       if (!v) return false;
       a.latency = static_cast<unsigned>(std::atoi(v));
+    } else if (arg == "--ui-snapshot") {
+      const char* v = value("--ui-snapshot");
+      if (!v || std::sscanf(v, "%dx%d", &a.snapshotWidth, &a.snapshotHeight) != 2) return false;
     } else {
       std::fprintf(stderr, "ion: unknown option %s (try --help)\n", arg.c_str());
       return false;
@@ -110,6 +120,14 @@ std::string baseName(const std::string& path) {
   return dot == std::string::npos ? name : name.substr(0, dot);
 }
 
+ion::ui::ScreenId screenFromName(const std::string& n) {
+  if (n == "mixer") return ion::ui::ScreenId::Mixer;
+  if (n == "instrument") return ion::ui::ScreenId::Instrument;
+  if (n == "library") return ion::ui::ScreenId::Library;
+  if (n == "settings") return ion::ui::ScreenId::Settings;
+  return ion::ui::ScreenId::Tracks;
+}
+
 volatile std::sig_atomic_t g_stop = 0;
 
 }  // namespace
@@ -136,61 +154,112 @@ int main(int argc, char** argv) {
     return 0;
   }
 
-  std::vector<ion::syx::Voice> voices;
-  if (!args.syxPath.empty() && !loadBank(args.syxPath, voices)) return 1;
-  int voiceIndex = 0;
-  if (!voices.empty()) voiceIndex = std::clamp(args.voice - 1, 0, static_cast<int>(voices.size()) - 1);
+  // ---- settings ----
+  const ion::Paths paths = ion::Paths::defaults();
+  std::vector<std::string> warnings;
+  ion::Config config = ion::Config::load(paths.configFile, warnings);
+  for (const auto& w : warnings) std::fprintf(stderr, "ion: %s\n", w.c_str());
+  if (args.latency) config.latencyFrames = args.latency;
 
-  ion::Module module;
-  auto fm = std::make_unique<ion::FmEngine>(8);
-  if (!voices.empty()) fm->loadVoice(voices[static_cast<std::size_t>(voiceIndex)]);
-  module.setFmEngine(0, std::move(fm));
+  std::vector<ion::syx::Voice> bank;
+  if (!args.syxPath.empty() && !loadBank(args.syxPath, bank)) return 1;
 
-  ion::PipeWireOutput audio(module, {args.latency});
+  auto module = std::make_unique<ion::Module>();
+  ion::Session session(*module, paths, config);
+  if (!bank.empty()) session.setBank(bank, baseName(args.syxPath));
+
+  // ---- project: --project, else the last one, else a new sketch ----
+  std::string name = args.project;
+  if (name.empty() && config.openLastProject) name = session.lastProject();
+  if (!name.empty() && !ion::validProjectName(name)) {
+    std::fprintf(stderr, "ion: \"%s\" isn't a valid project name\n", name.c_str());
+    return 2;
+  }
+  std::string notice;
   std::string error;
-  if (!audio.start(error)) {
-    std::fprintf(stderr, "ion: audio: %s\n", error.c_str());
-    return 1;
+  if (!name.empty() && std::filesystem::exists(paths.projectFile(name))) {
+    if (!session.load(name, error)) {
+      std::fprintf(stderr, "ion: can't open project \"%s\": %s\n", name.c_str(), error.c_str());
+      return 1;
+    }
+    notice = "opened " + name;
+  } else {
+    session.newProject(name.empty() ? session.freshName() : name);
+    notice = "new project: " + session.name() + " (w saves it)";
+  }
+  bool offerRecovery = false;
+  if (session.hasRecovery(session.name())) {
+    if (args.headless)
+      std::fprintf(stderr, "ion: \"%s\" has unsaved changes in an autosave; run ion with the UI to recover them\n",
+                   session.name().c_str());
+    else
+      offerRecovery = true;
   }
 
-  ion::AlsaSeqInput midi(module, {args.midiMatch});
+  // Quick start: a bank given to an empty project puts a voice on track 1.
+  bool emptyProject = true;
+  for (int t = 0; t < ion::kTrackCount; ++t) emptyProject &= session.track(t).engine == ion::EngineType::None;
+  if (!bank.empty() && emptyProject) {
+    session.setEngine(0, ion::EngineType::Fm);
+    const int v = std::clamp(args.voice - 1, 0, static_cast<int>(bank.size()) - 1);
+    session.setVoice(0, bank[static_cast<std::size_t>(v)], session.bankName(), v);
+  }
+
+  // ---- snapshot (debug aid, no audio) ----
+  if (args.snapshotWidth > 0) {
+    std::vector<float> buf(2 * 256);
+    module->process(buf.data(), 256);  // apply the project
+    session.tick();
+    const bool piano = args.snapshotScreen == "piano", help = args.snapshotScreen == "help";
+    std::fputs(ion::ui::snapshot(session, *module, screenFromName(args.snapshotScreen), args.snapshotWidth,
+                                 args.snapshotHeight, piano, help)
+                   .c_str(),
+               stdout);
+    return 0;
+  }
+
+  // ---- audio + MIDI ----
+  ion::PipeWireOutput audio(*module, {config.latencyFrames});
+  const bool audioOk = audio.start(error);
+  if (!audioOk) {
+    std::fprintf(stderr, "ion: audio: %s\n", error.c_str());
+    if (args.headless) return 1;
+    notice = "no audio: " + error;
+  }
+  std::string match = args.midiMatch.empty() ? config.midiInput : args.midiMatch;
+  if (args.midiAll || (args.midiMatch.empty() && config.midiAcceptAll)) match.clear();
+  ion::AlsaSeqInput midi(*module, {match});
   const bool midiOk = midi.start(error);
   if (!midiOk) std::fprintf(stderr, "ion: midi: %s (continuing without MIDI)\n", error.c_str());
 
-  if (args.snapshotWidth > 0) {
-    // Debug aid: play a note, then print one UI frame as text.
-    ion::Command c;
-    c.type = ion::Command::Type::NoteOn;
-    c.note = 60;
-    c.velocity = 100;
-    module.pushCommand(c);
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
-    ion::ShellContext ctx{module, &audio, midiOk ? &midi : nullptr, voices, baseName(args.syxPath), voiceIndex};
-    std::fputs(ion::snapshot(ctx, args.snapshotWidth, args.snapshotHeight).c_str(), stdout);
-    c.type = ion::Command::Type::NoteOff;
-    module.pushCommand(c);
-  } else if (args.headless) {
+  if (args.headless) {
     std::signal(SIGINT, [](int) { g_stop = 1; });
     std::signal(SIGTERM, [](int) { g_stop = 1; });
-    std::printf("%s · headless · Ctrl+C to stop\n", ion::versionLine().c_str());
-    if (!voices.empty())
-      std::printf("track 1: FM · %s\n", ion::syx::name(voices[static_cast<std::size_t>(voiceIndex)]).c_str());
-    const auto& st = module.status();
+    std::printf("%s · headless · project \"%s\" · Ctrl+C to stop\n", ion::versionLine().c_str(), session.name().c_str());
+    const auto& st = module->status();
+    int ticks = 0;
     while (!g_stop) {
-      std::this_thread::sleep_for(std::chrono::seconds(1));
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      session.tick();
+      if (std::string m = session.takeMessage(); !m.empty()) std::printf("\n%s\n", m.c_str());
+      if (++ticks % 10) continue;
       const auto names = midiOk ? midi.connected() : std::vector<std::string>{};
-      std::printf("\rcpu %4.1f%% (peak %4.1f%%) · %u frames · %u dropouts · %s · midi %u msgs · %s      ",
-                  st.dspLoad.load() * 100, st.dspLoadPeak.load() * 100, st.callbackFrames.load(),
-                  audio.dropouts(), audio.realtime() ? "RT" : "no RT", st.midiReceived.load(),
-                  names.empty() ? "no OXI" : names.front().c_str());
+      char clock[32] = "no clock";
+      if (st.clockPresent.load())
+        std::snprintf(clock, sizeof clock, "%.1f BPM%s", static_cast<double>(st.bpm.load()), st.running.load() ? " ▶" : "");
+      std::printf("\rcpu %4.1f%% (peak %4.1f%%) · %u frames · %u dropouts · %s · %s · midi %u · %s      ",
+                  static_cast<double>(st.dspLoad.load() * 100), static_cast<double>(st.dspLoadPeak.load() * 100),
+                  st.callbackFrames.load(), audio.dropouts(), audio.realtime() ? "RT" : "no RT", clock,
+                  st.midiReceived.load(), names.empty() ? "no OXI" : names.front().c_str());
       std::fflush(stdout);
     }
     std::puts("");
   } else {
-    ion::ShellContext ctx{module, &audio, midiOk ? &midi : nullptr, voices, baseName(args.syxPath), voiceIndex};
-    ion::runShell(ctx);
+    ion::ui::run(session, *module, {audioOk ? &audio : nullptr, midiOk ? &midi : nullptr, offerRecovery, notice});
   }
 
+  // A clean exit keeps unsaved work as an autosave; the next start offers it back.
+  session.autosaveIfNeeded();
   midi.stop();
   audio.stop();
   return 0;

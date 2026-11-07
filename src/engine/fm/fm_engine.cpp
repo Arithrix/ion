@@ -1,5 +1,8 @@
 #include "engine/fm/fm_engine.h"
 
+#include <array>
+#include <cmath>
+
 #include <dexed.h>
 
 uint32_t g_ion_dexed_millis = 0;
@@ -25,7 +28,7 @@ class DexedCore : public Dexed {
 namespace {
 
 // Synth_Dexed outputs about ±0.5 per voice at full level. This leaves headroom
-// for chords before the track fader (Phase 1) takes over.
+// for chords; the track fader does the rest.
 constexpr float kOutputGain = 0.5f;
 
 constexpr uint8_t kCcModWheel = 1;
@@ -35,12 +38,20 @@ constexpr uint8_t kCcSustain = 64;
 constexpr uint8_t kCcAllSoundOff = 120;
 constexpr uint8_t kCcAllNotesOff = 123;
 
+const std::array<ParamInfo, FmEngine::kParamCount> kParams = {{
+    {"poly", "Polyphony", 1, FmEngine::kMaxPolyphony, 8, Curve::Choice, Unit::None, 1, 4},
+    {"bend", "Bend range", 0, 12, 2, Curve::Choice, Unit::Semitones, 1, 2},
+    {"mono", "Mono", 0, 1, 0, Curve::Toggle, Unit::None, 1, 1},
+}};
+
 }  // namespace
 
-FmEngine::FmEngine(int polyphony)
-    : dexed_(std::make_unique<DexedCore>(static_cast<uint8_t>(polyphony), static_cast<uint32_t>(kSampleRate))) {
+std::span<const ParamInfo> FmEngine::paramTable() { return kParams; }
+
+FmEngine::FmEngine()
+    : dexed_(std::make_unique<DexedCore>(static_cast<uint8_t>(kMaxPolyphony), static_cast<uint32_t>(kSampleRate))) {
   dexed_->setEngineType(MKI);  // Dexed's "Mark I" mode: closest to the original hardware
-  dexed_->setPitchbendRange(2);
+  for (int i = 0; i < kParamCount; ++i) setParam(i, kParams[static_cast<std::size_t>(i)].def);
   dexed_->activate();
 }
 
@@ -66,16 +77,35 @@ void FmEngine::pitchBend(int value) { dexed_->setPitchbend(static_cast<int16_t>(
 
 void FmEngine::allNotesOff() { dexed_->panic(); }
 
-void FmEngine::render(float* left, float* right) {
-  dexed_->getSamples(mono_, static_cast<uint16_t>(kBlockSize));
-  for (std::size_t i = 0; i < kBlockSize; ++i) {
-    const float s = mono_[i] * kOutputGain;
-    left[i] += s;
-    right[i] += s;
+void FmEngine::setParam(int index, float value) {
+  const int v = static_cast<int>(std::lround(value));
+  switch (index) {
+    case kPoly: dexed_->setMaxNotes(static_cast<uint8_t>(v)); break;  // stops held notes
+    case kBendRange: dexed_->setPitchbendRange(static_cast<uint8_t>(v)); break;
+    case kMono: dexed_->setMonoMode(v != 0); break;
+    default: break;
   }
-  // Also retires voices whose carriers have gone silent; without this call
-  // Synth_Dexed keeps computing finished notes.
-  voices_ = dexed_->getNumNotesPlaying();
+}
+
+void FmEngine::render(float* left, float* right, std::size_t frames) {
+  std::size_t done = 0;
+  while (done < frames) {
+    if (pos_ == kBlockSize) {
+      dexed_->getSamples(mono_, static_cast<uint16_t>(kBlockSize));
+      // Also retires voices whose carriers have gone silent; without this call
+      // Synth_Dexed keeps computing finished notes.
+      voices_ = dexed_->getNumNotesPlaying();
+      pos_ = 0;
+    }
+    const std::size_t n = std::min(frames - done, kBlockSize - pos_);
+    for (std::size_t i = 0; i < n; ++i) {
+      const float s = mono_[pos_ + i] * kOutputGain;
+      left[done + i] += s;
+      right[done + i] += s;
+    }
+    pos_ += n;
+    done += n;
+  }
 }
 
 void FmEngine::setClock(uint64_t frames) {

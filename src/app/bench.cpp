@@ -28,7 +28,8 @@ struct Result {
 // Plays `voices` notes on a fresh FmEngine for `seconds`, retriggering them every
 // 250 ms so decaying patches keep every voice busy.
 Result benchFm(const ion::syx::Voice* voice, int voices, double seconds) {
-  ion::FmEngine fm(16);
+  ion::FmEngine fm;
+  fm.setParam(ion::FmEngine::kPoly, 16);
   if (voice) fm.loadVoice(*voice);
   auto note = [](int i) { return static_cast<uint8_t>(48 + (i * 3) % 36); };
   constexpr std::size_t kRetriggerBlocks = ion::kSampleRate / 4 / ion::kBlockSize;
@@ -47,7 +48,7 @@ Result benchFm(const ion::syx::Voice* voice, int voices, double seconds) {
     ion::FmEngine::setClock(b * ion::kBlockSize);
     std::fill(std::begin(left), std::end(left), 0.0f);
     std::fill(std::begin(right), std::end(right), 0.0f);
-    fm.render(left, right);
+    fm.render(left, right, ion::kBlockSize);
     sink = sink + left[0];
     voiceSum += fm.voiceCount();
   }

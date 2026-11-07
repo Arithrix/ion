@@ -1,0 +1,36 @@
+ ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
+ /tmp/ion-ui-snapshot/config/config.toml
+╭ Audio ────────────────────────────────────────────────────╮╭ Track ↔ channel ──────────────────────────────────────────────────╮
+│backend        PipeWire (native)                           ││track 1        ch 1   FM                                           │
+│device         default output · follows the system         ││track 2        ch 2   empty                                        │
+│sample rate    48000                                       ││track 3        ch 3   FM                                           │
+│buffer         128 frames                                  ││track 4        ch 4   empty                                        │
+│running        no audio                                    ││track 5        ch 5   empty                                        │
+│128 frames at 48 kHz = 2.7 ms · buffer changes apply on    ││track 6        ch 6   empty                                        │
+│restart                                                    ││track 7        ch 7   empty                                        │
+╰───────────────────────────────────────────────────────────╯│track 8        ch 8   empty                                        │
+╭ MIDI + clock ─────────────────────────────────────────────╮│two tracks can share a channel to layer sounds                     │
+│input          names containing "OXI"                      │╰───────────────────────────────────────────────────────────────────╯
+│also accept    only that                                   │╭ CC map ───────────────────────────────────────────────────────────╮
+│timing         tight (+1 buffer, no jitter)                ││none                                                               │
+│connected      none                                        ││learn: focus any value and press l, then move a control on the OXI │
+│clock          no clock                                    ││                                                                   │
+│panic          p sends all notes off                       ││                                                                   │
+│program change (favourites list) arrives in Phase 2        ││                                                                   │
+╰───────────────────────────────────────────────────────────╯│                                                                   │
+╭ Keyboard + project ───────────────────────────────────────╮│                                                                   │
+│piano gate     300 ms                                      ││                                                                   │
+│piano rows     zsxdcvgbhnjm,l.;/ / q2w3er5t6y7ui9o0p       ││                                                                   │
+│autosave       off                                         ││                                                                   │
+│start-up       open the last project                       ││                                                                   │
+│piano rows: edit config.toml for non-US keyboards          ││                                                                   │
+╰───────────────────────────────────────────────────────────╯│                                                                   │
+                                                             │                                                                   │
+                                                             │                                                                   │
+                                                             │                                                                   │
+                                                             │                                                                   │
+                                                             │                                                                   │
+                                                             │                                                                   │
+                                                             ╰───────────────────────────────────────────────────────────────────╯
+ midi MIDI off  ·  last: nothing yet
+ Tab  Section   ↑↓  Field   ←→  Change   ⏎  Edit   x  Remove   Esc  Back   ?  Help

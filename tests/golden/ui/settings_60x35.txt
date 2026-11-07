@@ -1,0 +1,35 @@
+ ion Trk Ins Mix Fx Rec Lib                     0% no audio
+╭ Audio · 1/5 ─────────────────────────────────────────────╮
+│backend        PipeWire (native)                          │
+│device         default output · follows the system        │
+│sample rate    48000                                      │
+│buffer         128 frames                                 │
+│running        no audio                                   │
+│128 frames at 48 kHz = 2.7 ms · buffer changes apply on   │
+│restart                                                   │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+╰──────────────────────────────────────────────────────────╯
+ midi MIDI off · nothing yet
+ Tab  Section   ↑↓  Field   ←→  Change   ⏎  Edit
