@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.25)
 
-# The one place the version lives (HANDOFF §15).
+# The one place the version lives (HANDOFF §15). scripts/release.sh edits
+# these two lines. ION_PRERELEASE is empty or e.g. "-dev.4".
 project(ion VERSION 0.0.1 LANGUAGES C CXX)
+set(ION_PRERELEASE "")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -19,13 +21,19 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(PIPEWIRE REQUIRED IMPORTED_TARGET libpipewire-0.3)
 pkg_check_modules(ALSA REQUIRED IMPORTED_TARGET alsa)
 
+# Release builds: -O2 with debug info (split out by release.sh), and the C++
+# runtime linked statically so the binary runs on other distros (the Comet).
+set(CMAKE_CXX_FLAGS_RELEASE "-O2 -g -DNDEBUG")
+set(CMAKE_C_FLAGS_RELEASE "-O2 -g -DNDEBUG")
+add_link_options($<$<CONFIG:Release>:-static-libstdc++> $<$<CONFIG:Release>:-static-libgcc>)
+
 add_subdirectory(third_party)
 
 # ---- version header, regenerated on every build ---------------------------
 set(ION_GENERATED_DIR ${CMAKE_BINARY_DIR}/generated)
 add_custom_target(ion_version_header
   COMMAND ${CMAKE_COMMAND}
-          -DION_VERSION=${PROJECT_VERSION}
+          -DION_VERSION=${PROJECT_VERSION}${ION_PRERELEASE}
           -DION_SOURCE_DIR=${CMAKE_SOURCE_DIR}
           -DION_OUTPUT=${ION_GENERATED_DIR}/ion_version.h
           -P ${CMAKE_SOURCE_DIR}/cmake/version.cmake

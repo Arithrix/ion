@@ -46,6 +46,7 @@ void printUsage() {
       "  --latency FRAMES  requested audio buffer at 48 kHz (default 128)\n"
       "  --headless        run without the UI; Ctrl+C to stop\n"
       "  --list-midi       list MIDI inputs and exit\n"
+      "  --ui-snapshot WxH print one UI frame as text and exit (for bug reports)\n"
       "  --version         print the version and exit");
 }
 
