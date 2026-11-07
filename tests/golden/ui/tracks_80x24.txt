@@ -8,17 +8,17 @@
 │ 5  05  —       — em ░░░░░░░░░░        ·  ││polyphony  8                      │
 │ 6  06  —       — em ░░░░░░░░░░        ·  ││bend range 2                      │
 │ 7  07  —       — em ░░░░░░░░░░        ·  ││mono       off                    │
-│ 8  08  —       — em ░░░░░░░░░░        ·  ││                                  │
+│ 8  08  —       — em ░░░░░░░░░░        ·  ││bright     0                      │
+│                                          ││attack     0                      │
+│                                          ││release    0                      │
+│                                          ││feedback   0                      │
+│                                          ││detune     0                      │
+│                                          ││velocity   0                      │
+│                                          ││                                  │
 │                                          ││mixer                             │
 │                                          ││fader      ███████▏░░ 0.0 dB      │
-│                                          ││pan        ███▌░░░░░░ L30         │
-│                                          ││eq         hp 40 · 400 +6.0       │
-│                                          ││midi ch    1                      │
-│                                          ││                                  │
-│                                          ││inserts · sends   arrive in Phase │
-│                                          ││                                  │
-├──────────────────────────────────────────┤├──────────────────────────────────┤
-│ 2 of 8 tracks in use · 0 voices          ││midi ch 01 · 0 voices             │
+├──────────────────────────────────────────┤│pan        ███▌░░░░░░ L30         │
+│ 2 of 8 tracks in use · 0 voices          ││eq         hp 40 · 400 +6.0       │
 ╰──────────────────────────────────────────╯╰──────────────────────────────────╯
  midi MIDI off  ·  last: nothing yet
  1-8  Track   ↑↓  Move   ←→  Fader   Tab  Pane   ⏎  Edit   m  Mute   s  Solo

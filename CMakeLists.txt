@@ -54,6 +54,7 @@ add_library(ion_engine STATIC
   src/engine/channel_eq.cpp
   src/engine/clock.cpp
   src/engine/engine_types.cpp
+  src/engine/fm/dx7_voice.cpp
   src/engine/fm/fm_engine.cpp
   src/engine/module.cpp
   src/audio/pipewire_out.cpp

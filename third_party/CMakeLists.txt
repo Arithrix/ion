@@ -33,3 +33,11 @@ target_include_directories(tomlplusplus SYSTEM INTERFACE tomlplusplus)
 # ---- dr_wav (public domain / MIT-0) — WAV I/O ----------------------------------
 add_library(dr_libs INTERFACE)
 target_include_directories(dr_libs SYSTEM INTERFACE dr_libs)
+
+# ---- SQLite (public domain) — the library index ---------------------------------
+add_library(sqlite3 STATIC sqlite/sqlite3.c)
+target_include_directories(sqlite3 SYSTEM PUBLIC sqlite)
+# No extensions loaded at run time, no Tcl-isms; threads stay on (import runs on a worker).
+target_compile_definitions(sqlite3 PRIVATE SQLITE_OMIT_LOAD_EXTENSION SQLITE_DQS=0 SQLITE_DEFAULT_MEMSTATUS=0
+  SQLITE_DEFAULT_WAL_SYNCHRONOUS=1 SQLITE_THREADSAFE=2)
+target_compile_options(sqlite3 PRIVATE -w)

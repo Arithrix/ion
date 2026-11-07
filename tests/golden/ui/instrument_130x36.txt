@@ -11,15 +11,15 @@
 │                                                                          ││Polyphony    8                                      │
 │                                                                          ││Bend range   2                                      │
 │                                                                          ││Mono         off                                    │
+│                                                                          ││Bright       0                                      │
+│                                                                          ││Attack       0                                      │
+│                                                                          ││Release      0                                      │
+│                                                                          ││Feedback     0                                      │
+│                                                                          ││Detune       0                                      │
+│                                                                          ││Velocity     0                                      │
 │                                                                          ││                                                    │
 │                                                                          ││macros (bright, attack, release, feedback, detune,  │
 │                                                                          ││velocity) arrive in Phase 2                         │
-│                                                                          ││                                                    │
-│                                                                          ││                                                    │
-│                                                                          ││                                                    │
-│                                                                          ││                                                    │
-│                                                                          ││                                                    │
-│                                                                          ││                                                    │
 │                                                                          ││                                                    │
 │                                                                          ││                                                    │
 │                                                                          ││                                                    │

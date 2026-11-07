@@ -157,14 +157,37 @@ void Env::update(const int32_t r[4], const int32_t l[4], int32_t ol, int32_t rat
   }
   outlevel_ = ol;
   rate_scaling_ = rate_scaling;
+  // ion: upstream sent every held note to stage 3 here ("for now we simply
+  // reset ourselves at level 3"), which cut attacks short whenever a parameter
+  // changed under a held note. Stay in the current stage and retarget it with
+  // the new levels and rates; level_ carries on from where it is. Where the
+  // level was standing still (sustain, or a hold between two equal levels),
+  // a new level is reached at least as fast as rate 75, about a tenth of a
+  // second across the range, so a macro moved under a held note is heard
+  // straight away even when the patch's own rate is slow.
   if ( down_ ) {
-    // for now we simply reset ourselves at level 3
-    int32_t newlevel = levels_[2];
-    int32_t actuallevel = scaleoutlevel(newlevel) >> 1;
-    actuallevel = (actuallevel << 6) - 4256;
-    actuallevel = actuallevel < 16 ? 16 : actuallevel;
-    targetlevel_ = actuallevel << 16;
-    advance(2);
+    int32_t fastinc = (4 + (48 & 3)) << (2 + LG_N + (48 >> 2));
+    fastinc = (int)(((int64_t)fastinc * (int64_t)sr_multiplier) >> 24);
+    if (ix_ < 3) {
+#ifdef ACCURATE_ENVELOPE
+      const int32_t holding = staticcount_;
+      advance(ix_);
+      if (holding) {
+        if (staticcount_)
+          staticcount_ = holding;  // same level: keep the hold's timer, or a CC sweep would restart it forever
+        else if (inc_ < fastinc)
+          inc_ = fastinc;          // the held level moved: glide there, then carry on
+      }
+#else
+      advance(ix_);
+#endif
+    } else {
+      advance(2);
+      if (inc_ < fastinc) inc_ = fastinc;
+#ifdef ACCURATE_ENVELOPE
+      staticcount_ = 0;
+#endif
+    }
   }
 }
 

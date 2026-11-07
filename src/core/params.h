@@ -27,7 +27,7 @@ enum class Curve : uint8_t {
   Choice,  // integer 0 … max
 };
 
-enum class Unit : uint8_t { None, Db, Hz, Pan, Percent, Semitones };
+enum class Unit : uint8_t { None, Db, Hz, Pan, Percent, Semitones, Offset /* signed integer: "+12", "0" */ };
 
 struct ParamInfo {
   const char* key;    // "eq.b1.gain" — stable, used in files

@@ -2,7 +2,9 @@ add_executable(ion-tests
   test_main.cpp
   test_spsc.cpp
   test_syx.cpp
+  test_dx7.cpp
   test_fm.cpp
+  test_fm_handover.cpp
   test_midi_alsa.cpp
   test_module.cpp
   test_params_eq.cpp

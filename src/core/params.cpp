@@ -108,6 +108,12 @@ std::string formatValue(const ParamInfo& info, float v) {
       return v >= 0.5f ? "on" : "off";
     case Curve::Choice:
       if (info.choices) return info.choices[static_cast<int>(std::lround(v))];
+      if (info.unit == Unit::Offset) {
+        const long n = std::lround(v);
+        if (n == 0) return "0";
+        std::snprintf(buf, sizeof buf, "%+ld", n);
+        return buf;
+      }
       return std::to_string(static_cast<int>(std::lround(v)));
     default:
       break;
@@ -135,6 +141,7 @@ std::string formatValue(const ParamInfo& info, float v) {
       std::snprintf(buf, sizeof buf, "%+.0f st", static_cast<double>(v));
       break;
     case Unit::None:
+    case Unit::Offset:
       std::snprintf(buf, sizeof buf, info.max - info.min > 20 ? "%.0f" : "%.2f", static_cast<double>(v));
       break;
   }
