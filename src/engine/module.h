@@ -217,6 +217,11 @@ class Module {
   std::array<std::array<Effect*, kInsertSlots>, kScopeCount> fx_{};
   std::array<std::array<float, kInsertSlots>, kScopeCount> fxMix_{};  // bypass crossfade, 1 = in
   Limiter limiter_;
+  // Blocks each scope's EQ and inserts have had silence in and (near) silence
+  // out: past a few, they're skipped until sound arrives (an idle reverb costs nothing).
+  std::array<int, kScopeCount> quiet_{};
+  bool asleep(int scope, const float* l, const float* r) noexcept;
+  void settle(int scope, const float* l, const float* r) noexcept;
   float busLeft_[2][kBlockSize]{}, busRight_[2][kBlockSize]{};
   float scratchLeft_[kBlockSize]{}, scratchRight_[kBlockSize]{};
   ClockFollower clock_;

@@ -36,6 +36,10 @@ class Effect {
   virtual void setTempo(double) {}
   // Gain reduction in dB (≥ 0) for the meters; 0 for effects that don't compress.
   virtual float reduction() const { return 0; }
+  // How many blocks of silence must come out (with silence going in) before
+  // nothing is left inside: the module skips the effect after that. A delay
+  // can sound silent for its whole delay time and still hold an echo.
+  virtual int memoryBlocks() const { return 0; }
 };
 
 // Allocates everything up front (delay lines, reverb tank): not on the audio thread.

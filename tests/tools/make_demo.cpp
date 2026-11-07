@@ -14,6 +14,7 @@
 #include "audio/wav.h"
 #include "engine/drum/drum_engine.h"
 #include "engine/fm/fm_engine.h"
+#include "engine/fx/effects.h"
 #include "engine/module.h"
 #include "library/syx.h"
 #include "project/config.h"
@@ -195,6 +196,31 @@ int main(int argc, char** argv) {
   set(4, kFader, -3.0f);
   // cc 74 on channel 5: the open hat's decay.
   s.addMapping(4, 74, engineParamRef(4, DrumEngine::param(5, DrumEngine::kDecay)));
+
+  // Effects (Phase 4): chorus on the piano, a compressor on the bass, the
+  // drums gently compressed; piano and drums in the reverb, the drums and
+  // brass in the delay. The master's glue compressor stays out until wanted.
+  s.setInsert(0, 0, EffectType::Chorus);
+  s.setParam(insertParamRef(0, 0, Chorus::kMix), 0.35f);
+  s.setInsert(1, 0, EffectType::Compressor);
+  s.setParam(insertParamRef(1, 0, Compressor::kThreshold), -20);
+  s.setParam(insertParamRef(1, 0, Compressor::kRatio), 4);
+  s.setParam(insertParamRef(1, 0, Compressor::kMakeup), 3);
+  s.setInsert(4, 0, EffectType::Compressor);
+  s.setParam(insertParamRef(4, 0, Compressor::kThreshold), -14);
+  s.setParam(insertParamRef(4, 0, Compressor::kAttack), 20);
+  s.setParam(insertParamRef(4, 0, Compressor::kRelease), 120);
+  s.setParam({0, kSendB}, -10.0f);
+  s.setParam({2, kSendA}, -14.0f);
+  s.setParam({2, kSendB}, -12.0f);
+  s.setParam({4, kSendA}, -18.0f);
+  s.setParam({4, kSendB}, -16.0f);
+  s.setParam({kReverbScope, kFader}, -3.0f);
+  s.setParam({kDelayScope, kFader}, -4.0f);
+  s.setParam({kDelayScope, kSendB}, -12.0f);  // echoes into the reverb, a little
+  // cc 75 on channel 1: the reverb's size; cc 76: the delay's feedback.
+  s.addMapping(0, 75, insertParamRef(kReverbScope, 0, Reverb::kSize));
+  s.addMapping(0, 76, insertParamRef(kDelayScope, 0, Delay::kFeedback));
 
   if (!s.save(error)) {
     std::fprintf(stderr, "make-demo: %s\n", error.c_str());

@@ -16,6 +16,7 @@
 #include "core/version.h"
 #include "engine/drum/drum_engine.h"
 #include "engine/fm/fm_engine.h"
+#include "engine/fx/effects.h"
 #include "library/syx.h"
 
 namespace {
@@ -97,6 +98,26 @@ Result benchDrum(int pads, bool filter, bool drive, double seconds) {
   return {rendered / wall.count(), wall.count() * 1e6 / periods, voiceSum / static_cast<double>(blocks)};
 }
 
+// One effect processing stereo noise, as an insert (or as a return when wetOnly).
+double benchEffect(ion::Effect& fx, double seconds) {
+  const auto blocks = static_cast<std::size_t>(seconds * ion::kSampleRate / ion::kBlockSize);
+  float left[ion::kBlockSize], right[ion::kBlockSize];
+  uint32_t seed = 1;
+  volatile float sink = 0;
+  const auto start = std::chrono::steady_clock::now();
+  for (std::size_t b = 0; b < blocks; ++b) {
+    for (std::size_t i = 0; i < ion::kBlockSize; ++i) {
+      left[i] = static_cast<float>((seed = seed * 1664525u + 1013904223u) >> 8) / 16777216.0f - 0.5f;
+      right[i] = -left[i];
+    }
+    fx.process(left, right, ion::kBlockSize);
+    sink = sink + left[0];
+  }
+  const std::chrono::duration<double> wall = std::chrono::steady_clock::now() - start;
+  const double periods = static_cast<double>(blocks * ion::kBlockSize) / 128.0;
+  return wall.count() * 1e6 / periods;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -149,6 +170,37 @@ int main(int argc, char** argv) {
     const Result r = benchDrum(sc.pads, sc.filter, sc.drive, seconds);
     std::printf("  %4d  %-15s %8.1f   %9.0f   %23.1f   %11.2f%%   %12.2f\n", sc.pads, sc.label, r.averageVoices, r.realtimeFactor,
                 r.usPerPeriod128, r.usPerPeriod128 / 2666.7 * 100.0, r.usPerPeriod128 / std::max(1.0, r.averageVoices));
+  }
+
+  std::printf("\nEffects (stereo noise in; the time includes making the noise)\n");
+  std::printf("  effect                    µs per 128-frame buffer   %% of 2.67 ms\n");
+  struct Fx {
+    const char* label;
+    ion::EffectType type;
+    int param = -1;
+    float value = 0;
+  };
+  for (const Fx& f : {Fx{"compressor", ion::EffectType::Compressor}, Fx{"chorus", ion::EffectType::Chorus},
+                      Fx{"delay (1/8D, 40%)", ion::EffectType::Delay}, Fx{"reverb plate", ion::EffectType::Reverb, ion::Reverb::kType, 0},
+                      Fx{"reverb hall", ion::EffectType::Reverb, ion::Reverb::kType, 1},
+                      Fx{"reverb room", ion::EffectType::Reverb, ion::Reverb::kType, 2}}) {
+    auto fx = ion::createEffect(f.type);
+    if (f.param >= 0) fx->setParam(f.param, f.value);
+    const double us = benchEffect(*fx, seconds);
+    std::printf("  %-24s  %23.1f   %11.2f%%\n", f.label, us, us / 2666.7 * 100.0);
+  }
+  {
+    ion::Limiter lim;
+    struct Wrap final : ion::Effect {
+      ion::Limiter& l;
+      explicit Wrap(ion::Limiter& x) : l(x) {}
+      ion::EffectType type() const override { return ion::EffectType::None; }
+      void setParam(int, float) override {}
+      void process(float* a, float* b, std::size_t n) override { l.process(a, b, n); }
+      void reset() override {}
+    } w(lim);
+    const double us = benchEffect(w, seconds);
+    std::printf("  %-24s  %23.1f   %11.2f%%\n", "limiter (master)", us, us / 2666.7 * 100.0);
   }
   return 0;
 }

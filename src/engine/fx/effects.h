@@ -3,6 +3,7 @@
 // The effects themselves. Each class has its parameter enum and table; the
 // table order is the index used by setParam and in project files (by key).
 
+#include <algorithm>
 #include <array>
 #include <vector>
 
@@ -44,6 +45,7 @@ class Chorus final : public Effect {
   void setParam(int index, float value) override;
   void process(float* left, float* right, std::size_t frames) override;
   void reset() override;
+  int memoryBlocks() const override { return kSize / 64 + 1; }
 
  private:
   static constexpr int kSize = 4096;  // 85 ms, a power of two
@@ -70,6 +72,7 @@ class Delay final : public Effect {
   void setWetOnly(bool on) override { wetOnly_ = on; }
   void setTempo(double bpm) override { bpm_ = bpm; }
   double targetSamples() const;  // the delay time it's heading for (tests)
+  int memoryBlocks() const override { return static_cast<int>(std::max(time_, targetSamples()) / 64) + 2; }
 
  private:
   void updateFilters();
@@ -98,6 +101,7 @@ class Reverb final : public Effect {
   void process(float* left, float* right, std::size_t frames) override;
   void reset() override;
   void setWetOnly(bool on) override { wetOnly_ = on; }
+  int memoryBlocks() const override;
 
  private:
   struct Line {  // a delay line read with linear interpolation

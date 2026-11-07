@@ -266,6 +266,36 @@ void Module::runInserts(int scope, float* l, float* r) noexcept {
   }
 }
 
+namespace {
+constexpr int kSleepAfter = 8;          // blocks of silence (about 10 ms)
+constexpr float kSilence = 1e-7f;       // −140 dB
+float blockPeak(const float* l, const float* r) {
+  float p = 0;
+  for (std::size_t i = 0; i < kBlockSize; ++i) p = std::max(p, std::max(std::fabs(l[i]), std::fabs(r[i])));
+  return p;
+}
+}  // namespace
+
+// True when the scope's EQ and inserts can be skipped for this block: nothing
+// coming in, and what came out has died away. Anything arriving wakes it.
+bool Module::asleep(int scope, const float* l, const float* r) noexcept {
+  int& q = quiet_[static_cast<std::size_t>(scope)];
+  if (blockPeak(l, r) > 0) {
+    q = 0;
+    return false;
+  }
+  int needed = kSleepAfter;
+  for (const Effect* e : fx_[static_cast<std::size_t>(scope)])
+    if (e) needed = std::max(needed, kSleepAfter + e->memoryBlocks());
+  return q >= needed;
+}
+
+// After processing: count a block that went out (near) silent.
+void Module::settle(int scope, const float* l, const float* r) noexcept {
+  int& q = quiet_[static_cast<std::size_t>(scope)];
+  q = blockPeak(l, r) < kSilence ? std::min(q + 1, 1 << 20) : 0;
+}
+
 void Module::strip(int scope, float* l, float* r, float gainScale, float* outL, float* outR) noexcept {
   const auto si = static_cast<std::size_t>(scope);
   const auto& v = values_[si];
@@ -309,8 +339,11 @@ void Module::mix() noexcept {
     float* l = trackLeft_[t];
     float* r = trackRight_[t];
 
-    if (engines_[ti]) eq_[ti].process(l, r, kBlockSize, EqSettings::fromParams(v.data()));
-    runInserts(t, l, r);
+    if (!asleep(t, l, r)) {
+      if (engines_[ti]) eq_[ti].process(l, r, kBlockSize, EqSettings::fromParams(v.data()));
+      runInserts(t, l, r);
+      settle(t, l, r);
+    }
 
     // Fader and pan into the master; sends to the buses, before or after the
     // fader. Mute (and solo elsewhere) silences the sends too.
@@ -358,8 +391,11 @@ void Module::mix() noexcept {
     const auto si = static_cast<std::size_t>(scope);
     float* l = busLeft_[bus];
     float* r = busRight_[bus];
-    runInserts(scope, l, r);
-    eq_[si].process(l, r, kBlockSize, EqSettings::fromParams(values_[si].data()));
+    if (!asleep(scope, l, r)) {
+      runInserts(scope, l, r);
+      eq_[si].process(l, r, kBlockSize, EqSettings::fromParams(values_[si].data()));
+      settle(scope, l, r);
+    }
     StripState& s = strips_[si];
     strip(scope, l, r, values_[si][kMute] >= 0.5f ? 0.0f : 1.0f, left_, right_);
     if (bus == 0) {
@@ -376,8 +412,11 @@ void Module::mix() noexcept {
   }
 
   // Master: EQ → inserts (the glue compressor) → fader → limiter.
-  eq_[kMasterScope].process(left_, right_, kBlockSize, EqSettings::fromParams(values_[kMasterScope].data()));
-  runInserts(kMasterScope, left_, right_);
+  if (!asleep(kMasterScope, left_, right_)) {
+    eq_[kMasterScope].process(left_, right_, kBlockSize, EqSettings::fromParams(values_[kMasterScope].data()));
+    runInserts(kMasterScope, left_, right_);
+    settle(kMasterScope, left_, right_);
+  }
   renderPreview();
   const float mg = faderGain(values_[kMasterScope][kFader]);
   const float step = (mg - master_.gainLeft) * kInvBlock;

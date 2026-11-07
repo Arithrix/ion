@@ -637,3 +637,23 @@ TEST_CASE("session: a format 3 project opens with no inserts and its master fade
   CHECK(r.session.insert(kMasterScope, 0) == EffectType::Compressor);
   CHECK(r.session.param(insertOnRef(kMasterScope, 0)) == 0.0f);
 }
+
+TEST_CASE("idle strips sleep, but never while an echo or a tail is still inside") {
+  // A 3 s delay: silence in and out for 3 s, then the echo must still come.
+  Rig r;
+  r.set(insertParamRef(kDelayScope, 0, Delay::kSync), 0);
+  r.set(insertParamRef(kDelayScope, 0, Delay::kTime), 3000);
+  r.set(insertParamRef(kDelayScope, 0, Delay::kFeedback), 0.5f);
+  r.set({0, kSendA}, 0);
+  r.hit(256, false);
+  auto out = r.hit(48000 * 7);
+  CHECK(peak(out, kL + 144000 - 200, kL + 144000 + 200) > 0.1f);  // first echo at 3 s
+  CHECK(peak(out, kL + 288000 - 200, kL + 288000 + 200) > 0.05f);  // the second at 6 s
+  // A long reverb keeps ringing past the point where the dry signal stopped.
+  r.set({0, kSendA}, kFaderMinDb);
+  r.set({0, kSendB}, 0);
+  r.set(insertParamRef(kReverbScope, 0, Reverb::kDecay), 8000);
+  r.hit(48000 * 8, false);
+  out = r.hit(48000 * 3);
+  CHECK(peak(out, 48000 * 2, 48000 * 3) > 1e-3f);
+}

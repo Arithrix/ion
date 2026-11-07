@@ -391,6 +391,12 @@ void Reverb::updateFilters() {
   hcR_.setCoeffs(lp);
 }
 
+int Reverb::memoryBlocks() const {
+  // Pre-delay and early reflections, then one trip round the tank.
+  const float samples = 0.2f * kSr + 0.06f * kSr + kLoop * kRate * std::max(size_, scale());
+  return static_cast<int>(samples / 64) + 2;
+}
+
 float Reverb::scale() const { return kCharacter[kind_].scale * (0.5f + sizeParam_); }
 
 void Reverb::reset() {
