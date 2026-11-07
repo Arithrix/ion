@@ -51,11 +51,13 @@ add_library(ion_engine STATIC
   src/core/version.cpp
   src/dsp/biquad.cpp
   src/library/fm_library.cpp
+  src/library/sample_loader.cpp
   src/library/syx.cpp
   src/engine/channel_eq.cpp
   src/engine/clock.cpp
   src/engine/engine_types.cpp
   src/engine/fm/dx7_voice.cpp
+  src/engine/drum/drum_engine.cpp
   src/engine/fm/fm_engine.cpp
   src/engine/module.cpp
   src/audio/pipewire_out.cpp
@@ -71,17 +73,19 @@ add_dependencies(ion_engine ion_version_header)
 target_include_directories(ion_engine PUBLIC src ${ION_GENERATED_DIR})
 target_link_libraries(ion_engine
   PUBLIC Threads::Threads
-  PRIVATE ion_warnings synth_dexed sqlite3 nlohmann_json tomlplusplus dr_libs PkgConfig::PIPEWIRE PkgConfig::ALSA)
+  PRIVATE ion_warnings synth_dexed sqlite3 samplerate nlohmann_json tomlplusplus dr_libs PkgConfig::PIPEWIRE PkgConfig::ALSA)
 
 # ---- executables -----------------------------------------------------------
 add_library(ion_ui STATIC
   src/ui/algorithm_diagram.cpp
   src/ui/app.cpp
+  src/ui/drum_screen.cpp
   src/ui/fm_browse.cpp
   src/ui/instrument_screen.cpp
   src/ui/library_screen.cpp
   src/ui/mixer_screen.cpp
   src/ui/piano.cpp
+  src/ui/sample_browse.cpp
   src/ui/settings_screen.cpp
   src/ui/theme.cpp
   src/ui/tracks_screen.cpp

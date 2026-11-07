@@ -1,12 +1,15 @@
 // Settings (,): audio, MIDI and clock, keyboard, project, track ↔ channel, CC map.
 // Changes apply at once and are written to config.toml (or the project) straight away.
 
+#include <algorithm>
 #include <cstdio>
+#include <filesystem>
 #include <functional>
 
 #include "audio/pipewire_out.h"
 #include "engine/module.h"
 #include "midi/alsa_seq_in.h"
+#include "project/paths.h"
 #include "project/session.h"
 #include "ui/screens.h"
 
@@ -54,7 +57,7 @@ class SettingsScreen final : public Screen {
       const Section& s = sections[static_cast<std::size_t>(i)];
       const bool focused = i == section_;
       Elements rows;
-      const int labelWidth = i == 4 ? 26 : 14;
+      const int labelWidth = i == 5 ? 26 : 14;  // the CC map
       for (std::size_t f = 0; f < s.fields.size(); ++f) {
         const Field& fd = s.fields[f];
         const bool on = focused && static_cast<int>(f) == field_;
@@ -69,7 +72,7 @@ class SettingsScreen final : public Screen {
     };
     if (ctx.narrow()) return renderSection(section_) | flex;
     Element left = vbox({renderSection(0), renderSection(1), renderSection(2)});
-    Element right = vbox({renderSection(3), renderSection(4) | flex});
+    Element right = vbox({renderSection(3), renderSection(4), renderSection(5) | flex});
     return vbox({text(" " + ctx.session.paths().configFile.string()) | color(palette::faint),
                  hbox({left | flex, right | flex}) | flex});
   }
@@ -253,6 +256,53 @@ class SettingsScreen final : public Screen {
                             [&s, slot] { s.removeMapping(slot); }});
       }
       out.push_back(std::move(m));
+    }
+
+    // ---- samples (drawn above the CC map, so it goes before it) ----
+    {
+      Section m{"Samples", {}, "roots are where the sample browser (I on a drum track) starts"};
+      for (std::size_t i = 0; i < c.sampleRoots.size(); ++i) {
+        std::error_code ec;
+        const bool found = std::filesystem::is_directory(expandHome(c.sampleRoots[i]), ec);
+        m.fields.push_back({"root " + std::to_string(i + 1), c.sampleRoots[i] + (found ? "" : " · not found"), nullptr, nullptr,
+                            [&ctx, &c, i] {
+                              c.sampleRoots.erase(c.sampleRoots.begin() + static_cast<std::ptrdiff_t>(i));
+                              saveConfig(ctx);
+                            }});
+      }
+      m.fields.push_back({"add a root", "⏎ adds a folder", nullptr,
+                          [&ctx] {
+                            ctx.promptTitle = "Add a sample folder · Tab completes";
+                            ctx.promptInitial = "~/";
+                            ctx.promptPath = true;
+                            ctx.promptDone = [](Context& cx, const std::string& typed) {
+                              std::string p = typed;
+                              while (p.size() > 1 && p.back() == '/') p.pop_back();
+                              std::error_code ec;
+                              if (p.empty() || !std::filesystem::is_directory(expandHome(p), ec)) {
+                                cx.flash = "not a folder: " + p;
+                                return;
+                              }
+                              const std::string stored = abbreviateHome(expandHome(p).string());
+                              auto& roots = cx.session.config().sampleRoots;
+                              if (std::find(roots.begin(), roots.end(), stored) == roots.end()) roots.push_back(stored);
+                              saveConfig(cx);
+                              cx.flash = "sample root added: " + stored;
+                            };
+                            ctx.request = Context::Request::Prompt;
+                          },
+                          nullptr});
+      m.fields.push_back({"preview", c.samplePreview ? "play files as you move onto them" : "off", [&ctx, &c](int, bool) {
+                            c.samplePreview = !c.samplePreview;
+                            saveConfig(ctx);
+                          },
+                          nullptr, nullptr});
+      m.fields.push_back({"preview level", std::to_string(c.previewLevelDb) + " dB", [&ctx, &c](int d, bool coarse) {
+                            c.previewLevelDb = std::clamp(c.previewLevelDb + d * (coarse ? 6 : 1), -40, 0);
+                            saveConfig(ctx);
+                          },
+                          nullptr, nullptr});
+      out.insert(out.end() - 1, std::move(m));
     }
     return out;
   }

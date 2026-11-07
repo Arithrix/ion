@@ -41,6 +41,7 @@ struct Args {
   int snapshotWidth = 0;  // --ui-snapshot WxH (debug)
   int snapshotHeight = 0;
   std::string snapshotScreen = "tracks";
+  int snapshotTrack = 1;
 };
 
 void printUsage() {
@@ -58,6 +59,7 @@ void printUsage() {
       "  --list-midi       list MIDI inputs and exit\n"
       "  --ui-snapshot WxH print one UI frame as text and exit (for bug reports)\n"
       "  --screen NAME     with --ui-snapshot: tracks, instrument, mixer, library, settings, help, piano\n"
+      "  --track N         with --ui-snapshot: the selected track, 1-8 (default 1)\n"
       "  --version         print the version and exit");
 }
 
@@ -82,6 +84,7 @@ bool parseArgs(int argc, char** argv, Args& a) {
     else if (arg == "--voice") { const char* v = value("--voice"); if (!v) return false; a.voice = std::atoi(v); }
     else if (arg == "--midi") { const char* v = value("--midi"); if (!v) return false; a.midiMatch = v; }
     else if (arg == "--screen") { const char* v = value("--screen"); if (!v) return false; a.snapshotScreen = v; }
+    else if (arg == "--track") { const char* v = value("--track"); if (!v) return false; a.snapshotTrack = std::atoi(v); }
     else if (arg == "--latency") {
       const char* v = value("--latency");
       if (!v) return false;
@@ -231,10 +234,11 @@ int main(int argc, char** argv) {
   if (args.snapshotWidth > 0) {
     std::vector<float> buf(2 * 256);
     module->process(buf.data(), 256);  // apply the project
+    session.waitForSamples(5000);
     session.tick();
     const bool piano = args.snapshotScreen == "piano", help = args.snapshotScreen == "help";
     std::fputs(ion::ui::snapshot(session, *module, screenFromName(args.snapshotScreen), args.snapshotWidth,
-                                 args.snapshotHeight, piano, help)
+                                 args.snapshotHeight, piano, help, std::clamp(args.snapshotTrack, 1, ion::kTrackCount) - 1)
                    .c_str(),
                stdout);
     return 0;

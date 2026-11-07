@@ -4,7 +4,7 @@
 │ 1  01  FM      SNAP ░░░░░░░░░░   0.0  ·  ││from unit                         │
 │ 2  02  —       — em ░░░░░░░░░░        ·  ││                                  │
 │ 3  03  FM      SYN- ░░░░░░░░░░  -9.0  · M││engine     FM                     │
-│ 4  04  —       — em ░░░░░░░░░░        ·  ││patch      ◀ SNAP TEST ▶          │
+│ 4  04  DRUM    Gara ░░░░░░░░░░   0.0  ·  ││patch      ◀ SNAP TEST ▶          │
 │ 5  05  —       — em ░░░░░░░░░░        ·  ││bright     0                      │
 │ 6  06  —       — em ░░░░░░░░░░        ·  ││attack     0                      │
 │ 7  07  —       — em ░░░░░░░░░░        ·  ││release    0                      │
@@ -18,7 +18,7 @@
 │                                          ││eq         hp 40 · 400 +6.0       │
 │                                          ││midi ch    1                      │
 ├──────────────────────────────────────────┤│                                  │
-│ 2 of 8 tracks in use · 0 voices          ││voice                             │
+│ 3 of 8 tracks in use · 0 voices          ││voice                             │
 ╰──────────────────────────────────────────╯╰──────────────────────────────────╯
  midi MIDI off  ·  last: nothing yet
  1-8  Track   ↑↓  Move   ←→  Fader   Tab  Pane   ⏎  Edit   m  Mute   s  Solo

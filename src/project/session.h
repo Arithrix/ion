@@ -2,22 +2,31 @@
 
 #include <array>
 #include <chrono>
+#include <deque>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
+#include "engine/drum/drum_engine.h"
 #include "engine/fm/dx7_voice.h"
 #include "engine/module.h"
 #include "library/fm_library.h"
+#include "library/sample_loader.h"
 #include "library/syx.h"
 #include "project/config.h"
 #include "project/paths.h"
 
 namespace ion {
 
-// 1: Phase 1. 2: FM macros, the program list, library ids (v0.2.0).
-inline constexpr int kProjectFormat = 2;
+// 1: Phase 1. 2: FM macros, the program list, library ids (v0.2.0). 3: drum kits (v0.3.0).
+inline constexpr int kProjectFormat = 3;
+
+struct PadState {
+  // As saved: an absolute path, or one relative to the project folder
+  // ("samples/bd.wav", after collect). Empty: no sample.
+  std::string sample;
+};
 
 struct TrackState {
   EngineType engine = EngineType::None;
@@ -28,6 +37,9 @@ struct TrackState {
   syx::Voice voice{};       // as stored, without macros
   std::string voiceSource;  // bank it came from, e.g. "rom1a", or "saved"
   int64_t libraryId = 0;    // in this machine's library, or 0
+  // Drum. Pad parameters are engine parameters, like FM's macros.
+  std::array<PadState, DrumEngine::kPads> pads{};
+  std::string kit;  // the kit's name, if it was loaded from or saved as one
 };
 
 // One entry in the project's program-change list.
@@ -146,12 +158,52 @@ class Session {
   void moveProgram(int index, int delta);
   void setProgramChange(bool on);  // also stored in the config
 
+  // ---- drum kits (HANDOFF §6.1) ----
+  // Puts the sample at `path` on a pad of drum track t. It loads on the disk
+  // thread and starts playing once tick() hands it over; the pad's old sample
+  // plays until then. An empty path clears the pad.
+  void setPadSample(int t, int pad, const std::string& path);
+  enum class PadStatus { Empty, Loading, Ready, Failed };
+  PadStatus padStatus(int t, int pad) const;
+  const std::string& padError(int t, int pad) const;  // why it Failed
+  SampleLoader::Ptr padSample(int t, int pad) const;   // null until loaded
+  std::string padName(int t, int pad) const;           // the file name without extension, or ""
+  // A saved pad path made absolute (relative ones are inside the project folder).
+  std::filesystem::path resolveSample(const std::string& stored) const;
+  // Copies every sample the drum tracks use from outside the project folder
+  // into its samples/ folder and points the pads at the copies, so the
+  // project can be moved or backed up whole. Returns the number of files copied.
+  int collectSamples(std::string& error);
+  // Kits: ~/ion/kits/<name>.json, with each pad's sample (absolute path) and settings.
+  bool saveKit(int t, const std::string& name, std::string& error);
+  bool loadKit(int t, const std::filesystem::path& file, std::string& error);
+  std::vector<std::string> listKits() const;
+  struct KitSummary {
+    std::array<std::string, DrumEngine::kPads> samples{};  // as saved; empty = no sample
+    std::string savedAt;
+    bool ok = false;
+  };
+  KitSummary kitSummary(const std::string& name) const;
+
+  // The sample browser's preview. Loads the file and, if `play`, plays it once
+  // into the master. previewed() returns it once loaded (for the waveform).
+  void preview(const std::filesystem::path& path, bool play);
+  void stopPreview();
+  SampleLoader::Ptr previewed(const std::filesystem::path& path) const;
+  std::string previewError(const std::filesystem::path& path) const;
+  // Loads queued or waiting for tick().
+  int samplesLoading() const;
+  // Waits until every pad sample (and preview) is loaded and handed to the engine (ion-render, tests).
+  bool waitForSamples(int timeoutMs = 10000);
+  int pinnedSamples() const { return static_cast<int>(pinned_.size()); }  // for tests
+
   // ---- JSON (exposed for tests and ion-render) ----
   std::string toJson() const;
   bool fromJson(const std::string& text, std::string& error);
 
   const Paths& paths() const { return paths_; }
   Config& config() { return config_; }
+  const Config& config() const { return config_; }
 
  private:
   void send(const Command& c);
@@ -163,6 +215,11 @@ class Session {
   bool writeAutosave(std::string& error);
   void sendPrograms();
   void linkLibrary(TrackState& tr);  // finds the track's voice in the library
+  void requestPad(int t, int pad);
+  void sendSample(int t, int pad, const SampleLoader::Ptr& sample);
+  void pin(const SampleLoader::Ptr& sample);
+  void unpin(const Sample* sample);
+  void handleLoads();
 
   Module& module_;
   Paths paths_;
@@ -174,6 +231,25 @@ class Session {
   std::unique_ptr<FmLibrary> library_;
   std::vector<ProgramEntry> programs_;
   std::string message_;
+
+  // Samples. Every pointer sent to the audio thread is pinned here (one entry
+  // per send) until the audio thread hands it back, so it's never freed in use.
+  std::unique_ptr<SampleLoader> loader_;
+  struct PadLoad {
+    uint64_t tag = 0;         // the load in flight, or the last one
+    bool loading = false;
+    SampleLoader::Ptr sample; // what the pad plays
+    std::string error;
+  };
+  std::array<std::array<PadLoad, DrumEngine::kPads>, kTrackCount> padLoads_{};
+  std::vector<SampleLoader::Ptr> pinned_;
+  uint64_t nextTag_ = 1;
+  uint64_t previewTag_ = 0;
+  bool previewPlay_ = false;
+  std::filesystem::path previewPath_;
+  std::string previewError_;
+  std::deque<SampleLoader::Ptr> recentPreviews_;  // so going back up the list is instant
+
   // Library "last used": a patch counts once it has stayed on a track a while,
   // so scrolling past it doesn't.
   std::array<std::chrono::steady_clock::time_point, kTrackCount> loadedAt_{};

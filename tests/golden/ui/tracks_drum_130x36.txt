@@ -1,0 +1,36 @@
+ ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
+╭ Tracks ───────────────────────────────────────────────────────────────────────╮╭ Track 4 · DRUM ───────────────────────────────╮
+│ #  ch  engine  sound                                    level       dB        ││Garage 02                                      │
+│ 1  01  FM      SNAP TEST                                 ░░░░░░░░░░   0.0  ·  ││11 of 16 pads loaded                           │
+│ 2  02  —       — empty —                                 ░░░░░░░░░░        ·  ││                                               │
+│ 3  03  FM      SYN-BAS 4                                 ░░░░░░░░░░  -9.0  · M││engine     DRUM                                │
+│ 4  04  DRUM    Garage 02                                 ░░░░░░░░░░   0.0  ·  ││pad        ◀ 1 · kick_tight_03 ▶               │
+│ 5  05  —       — empty —                                 ░░░░░░░░░░        ·  ││level      ██████░░░░ -3.0 dB                  │
+│ 6  06  —       — empty —                                 ░░░░░░░░░░        ·  ││tune       0 st                                │
+│ 7  07  —       — empty —                                 ░░░░░░░░░░        ·  ││decay      420 ms                              │
+│ 8  08  —       — empty —                                 ░░░░░░░░░░        ·  ││pan        █████░░░░░ C                        │
+│                                                                               ││cutoff     8.20 kHz                            │
+│                                                                               ││                                               │
+│                                                                               ││mixer                                          │
+│                                                                               ││fader      ███████▏░░ 0.0 dB                   │
+│                                                                               ││pan        █████░░░░░ C                        │
+│                                                                               ││eq         flat                                │
+│                                                                               ││midi ch    4                                   │
+│                                                                               ││                                               │
+│                                                                               ││inserts · sends   arrive in Phase 4            │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+├───────────────────────────────────────────────────────────────────────────────┤├───────────────────────────────────────────────┤
+│ 3 of 8 tracks in use · 0 voices                                               ││midi ch 04 · 0 voices                          │
+╰───────────────────────────────────────────────────────────────────────────────╯╰───────────────────────────────────────────────╯
+ midi MIDI off  ·  last: nothing yet
+ 1-8  Track   ↑↓  Move   ←→  Fader   Tab  Pane   ⏎  Edit   m  Mute   s  Solo   Spc  Audition   ?  Help   q  Quit

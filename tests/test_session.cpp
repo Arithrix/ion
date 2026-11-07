@@ -84,7 +84,7 @@ TEST_CASE("session: save, load and the file round-trip") {
   r.session.setChannel(2, 9);
   r.session.setParam({2, kFader}, -3.5f);
   r.session.setParam({2, kB1Gain}, 4.0f);
-  r.session.setParam({2, static_cast<uint8_t>(kEngineParamBase + FmEngine::kPoly)}, 12.0f);
+  r.session.setParam({2, static_cast<uint16_t>(kEngineParamBase + FmEngine::kPoly)}, 12.0f);
   r.session.setParam({kMasterScope, kFader}, -1.0f);
   r.run();
 
@@ -107,7 +107,7 @@ TEST_CASE("session: save, load and the file round-trip") {
   CHECK(syx::name(r2.session.track(2).voice) == "TEST EP");
   CHECK(r2.session.param({2, kFader}) == doctest::Approx(-3.5f));
   CHECK(r2.module->params().get({2, kB1Gain}) == doctest::Approx(4.0f));
-  CHECK(r2.module->params().get({2, static_cast<uint8_t>(kEngineParamBase + FmEngine::kPoly)}) == doctest::Approx(12.0f));
+  CHECK(r2.module->params().get({2, static_cast<uint16_t>(kEngineParamBase + FmEngine::kPoly)}) == doctest::Approx(12.0f));
   CHECK(r2.session.param({kMasterScope, kFader}) == doctest::Approx(-1.0f));
 
   // Saving it again gives the same document (apart from the timestamp).
@@ -217,7 +217,7 @@ TEST_CASE("session: parameter keys parse back") {
   Rig r;
   r.session.setEngine(0, EngineType::Fm);
   for (ParamRef ref : {ParamRef{0, kFader}, ParamRef{kMasterScope, kFader}, ParamRef{5, kHpSlope},
-                       ParamRef{0, static_cast<uint8_t>(kEngineParamBase + FmEngine::kBendRange)}}) {
+                       ParamRef{0, static_cast<uint16_t>(kEngineParamBase + FmEngine::kBendRange)}}) {
     const auto back = r.session.parseParamKey(r.session.paramKey(ref));
     REQUIRE(back);
     CHECK(*back == ref);
@@ -286,7 +286,7 @@ void importBank(Rig& r, const std::vector<syx::Voice>& voices) {
   REQUIRE(r.session.openLibrary(error));
 }
 
-ParamRef fmParam(int track, int p) { return {static_cast<uint8_t>(track), static_cast<uint8_t>(kEngineParamBase + p)}; }
+ParamRef fmParam(int track, int p) { return {static_cast<uint8_t>(track), static_cast<uint16_t>(kEngineParamBase + p)}; }
 
 }  // namespace
 
@@ -428,9 +428,9 @@ TEST_CASE("session: a format 1 project (v0.1.0) still opens") {
   CHECK(r.session.param(fmParam(0, FmEngine::kPoly)) == doctest::Approx(6.0f));
   CHECK_FALSE(r.session.macros(0).any());
   CHECK(r.session.programs().empty());
-  // Saved again, it's format 2.
+  // Saved again, it's the current format.
   REQUIRE(r.session.save(error));
   std::string text;
   REQUIRE(readFile(Paths::under(r.root.path).projectFile("old"), text));
-  CHECK(text.find("\"format\": 2") != std::string::npos);
+  CHECK(text.find("\"format\": " + std::to_string(kProjectFormat)) != std::string::npos);
 }

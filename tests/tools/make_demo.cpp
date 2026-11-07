@@ -3,12 +3,16 @@
 //
 //   make-demo --syx ~/ion/downloads/dx7/x/sysex/rom1a.syx --projects ~/ion/projects --name "demo 0.1.0"
 
+#include <cmath>
 #include <cstdio>
+#include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <memory>
 #include <string>
 
+#include "audio/wav.h"
+#include "engine/drum/drum_engine.h"
 #include "engine/fm/fm_engine.h"
 #include "engine/module.h"
 #include "library/syx.h"
@@ -17,6 +21,72 @@
 #include "project/session.h"
 
 using namespace ion;
+
+namespace {
+
+// The demo kit, synthesised so it can ship with a release: one-shots built
+// from swept sines and filtered noise.
+struct Drum {
+  const char* file;
+  double seconds;
+  double (*sound)(double t, double seconds, uint32_t& seed);
+};
+
+double noise(uint32_t& seed) { return static_cast<double>((seed = seed * 1664525u + 1013904223u) >> 8) / 8388608.0 - 1.0; }
+double sweep(double t, double from, double to, double rate) {
+  // Phase of a sine whose frequency falls exponentially from `from` to `to`.
+  const double k = rate;
+  return 2 * 3.14159265358979 * (to * t + (from - to) * (1 - std::exp(-k * t)) / k);
+}
+
+const Drum kKit[] = {
+    {"kick.wav", 0.45, [](double t, double, uint32_t&) { return std::sin(sweep(t, 160, 48, 30)) * std::exp(-t * 7); }},
+    {"snare.wav", 0.25, [](double t, double, uint32_t& s) {
+       return 0.5 * std::sin(sweep(t, 260, 180, 40)) * std::exp(-t * 25) + 0.6 * noise(s) * std::exp(-t * 16);
+     }},
+    {"clap.wav", 0.35, [](double t, double, uint32_t& s) {
+       const double bursts = (t < 0.01 || (t > 0.012 && t < 0.02) || (t > 0.024 && t < 0.032)) ? 1.0 : 0.0;
+       return noise(s) * (0.8 * bursts + 0.5 * std::exp(-(t - 0.03) * 14) * (t > 0.03));
+     }},
+    {"rim.wav", 0.08, [](double t, double, uint32_t&) { return std::sin(2 * 3.14159265 * 820 * t) * std::exp(-t * 60); }},
+    {"hat closed.wav", 0.07, [](double t, double, uint32_t& s) {
+       static double prev = 0;
+       const double n = noise(s), hp = n - prev;  // a crude high-pass: hats are bright
+       prev = n;
+       return 0.5 * hp * std::exp(-t * 60);
+     }},
+    {"hat open.wav", 0.6, [](double t, double, uint32_t& s) {
+       static double prev = 0;
+       const double n = noise(s), hp = n - prev;
+       prev = n;
+       return 0.4 * hp * std::exp(-t * 6);
+     }},
+    {"tom.wav", 0.4, [](double t, double, uint32_t&) { return std::sin(sweep(t, 140, 95, 12)) * std::exp(-t * 9); }},
+    {"shaker.wav", 0.12, [](double t, double, uint32_t& s) {
+       return 0.35 * noise(s) * std::sin(3.14159265 * t / 0.12) * std::sin(3.14159265 * t / 0.12);
+     }},
+};
+
+bool writeKit(const std::filesystem::path& dir, std::string& error) {
+  std::filesystem::create_directories(dir);
+  uint32_t seed = 7;
+  for (const Drum& d : kKit) {
+    wav::Audio a;
+    a.channels = 1;
+    a.sampleRate = 48000;
+    const auto n = static_cast<std::size_t>(d.seconds * 48000);
+    a.samples.resize(n);
+    for (std::size_t i = 0; i < n; ++i) {
+      const double t = static_cast<double>(i) / 48000.0;
+      const double fadeOut = std::min(1.0, static_cast<double>(n - i) / 96.0);  // no click at the end
+      a.samples[i] = static_cast<float>(0.8 * d.sound(t, d.seconds, seed) * fadeOut);
+    }
+    if (!wav::write(dir / d.file, a, error)) return false;
+  }
+  return true;
+}
+
+}  // namespace
 
 int main(int argc, char** argv) {
   std::string syxPath, projects, name;
@@ -87,14 +157,14 @@ int main(int argc, char** argv) {
   // Macros: the bass a little darker with a shorter release, so "edited"
   // shows in the browser and save-as has something to bake.
   auto macro = [&](int track, int p, float v) {
-    s.setParam({static_cast<uint8_t>(track), static_cast<uint8_t>(kEngineParamBase + p)}, v);
+    s.setParam({static_cast<uint8_t>(track), static_cast<uint16_t>(kEngineParamBase + p)}, v);
   };
   macro(1, FmEngine::kBright, -6.0f);
   macro(1, FmEngine::kRelease, -10.0f);
 
   // Mappings to try from the OXI: cc 74 on channel 1 is the piano's Bright
   // macro, cc 71 its Release; cc 7 on channel 2 rides the bass fader (kept audible).
-  auto fmRef = [](int track, int p) { return ParamRef{static_cast<uint8_t>(track), static_cast<uint8_t>(kEngineParamBase + p)}; };
+  auto fmRef = [](int track, int p) { return ParamRef{static_cast<uint8_t>(track), static_cast<uint16_t>(kEngineParamBase + p)}; };
   s.addMapping(0, 74, fmRef(0, FmEngine::kBright));
   s.addMapping(0, 71, fmRef(0, FmEngine::kRelease));
   s.addMapping(1, 7, {1, kFader}, 0.4f, 1.0f);
@@ -103,7 +173,29 @@ int main(int argc, char** argv) {
   // tracks listening there.
   for (int v : {10, 14, 0, 3, 7, 20, 18, 25}) s.toggleProgram(bank[static_cast<std::size_t>(v)], "rom1a");
 
+  // Track 5: the demo kit on ch 5, its samples inside the project (as
+  // "collect" would leave them), hats in choke group A.
   std::string error;
+  if (!writeKit(paths.projectDir(name) / "samples", error)) {
+    std::fprintf(stderr, "make-demo: %s\n", error.c_str());
+    return 1;
+  }
+  s.setEngine(4, EngineType::Drum);
+  for (int pad = 0; pad < static_cast<int>(std::size(kKit)); ++pad)
+    s.setPadSample(4, pad, std::string("samples/") + kKit[pad].file);
+  auto drum = [&](int pad, int p, float v) { s.setParam(engineParamRef(4, DrumEngine::param(pad, p)), v); };
+  drum(4, DrumEngine::kChoke, 1);
+  drum(5, DrumEngine::kChoke, 1);
+  drum(4, DrumEngine::kPan, 0.2f);
+  drum(5, DrumEngine::kPan, 0.2f);
+  drum(7, DrumEngine::kPan, -0.3f);
+  drum(1, DrumEngine::kFilter, DrumEngine::kHighPass);  // a thinner snare
+  drum(1, DrumEngine::kCutoff, 220);
+  drum(6, DrumEngine::kTune, -3);
+  set(4, kFader, -3.0f);
+  // cc 74 on channel 5: the open hat's decay.
+  s.addMapping(4, 74, engineParamRef(4, DrumEngine::param(5, DrumEngine::kDecay)));
+
   if (!s.save(error)) {
     std::fprintf(stderr, "make-demo: %s\n", error.c_str());
     return 1;

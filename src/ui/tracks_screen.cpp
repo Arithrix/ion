@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdio>
 
+#include "engine/drum/drum_engine.h"
 #include "engine/module.h"
 #include "engine/fm/fm_engine.h"
 #include "library/fm_library.h"
@@ -18,19 +19,6 @@ namespace {
 
 using namespace ftxui;
 using Clock = std::chrono::steady_clock;
-
-std::string soundName(const Session& s, int t) {
-  const TrackState& tr = s.track(t);
-  switch (tr.engine) {
-    case EngineType::None: return "— empty —";
-    case EngineType::Fm: {
-      if (!tr.hasVoice) return "INIT VOICE";
-      const std::string n = syx::name(tr.voice);
-      return n.empty() ? "(no name)" : n;
-    }
-    default: return engineLabel(tr.engine);
-  }
-}
 
 // "hp 40 · lo +2 · 420 −1.5 · 2.5k +1.5"
 std::string eqSummary(const Session& s, int t) {
@@ -109,7 +97,7 @@ class TracksScreen final : public Screen {
           text(ch) | color(dimFg),
           text(fit(engineLabel(tr.engine), 6)) | size(WIDTH, EQUAL, 8) | bold |
               color(inverse ? palette::bg : engineColor(tr.engine)),
-          text(soundName(s, t)) | color(fg) | flex,
+          text(trackSoundName(s, t)) | color(fg) | flex,
           text(" "),
           levelBar(reading, meterWidth, inverse),
       };
@@ -161,11 +149,15 @@ class TracksScreen final : public Screen {
       if (const Nudge n = nudgeOf(e); n.direction) {
         if (r.param) s.nudgeParam(*r.param, n.direction, n.coarse);
         else if (r.kind == Row::Patch) ctx.fm->move(s, ctx.track, n.direction * (n.coarse ? 8 : 1));
+        else if (r.kind == Row::Pad) {
+          int& pad = ctx.pad[static_cast<std::size_t>(ctx.track)];
+          pad = std::clamp(pad + n.direction * (n.coarse ? 4 : 1), 0, DrumEngine::kPads - 1);
+        }
         else if (r.kind == Row::Channel) s.setChannel(ctx.track, s.track(ctx.track).channel + n.direction);
         return true;
       }
       if (e == Event::Return) {
-        if (r.kind == Row::Patch) ctx.request = Context::Request::ShowInstrument;
+        if (r.kind == Row::Patch || r.kind == Row::Pad) ctx.request = Context::Request::ShowInstrument;
         else if (r.kind == Row::Eq) ctx.request = Context::Request::ShowMixer;
         else if (r.kind == Row::Engine) ctx.request = Context::Request::ChooseEngine;
         return true;
@@ -195,7 +187,7 @@ class TracksScreen final : public Screen {
 
  private:
   struct Row {
-    enum Kind { Param, Patch, Channel, Eq, Engine } kind;
+    enum Kind { Param, Patch, Pad, Channel, Eq, Engine } kind;
     std::string label;
     std::optional<ParamRef> param;
   };
@@ -207,11 +199,22 @@ class TracksScreen final : public Screen {
     const EngineType type = ctx.session.track(t).engine;
     rows.push_back({Row::Engine, "engine", std::nullopt});
     if (type == EngineType::Fm) rows.push_back({Row::Patch, "patch", std::nullopt});
-    const auto table = engineParams(type);
+    if (type == EngineType::Drum) {
+      // The selected pad and the settings most often reached for; the rest
+      // are on the Instrument screen.
+      rows.push_back({Row::Pad, "pad", std::nullopt});
+      const int pad = ctx.pad[static_cast<std::size_t>(t)];
+      for (int p : {DrumEngine::kLevel, DrumEngine::kTune, DrumEngine::kDecay, DrumEngine::kPan, DrumEngine::kCutoff}) {
+        std::string label = DrumEngine::padParamTable()[static_cast<std::size_t>(p)].label;
+        label[0] = static_cast<char>(std::tolower(static_cast<unsigned char>(label[0])));
+        rows.push_back({Row::Param, label, engineParamRef(t, DrumEngine::param(pad, p))});
+      }
+    }
+    const auto table = type == EngineType::Drum ? std::span<const ParamInfo>{} : engineParams(type);
     auto engineRow = [&](std::size_t i) {
       std::string label = table[i].label;
       if (!label.empty()) label[0] = static_cast<char>(std::tolower(static_cast<unsigned char>(label[0])));
-      rows.push_back({Row::Param, label, ParamRef{tt, static_cast<uint8_t>(kEngineParamBase + i)}});
+      rows.push_back({Row::Param, label, ParamRef{tt, static_cast<uint16_t>(kEngineParamBase + i)}});
     };
     // FM: the macros up front (they're what you play with), the voice
     // settings after the mixer rows.
@@ -234,11 +237,15 @@ class TracksScreen final : public Screen {
     row_ = std::min(row_, static_cast<int>(rows.size()) - 1);
 
     Elements out;
-    out.push_back(text(soundName(s, t)) | bold | color(tr.engine == EngineType::None ? palette::faint : engineColor(tr.engine)));
+    out.push_back(text(trackSoundName(s, t)) | bold | color(tr.engine == EngineType::None ? palette::faint : engineColor(tr.engine)));
     if (tr.engine == EngineType::Fm) {
       std::string from = tr.hasVoice ? "from " + (tr.voiceSource.empty() ? std::string("project") : tr.voiceSource) : "Dexed init voice";
       if (const dx7::Macros m = s.macros(t); m.any()) from += " · ● edited";
       out.push_back(text(from) | color(palette::dim));
+    } else if (tr.engine == EngineType::Drum) {
+      int n = 0;
+      for (const PadState& p : tr.pads) n += !p.sample.empty();
+      out.push_back(text(std::to_string(n) + " of 16 pads loaded" + (tr.kit.empty() ? " · k on I saves the kit" : "")) | color(palette::dim));
     } else if (tr.engine == EngineType::None) {
       out.push_back(text("⏎ on the track list chooses an engine") | color(palette::dim));
     }
@@ -253,7 +260,13 @@ class TracksScreen final : public Screen {
         case Row::Engine: value = tr.engine == EngineType::None ? "empty" : engineLabel(tr.engine); break;
         case Row::Patch: {
           const FmLibrary* lib = s.library();
-          value = !lib || lib->patches().empty() ? "library empty: I, then i" : "◀ " + soundName(s, t) + " ▶";
+          value = !lib || lib->patches().empty() ? "library empty: I, then i" : "◀ " + trackSoundName(s, t) + " ▶";
+          break;
+        }
+        case Row::Pad: {
+          const int pad = ctx.pad[static_cast<std::size_t>(t)];
+          const std::string name = s.padName(t, pad);
+          value = "◀ " + std::to_string(pad + 1) + " · " + (name.empty() ? "—" : name) + " ▶";
           break;
         }
         case Row::Channel: value = std::to_string(tr.channel + 1); break;
@@ -299,6 +312,25 @@ class TracksScreen final : public Screen {
 };
 
 }  // namespace
+
+std::string trackSoundName(const Session& s, int t) {
+  const TrackState& tr = s.track(t);
+  switch (tr.engine) {
+    case EngineType::None: return "— empty —";
+    case EngineType::Fm: {
+      if (!tr.hasVoice) return "INIT VOICE";
+      const std::string n = syx::name(tr.voice);
+      return n.empty() ? "(no name)" : n;
+    }
+    case EngineType::Drum: {
+      if (!tr.kit.empty()) return tr.kit;
+      int n = 0;
+      for (const PadState& p : tr.pads) n += !p.sample.empty();
+      return n == 0 ? "empty kit" : std::to_string(n) + (n == 1 ? " pad" : " pads");
+    }
+    default: return engineLabel(tr.engine);
+  }
+}
 
 std::unique_ptr<Screen> makeTracksScreen() { return std::make_unique<TracksScreen>(); }
 

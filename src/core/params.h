@@ -27,7 +27,13 @@ enum class Curve : uint8_t {
   Choice,  // integer 0 … max
 };
 
-enum class Unit : uint8_t { None, Db, Hz, Pan, Percent, Semitones, Offset /* signed integer: "+12", "0" */ };
+enum class Unit : uint8_t {
+  None, Db, Hz, Pan, Percent, Semitones,
+  Offset,  // signed integer: "+12", "0"
+  Ms,      // a time held in milliseconds: "420 ms", "1.20 s"
+  Note,    // a MIDI note: "C1" (60 = C3, as on the OXI)
+  Cents,   // "+12 ct"
+};
 
 struct ParamInfo {
   const char* key;    // "eq.b1.gain" — stable, used in files
@@ -40,6 +46,7 @@ struct ParamInfo {
   float fineStep;    // per ← → press: value units (Linear/Choice), normalized (Log/Fader)
   float coarseStep;  // with Shift
   const char* const* choices = nullptr;  // labels for Choice
+  const char* maxLabel = nullptr;        // shown instead of the value at max ("full")
 };
 
 // ---- mixer parameters (per track; the master uses the same table, only Fader) ----
@@ -55,15 +62,21 @@ enum MixerParam : uint8_t {
   kMixerParamCount
 };
 
-inline constexpr uint8_t kEngineParamBase = 64;
-inline constexpr uint8_t kMaxEngineParams = 32;
+// Engine parameters are numbered from 64. A drum kit has 16 pads × 17 parameters.
+inline constexpr uint16_t kEngineParamBase = 64;
+inline constexpr int kMaxEngineParams = 288;
 
 struct ParamRef {
   uint8_t scope = 0;  // track 0-7, or kMasterScope
-  uint8_t index = 0;  // MixerParam, or kEngineParamBase + engine param
+  uint16_t index = 0;  // MixerParam, or kEngineParamBase + engine param
   bool operator==(const ParamRef&) const = default;
   bool isEngine() const { return index >= kEngineParamBase; }
 };
+
+// Engine parameter `index` (into the engine's table) of track t.
+constexpr ParamRef engineParamRef(int track, int index) {
+  return {static_cast<uint8_t>(track), static_cast<uint16_t>(kEngineParamBase + index)};
+}
 
 std::span<const ParamInfo> mixerParams();
 const ParamInfo& mixerParam(MixerParam p);
@@ -76,6 +89,8 @@ float clampValue(const ParamInfo& info, float value);
 float stepValue(const ParamInfo& info, float value, int direction, bool coarse);
 // "−6.0 dB", "L25", "2.50 kHz", "on"
 std::string formatValue(const ParamInfo& info, float value);
+// "C1", "D#2": 60 is C3, as on the OXI and Yamaha gear.
+std::string noteName(int note);
 
 // Fader dB ↔ linear gain. Values at or below kFaderMinDb mean silence.
 inline constexpr float kFaderMinDb = -96.0f;

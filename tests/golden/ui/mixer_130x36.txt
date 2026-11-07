@@ -1,7 +1,7 @@
  ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
 ╭────────────╮╭────────────╮╭────────────╮╭────────────╮╭────────────╮╭────────────╮╭────────────╮╭────────────╮╭────────────╮
-│1 FM        ││2 —         ││3 FM        ││4 —         ││5 —         ││6 —         ││7 —         ││8 —         ││M OUT       │
-│SNAP TEST   ││empty       ││SYN-BAS 4   ││empty       ││empty       ││empty       ││empty       ││empty       ││master      │
+│1 FM        ││2 —         ││3 FM        ││4 DRUM      ││5 —         ││6 —         ││7 —         ││8 —         ││M OUT       │
+│SNAP TEST   ││empty       ││SYN-BAS 4   ││Garage 02   ││empty       ││empty       ││empty       ││empty       ││master      │
 │▄▅▆▅▅▅      ││▅▅▅▅▅▅      ││▅▅▅▅▅▅      ││▅▅▅▅▅▅      ││▅▅▅▅▅▅      ││▅▅▅▅▅▅      ││▅▅▅▅▅▅      ││▅▅▅▅▅▅      ││            │
 │pan L30     ││pan C       ││pan C       ││pan C       ││pan C       ││pan C       ││pan C       ││pan C       ││            │
 │    ·· │    ││    ·· │    ││    ·· │    ││    ·· │    ││    ·· │    ││    ·· │    ││    ·· │    ││    ·· │    ││    ·· │    │

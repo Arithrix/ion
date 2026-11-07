@@ -4,7 +4,7 @@
 │ 1  01  FM      SNAP TEST                       ░░░░░░ ·  │
 │ 2  02  —       — empty —                       ░░░░░░ ·  │
 │ 3  03  FM      SYN-BAS 4                       ░░░░░░ · M│
-│ 4  04  —       — empty —                       ░░░░░░ ·  │
+│ 4  04  DRUM    Garage 02                       ░░░░░░ ·  │
 │ 5  05  —       — empty —                       ░░░░░░ ·  │
 │ 6  06  —       — empty —                       ░░░░░░ ·  │
 │ 7  07  —       — empty —                       ░░░░░░ ·  │
@@ -29,7 +29,7 @@
 │                                                          │
 │                                                          │
 ├──────────────────────────────────────────────────────────┤
-│ 2 of 8 tracks in use · 0 voices                          │
+│ 3 of 8 tracks in use · 0 voices                          │
 ╰──────────────────────────────────────────────────────────╯
  ♪ PIANO · oct 3 · vel 100 · gate 300 ms · track 1
  Z…/ Q…P  Play   [ ]  Octave   \  Velocity   ←→  Value

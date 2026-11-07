@@ -1,10 +1,14 @@
 #include <doctest.h>
 
+#include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <memory>
+#include <regex>
 
+#include "audio/wav.h"
 #include "core/version.h"
+#include "engine/drum/drum_engine.h"
 #include "engine/fm/fm_engine.h"
 #include "engine/module.h"
 #include "library/fm_library.h"
@@ -73,6 +77,9 @@ std::string mask(std::string s) {
   std::string placeholder = "ion VERSION";
   placeholder.resize(v.size(), ' ');
   for (auto at = s.find(v); at != std::string::npos; at = s.find(v, at)) s.replace(at, v.size(), placeholder);
+  // DSP load depends on the build (sanitizers, debug): always show it as 0%.
+  s = std::regex_replace(s, std::regex("cpu [0-9]%"), "cpu 0%");
+  s = std::regex_replace(s, std::regex(" [0-9]% no audio"), " 0% no audio");
   return s;
 }
 
@@ -100,6 +107,44 @@ void makeLibrary(const fs::path& root) {
   writeFileAtomic(root / "syx" / "cart_17.syx", std::string(bank.begin(), bank.end()), error);
   const Paths paths = Paths::under(root);
   FmLibrary::import(paths.libraryFile(), root / "syx", paths.importLog());
+}
+
+// Generated one-shots for the drum screen (no third-party audio): decaying
+// sines and noise of set lengths, so the durations in the list are fixed.
+void makeSamples(const fs::path& root) {
+  struct File {
+    const char* path;
+    double seconds, hz;
+    bool noise;
+    unsigned rate;
+  };
+  const File files[] = {
+      {"garage/kicks/kick_deep_01.wav", 0.61, 50, false, 44100},  {"garage/kicks/kick_garage_01.wav", 0.37, 60, false, 44100},
+      {"garage/kicks/kick_sub_01.wav", 0.88, 40, false, 48000},    {"garage/kicks/kick_tight_01.wav", 0.31, 70, false, 44100},
+      {"garage/kicks/kick_tight_02.wav", 0.29, 72, false, 44100},  {"garage/kicks/kick_tight_03.wav", 0.42, 65, false, 44100},
+      {"garage/kicks/kick_tight_10.wav", 0.33, 68, false, 44100},  {"garage/hats/hat_closed.wav", 0.12, 0, true, 48000},
+      {"garage/hats/hat_open.wav", 0.74, 0, true, 48000},          {"garage/perc/clap_room.wav", 0.35, 0, true, 44100},
+      {"garage/perc/snare_rim.wav", 0.22, 180, false, 44100},      {"garage/perc/shaker.wav", 0.18, 0, true, 44100},
+      {"garage/perc/rim.wav", 0.09, 400, false, 44100},            {"garage/perc/tom_low.wav", 0.55, 90, false, 44100},
+      {"garage/perc/perc_wood.wav", 0.16, 700, false, 44100},
+  };
+  uint32_t seed = 1;
+  for (const File& f : files) {
+    wav::Audio a;
+    a.channels = 1;
+    a.sampleRate = f.rate;
+    const auto n = static_cast<std::size_t>(f.seconds * f.rate);
+    a.samples.resize(n);
+    for (std::size_t i = 0; i < n; ++i) {
+      const double t = static_cast<double>(i) / f.rate;
+      seed = seed * 1664525u + 1013904223u;
+      const double src = f.noise ? (static_cast<double>(seed >> 8) / 8388608.0 - 1.0) : std::sin(2 * 3.14159265 * f.hz * t);
+      a.samples[i] = static_cast<float>(0.8 * src * std::exp(-t * 6 / f.seconds));
+    }
+    fs::create_directories((root / f.path).parent_path());
+    std::string error;
+    wav::write(root / f.path, a, error);
+  }
 }
 
 struct SnapshotRig {
@@ -141,14 +186,38 @@ struct SnapshotRig {
       if (p.name == "BASS 1") lib.setFavourite(p.id, true);
     session.loadPatch(2, *lib.find(id));
     session.toggleProgram(lib.find(id)->voice, "cart_17");
-    session.setParam({2, static_cast<uint8_t>(kEngineParamBase + FmEngine::kBright)}, 12.0f);
-    session.setParam({2, static_cast<uint8_t>(kEngineParamBase + FmEngine::kRelease)}, -8.0f);
-    session.addMapping(0, 74, {2, static_cast<uint8_t>(kEngineParamBase + FmEngine::kBright)});
+    session.setParam({2, static_cast<uint16_t>(kEngineParamBase + FmEngine::kBright)}, 12.0f);
+    session.setParam({2, static_cast<uint16_t>(kEngineParamBase + FmEngine::kRelease)}, -8.0f);
+    session.addMapping(0, 74, {2, static_cast<uint16_t>(kEngineParamBase + FmEngine::kBright)});
     session.setParam({0, kPan}, -0.3f);
     session.setParam({0, kB1Gain}, 6.0f);
     session.setParam({0, kHpOn}, 1.0f);
     session.setParam({2, kFader}, -9.0f);
     session.setParam({2, kMute}, 1.0f);
+
+    // Track 4: a drum kit (the DrumKit mockup), from generated samples.
+    makeSamples(kSnapshotRoot / "samples");
+    config.sampleRoots = {(kSnapshotRoot / "samples").string()};
+    session.setEngine(3, EngineType::Drum);
+    const char* pads[] = {"kicks/kick_tight_03", "kicks/kick_sub_01", "perc/clap_room", "perc/snare_rim",
+                          "hats/hat_closed",     "hats/hat_open",     "perc/shaker",    "perc/rim",
+                          "perc/tom_low",        "perc/perc_wood",    "perc/cowbell"};  // cowbell.wav doesn't exist
+    for (int i = 0; i < 11; ++i)
+      session.setPadSample(3, i, (kSnapshotRoot / "samples" / "garage" / (std::string(pads[i]) + ".wav")).string());
+    auto pad = [&](int p, int q, float value) { session.setParam(engineParamRef(3, DrumEngine::param(p, q)), value); };
+    pad(0, DrumEngine::kLevel, -3);
+    pad(0, DrumEngine::kDecay, 420);
+    pad(0, DrumEngine::kFilter, DrumEngine::kLowPass);
+    pad(0, DrumEngine::kCutoff, 8200);
+    pad(0, DrumEngine::kReso, 0.12f);
+    pad(0, DrumEngine::kVelLevel, 0.8f);
+    pad(0, DrumEngine::kDrive, 0.15f);
+    pad(4, DrumEngine::kChoke, 1);
+    pad(5, DrumEngine::kChoke, 1);
+    pad(1, DrumEngine::kTune, -2);
+    session.addMapping(3, 71, engineParamRef(3, DrumEngine::param(0, DrumEngine::kDecay)));
+    REQUIRE(session.saveKit(3, "Garage 02", error));
+    REQUIRE(session.waitForSamples());
     std::vector<float> buf(2 * 256);
     module->process(buf.data(), 256);
     session.tick();
@@ -180,7 +249,10 @@ TEST_CASE("ui snapshots: every screen at the handoff's sizes") {
     int w, h;
     bool piano = false, help = false;
     int track = 0;
+    std::vector<std::string> keys = {};
   };
+  // Into garage/kicks/ and down to kick_tight_03 (which previews).
+  const std::vector<std::string> kIntoKicks = {"Return", "Down", "Return", "Down", "Return", "Down", "Down", "Down", "Down", "Down"};
   const Case cases[] = {
       {"tracks_130x36", ui::ScreenId::Tracks, 130, 36},
       {"tracks_80x24", ui::ScreenId::Tracks, 80, 24},
@@ -199,9 +271,18 @@ TEST_CASE("ui snapshots: every screen at the handoff's sizes") {
       {"library_130x36", ui::ScreenId::Library, 130, 36},
       {"help_130x36", ui::ScreenId::Tracks, 130, 36, false, true},
       {"piano_60x35", ui::ScreenId::Tracks, 60, 35, true, false},
+      {"tracks_drum_130x36", ui::ScreenId::Tracks, 130, 36, false, false, 3},
+      {"drum_roots_130x36", ui::ScreenId::Instrument, 130, 36, false, false, 3},
+      {"drum_130x36", ui::ScreenId::Instrument, 130, 36, false, false, 3, kIntoKicks},
+      {"drum_80x24", ui::ScreenId::Instrument, 80, 24, false, false, 3, kIntoKicks},
+      {"drum_60x35", ui::ScreenId::Instrument, 60, 35, false, false, 3, {"Tab"}},
+      {"drum_params_130x36", ui::ScreenId::Instrument, 130, 36, false, false, 3, {"Tab", "Tab", "Down", "Down"}},
+      {"drum_params_60x35", ui::ScreenId::Instrument, 60, 35, false, false, 3, {"Tab", "Tab", "Down", "Down"}},
+      {"piano_drum_130x36", ui::ScreenId::Instrument, 130, 36, true, false, 3},
+      {"library_kits_130x36", ui::ScreenId::Library, 130, 36, false, false, 3, {"Tab", "Down", "Down", "Right"}},
   };
   for (const Case& c : cases) {
-    const std::string frame = mask(ui::snapshot(r.session, *r.module, c.screen, c.w, c.h, c.piano, c.help, c.track));
+    const std::string frame = mask(ui::snapshot(r.session, *r.module, c.screen, c.w, c.h, c.piano, c.help, c.track, c.keys));
     // Never wider than the terminal.
     std::size_t start = 0;
     for (std::size_t nl = frame.find('\n'); nl != std::string::npos; nl = frame.find('\n', start)) {

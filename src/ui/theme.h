@@ -79,7 +79,6 @@ ftxui::Element paramRow(const std::string& label, const std::string& value, bool
 
 float toDb(float linear);
 std::string dbText(float linear);   // "−8.2" / "−∞"
-std::string noteName(int note);     // C3 = 60
 std::string fit(const std::string& s, int width);  // truncate with … (UTF-8 aware)
 
 }  // namespace ion::ui

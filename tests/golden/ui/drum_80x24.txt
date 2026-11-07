@@ -1,0 +1,24 @@
+ ion  Tracks Instr Mixer Fx Rec Library            no clock   cpu 0%   no audio
+╭ Samples ───────────────────╮╭ Track 4 · Garage 02 ───────────────────────────╮
+│…hot/samples/garage/kicks/  ││01 C1       02 C#1      03 D1       04 D#1      │
+│/ filter                    ││kick_tight… kick_sub_01 clap_room   snare_rim   │
+│../                         ││05 E1 grp A 06 F1 grp A 07 F#1      08 G1       │
+│kick_deep_01.wav      0.61 s││hat_closed  hat_open    shaker      rim         │
+│kick_garage_01.wav    0.37 s││09 G#1      10 A1       11 A#1      12 B1       │
+│kick_sub_01.wav       0.88 s││tom_low     perc_wood   missing co… —           │
+│kick_tight_01.wav     0.31 s││13 C2       14 C#2      15 D2       16 D#2      │
+│kick_tight_02.wav     0.29 s││—           —           —           —           │
+│kick_tight_03.wav     0.42 s│╰────────────────────────────────────────────────╯
+│kick_tight_10.wav     0.33 s│╭ Pad 1 · kick_tight_03 ─────────────────────────╮
+│                            ││  Tune        0 st        Filter      LP        │
+│                            ││  Fine        0 ct        Cutoff      8.20 kHz  │
+│                            ││  Level       -3.0 dB     Resonance   12%       │
+│                            ││  Pan         C           Drive       15%       │
+│                            ││  Start       0.0 ms      Vel→level   80%       │
+├────────────────────────────┤│  Reverse     off         Vel→filter  0%        │
+│preview · kick_tight_03.w…  ││  Mode        one-shot    Choke       none      │
+│█▇▇▇▆▆▆▅▅▅▄▄▄▃▃▃▂▂▂▁▁▁▁▁▁▁  ││  Hold        full        Note        C1        │
+│0.42 s · 44.1k · mono · ⏎…  ││  Decay       420 ms                            │
+╰────────────────────────────╯╰────────────────────────────────────────────────╯
+ midi MIDI off  ·  last: nothing yet
+ ↑↓  Browse   ⏎  Load   ←  Up   /  Filter   Spc  Pad   Tab  Pane   k  Save kit

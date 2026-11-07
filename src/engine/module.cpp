@@ -7,6 +7,7 @@
 #include <numbers>
 
 #include "core/denormals.h"
+#include "engine/drum/drum_engine.h"
 #include "engine/fm/fm_engine.h"
 
 namespace ion {
@@ -69,6 +70,7 @@ Module::Module() : clock_(kSampleRate) {
 Module::~Module() {
   for (Engine* e : engines_) delete e;
   delete programs_;
+  // Samples belong to the Session, which frees them itself.
   while (auto n = notifications_.pop()) {
     if (n->type == Notification::Type::EngineRetired) delete n->engine;
     if (n->type == Notification::Type::ProgramsRetired) delete n->programs;
@@ -89,6 +91,13 @@ bool Module::pushMidi(const MidiEvent& e) {
 bool Module::pushCommand(const Command& c) { return commandQueue_.push(c); }
 
 std::optional<Notification> Module::popNotification() { return notifications_.pop(); }
+
+void Module::releaseSample(const Sample* s) noexcept {
+  if (!s) return;
+  Notification n{Notification::Type::SampleReleased};
+  n.sample = s;
+  notify(n);
+}
 
 void Module::notify(const Notification& n) noexcept {
   // If the control thread has stopped draining, a retired engine leaks rather
@@ -183,6 +192,9 @@ void Module::renderBlock() noexcept {
     --pendingCount_;
   }
   if (pos < kBlockSize) renderEngines(pos, kBlockSize);
+  for (Engine* e : engines_)
+    if (e && e->type() == EngineType::Drum)
+      for (const Sample* s; static_cast<DrumEngine*>(e)->popReleased(s);) releaseSample(s);
 
   mix();
 
@@ -241,6 +253,8 @@ void Module::mix() noexcept {
   }
   status_.voices.store(voices, std::memory_order_relaxed);
 
+  renderPreview();
+
   // Master: fader, then the safety ceiling.
   const float mg = faderGain(values_[kMasterScope][kFader]);
   const float step = (mg - master_.gainLeft) * kInvBlock;
@@ -261,6 +275,30 @@ void Module::mix() noexcept {
   if (clipped) status_.clippedBlocks.fetch_add(1, std::memory_order_relaxed);
   meter(left_, right_, kBlockSize, master_.peakLeft, master_.peakRight, master_.msLeft, master_.msRight,
         status_.master);
+}
+
+void Module::renderPreview() noexcept {
+  constexpr float kFadeStep = 1.0f / 240.0f;  // 5 ms
+  bool any = false;
+  for (PreviewVoice& p : preview_) {
+    if (!p.sample) continue;
+    const Sample& s = *p.sample;
+    const float* l = s.channel(0);
+    const float* r = s.channel(s.channels > 1 ? 1 : 0);
+    std::size_t i = 0;
+    for (; i < kBlockSize && p.pos < s.frames; ++i, ++p.pos) {
+      if (p.fading) p.fade = std::max(0.0f, p.fade - kFadeStep);
+      left_[i] += l[p.pos] * p.gain * p.fade;
+      right_[i] += r[p.pos] * p.gain * p.fade;
+    }
+    if (p.pos >= s.frames || (p.fading && p.fade <= 0)) {
+      releaseSample(p.sample);
+      p = {};
+    } else {
+      any = true;
+    }
+  }
+  status_.previewing.store(any, std::memory_order_relaxed);
 }
 
 void Module::dispatch(const MidiMessage& m, int64_t frame) noexcept {
@@ -309,6 +347,12 @@ void Module::dispatch(const MidiMessage& m, int64_t frame) noexcept {
         if (m.data2 > 0) {
           e->noteOn(m.data1, m.data2);
           status_.trackNotes[ti].fetch_add(1, std::memory_order_relaxed);
+          if (e->type() == EngineType::Drum)
+            for (uint16_t pads = static_cast<DrumEngine*>(e)->padsForNote(m.data1 & 127); pads;) {
+              const int pad = __builtin_ctz(pads);
+              pads &= static_cast<uint16_t>(pads - 1);
+              status_.padHits[ti][static_cast<std::size_t>(pad)].fetch_add(1, std::memory_order_relaxed);
+            }
         } else {
           e->noteOff(m.data1);
         }
@@ -359,6 +403,10 @@ void Module::handleCommand(const Command& c) noexcept {
     case Command::Type::Panic:
       for (Engine* e : engines_)
         if (e) e->allNotesOff();
+      for (PreviewVoice& p : preview_) {
+        releaseSample(p.sample);
+        p = {};
+      }
       break;
     case Command::Type::LoadVoice:
       if (Engine* e = engines_[track]; e && e->type() == EngineType::Fm) static_cast<FmEngine*>(e)->loadVoice(c.voice);
@@ -376,7 +424,7 @@ void Module::handleCommand(const Command& c) noexcept {
       if (c.engine) {
         const auto table = engineParams(c.engine->type());
         for (std::size_t i = 0; i < table.size(); ++i) {
-          const ParamRef ref{static_cast<uint8_t>(track), static_cast<uint8_t>(kEngineParamBase + i)};
+          const ParamRef ref{static_cast<uint8_t>(track), static_cast<uint16_t>(kEngineParamBase + i)};
           values_[track][ref.index] = table[i].def;
           store_.publish(ref, table[i].def);
         }
@@ -401,6 +449,30 @@ void Module::handleCommand(const Command& c) noexcept {
     case Command::Type::SetTiming:
       timing_ = c.value >= 0.5f ? MidiTiming::Immediate : MidiTiming::Tight;
       break;
+    case Command::Type::SetSample:
+      if (Engine* e = engines_[track]; e && e->type() == EngineType::Drum)
+        static_cast<DrumEngine*>(e)->setSample(c.slot, c.sample);
+      else
+        releaseSample(c.sample);  // the track changed engine meanwhile: never used
+      break;
+    case Command::Type::Preview: {
+      // The one playing fades out; one already fading is cut (it's nearly silent).
+      for (PreviewVoice& p : preview_) {
+        if (!p.sample) continue;
+        if (p.fading) {
+          releaseSample(p.sample);
+          p = {};
+        } else {
+          p.fading = true;
+        }
+      }
+      if (c.sample) {
+        PreviewVoice& slot = preview_[0].sample ? preview_[1] : preview_[0];
+        if (slot.sample) releaseSample(slot.sample);
+        slot = {c.sample, 0, c.value, 1, false};
+      }
+      break;
+    }
     case Command::Type::SetPrograms: {
       ProgramTable* old = programs_;
       programs_ = c.programs;

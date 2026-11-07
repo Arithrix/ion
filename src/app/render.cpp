@@ -52,6 +52,17 @@ int main(int argc, char** argv) {
     return 1;
   }
 
+  // Drum samples load on the disk thread; render only once they're all in.
+  if (!session.waitForSamples(30000)) {
+    std::fprintf(stderr, "ion-render: samples still loading after 30 s\n");
+    return 1;
+  }
+  for (int t = 0; t < ion::kTrackCount; ++t)
+    for (int pad = 0; pad < ion::DrumEngine::kPads; ++pad)
+      if (session.padStatus(t, pad) == ion::Session::PadStatus::Failed)
+        std::fprintf(stderr, "ion-render: track %d pad %d: %s (%s)\n", t + 1, pad + 1, session.padError(t, pad).c_str(),
+                     session.track(t).pads[static_cast<std::size_t>(pad)].sample.c_str());
+
   std::ifstream f(midiPath, std::ios::binary);
   const std::vector<uint8_t> bytes{std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>()};
   ion::smf::File midi;

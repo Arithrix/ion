@@ -15,6 +15,7 @@
 #include "engine/fm/fm_engine.h"
 #include "engine/module.h"
 #include "library/fm_library.h"
+#include "project/paths.h"
 #include "project/session.h"
 #include "ui/algorithm_diagram.h"
 #include "ui/fm_browse.h"
@@ -48,14 +49,6 @@ Element signedBar(float v, int width, bool focused) {
   return hbox({text(left) | color(v < 0 ? on : palette::borderSubtle), text(right) | color(v > 0 ? on : palette::borderSubtle)});
 }
 
-std::filesystem::path expandHome(const std::string& p) {
-  if (p.rfind("~/", 0) == 0 || p == "~") {
-    const char* home = std::getenv("HOME");
-    return std::filesystem::path(home ? home : "") / p.substr(p.size() > 1 ? 2 : 1);
-  }
-  return p;
-}
-
 std::vector<std::string> splitWords(const std::string& s) {
   std::vector<std::string> out;
   std::string w;
@@ -78,10 +71,11 @@ class InstrumentScreen final : public Screen {
     const std::string title = "Track " + std::to_string(ctx.track + 1) + " · " + engineLabel(tr.engine);
     if (tr.engine == EngineType::None)
       return pane(title, vbox({text("This track is empty.") | color(palette::dim),
-                               paragraph("⏎ chooses an engine. FM is available now; Drum, Sampler and Plaits arrive in Phases 3, 5 and 7.") |
+                               paragraph("⏎ chooses an engine. FM and Drum are available now; Sampler and Plaits arrive in Phases 5 and 7.") |
                                    color(palette::faint)}),
                   true) |
              flex;
+    if (tr.engine == EngineType::Drum) return drum_->render(ctx);
     if (tr.engine != EngineType::Fm) return pane(title, text("not built yet") | color(palette::faint), true) | flex;
 
     if (ctx.narrow()) return (pane_ == 0 ? list(ctx) : macroPane(ctx)) | flex;
@@ -99,6 +93,7 @@ class InstrumentScreen final : public Screen {
       }
       return false;
     }
+    if (tr.engine == EngineType::Drum) return drum_->onEvent(ctx, e);
     if (tr.engine != EngineType::Fm) return false;
     FmBrowse& fm = *ctx.fm;
 
@@ -209,6 +204,7 @@ class InstrumentScreen final : public Screen {
   Hints hints(Context& ctx) override {
     const TrackState& tr = ctx.session.track(ctx.track);
     if (tr.engine == EngineType::None) return {{"⏎", "Engine"}, {"Esc", "Back"}};
+    if (tr.engine == EngineType::Drum) return drum_->hints(ctx);
     if (tr.engine != EngineType::Fm) return {{"Esc", "Back"}};
     if (ctx.fm->typing) return {{"type", "Filter"}, {"⏎", "Done"}, {"Esc", "Clear"}, {"↑↓", "Browse"}};
     if (pane_ == 1)
@@ -226,19 +222,22 @@ class InstrumentScreen final : public Screen {
   }
 
   std::optional<ParamRef> focusedParam(Context& ctx) override {
+    if (ctx.session.track(ctx.track).engine == EngineType::Drum) return drum_->focusedParam(ctx);
     if (pane_ != 1 || ctx.session.track(ctx.track).engine != EngineType::Fm) return std::nullopt;
     return param(ctx);
   }
 
   bool capturesText(Context& ctx) override {
-    return ctx.fm->typing && ctx.session.track(ctx.track).engine == EngineType::Fm;
+    const EngineType type = ctx.session.track(ctx.track).engine;
+    if (type == EngineType::Drum) return drum_->capturesText(ctx);
+    return ctx.fm->typing && type == EngineType::Fm;
   }
 
  private:
   // Macro-pane rows: the six macros first, then the engine settings.
   ParamRef param(Context& ctx) const {
     const int index = row_ < dx7::kMacroCount ? FmEngine::kFirstMacro + row_ : row_ - dx7::kMacroCount;
-    return {static_cast<uint8_t>(ctx.track), static_cast<uint8_t>(kEngineParamBase + index)};
+    return {static_cast<uint8_t>(ctx.track), static_cast<uint16_t>(kEngineParamBase + index)};
   }
 
   int listRows(const Context& ctx) const { return std::max(4, ctx.height - 12); }
@@ -405,7 +404,7 @@ class InstrumentScreen final : public Screen {
     for (int i = 0; i < shown; ++i) {
       const int index = i < dx7::kMacroCount ? FmEngine::kFirstMacro + i : i - dx7::kMacroCount;
       const ParamInfo& pi = table[static_cast<std::size_t>(index)];
-      const ParamRef ref{static_cast<uint8_t>(ctx.track), static_cast<uint8_t>(kEngineParamBase + index)};
+      const ParamRef ref{static_cast<uint8_t>(ctx.track), static_cast<uint16_t>(kEngineParamBase + index)};
       const float v = s.param(ref);
       const bool on = focused && i == row_;
       if (i == dx7::kMacroCount) out.push_back(text(""));  // only reached when roomy
@@ -519,18 +518,12 @@ class InstrumentScreen final : public Screen {
 
   int pane_ = 0;
   int row_ = 0;
+  std::unique_ptr<Screen> drum_ = makeDrumScreen();
 };
 
 }  // namespace
 
 namespace {
-
-// "~/ion/downloads" for a path under $HOME, so prompts stay short.
-std::string abbreviateHome(const std::string& p) {
-  const char* home = std::getenv("HOME");
-  if (home && *home && p.rfind(home, 0) == 0) return "~" + p.substr(std::strlen(home));
-  return p;
-}
 
 std::string trimmed(std::string s) {
   while (!s.empty() && std::isspace(static_cast<unsigned char>(s.back()))) s.pop_back();

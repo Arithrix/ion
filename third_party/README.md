@@ -11,6 +11,7 @@ Pinned copies with their license files intact (HANDOFF §13). Sources were check
 | `doctest/` | doctest | v2.5.3 (`2d0a935`) | MIT | github.com/doctest/doctest |
 | `nlohmann/` | nlohmann/json | v3.12.0 (`55f9368`) | MIT | github.com/nlohmann/json |
 | `tomlplusplus/` | toml++ | v3.4.0 (`3017243`) | MIT | github.com/marzer/tomlplusplus |
+| `libsamplerate/` | libsamplerate | 0.2.2 | BSD-2-Clause | github.com/libsndfile/libsamplerate release tarball, SHA-256 `3258da28…3893`; `src/` and `include/` identical to Debian's `libsamplerate_0.2.2.orig.tar.gz` |
 | `sqlite/` | SQLite amalgamation | 3.54.1 (2026-10-16) | Public domain | sqlite.org/2026/sqlite-amalgamation-3540100.zip, SHA3-256 `92281c86…8e30` matches the download page |
 
 ## Local changes
@@ -21,5 +22,7 @@ Two other things are worked around from our side instead:
 - **Synth_Dexed** includes `<arm_math.h>` and expects Teensy/Circle helpers (`millis`, `constrain`, `signed_saturate_rshift`). `src/engine/fm/dexed_port/arm_math.h` provides them.
 - **FTXUI:** only `include/`, `src/` (tests removed), `cmake/` and the top-level CMake files are copied. `examples/` and `doc/` hold just their `CMakeLists.txt`, which return early when those options are off; upstream's CMake adds both directories unconditionally.
 
+Only part of libsamplerate is copied: `include/samplerate.h`, `COPYING`, and from `src/` the converter sources with the fast and medium coefficient tables. `high_qual_coeffs.h` (the "best" converter, 9 MB of source) is left out; the build doesn't define `ENABLE_SINC_BEST_CONVERTER`.
+
 ## Not yet used
-miniaudio (the ALSA backend for the Comet) and dr_flac (Phase 3) are vendored now so the versions are fixed early. dr_wav is used from Phase 1 (ion-render).
+miniaudio (the ALSA backend for the Comet) is vendored now so the version is fixed early. dr_wav is used from Phase 1 (ion-render); dr_wav (WAV, AIFF) and dr_flac load samples from Phase 3.

@@ -1,0 +1,35 @@
+ ion Trk Ins Mix Fx Rec Lib                     0% no audio
+╭ Garage 02 · Tab ⇄ ───────────────────────────────────────╮
+│01 C1         02 C#1        03 D1         04 D#1          │
+│kick_tight_03 kick_sub_01   clap_room     snare_rim       │
+│▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯         │
+│                                                          │
+│05 E1   grp A 06 F1   grp A 07 F#1        08 G1           │
+│hat_closed    hat_open      shaker        rim             │
+│▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯         │
+│                                                          │
+│09 G#1        10 A1         11 A#1        12 B1           │
+│tom_low       perc_wood     missing cowb… —               │
+│▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯         │
+│                                                          │
+│13 C2         14 C#2        15 D2         16 D#2          │
+│—             —             —             —               │
+│▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯         │
+╰──────────────────────────────────────────────────────────╯
+╭ Pad 1 · kick_tight_03 ───────────────────────────────────╮
+│0.42 s · 44.1k→48k · mono · /tmp/ion-ui-snapshot/samp…    │
+│█▇▇▇▇▇▇▆▆▆▆▆▆▆▅▅▅▅▅▅▅▄▄▄▄▄▄▃▃▃▃▃▃▃▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁  │
+│  Tune           0 st          Filter         LP          │
+│  Fine           0 ct          Cutoff         8.20 kHz    │
+│▸ Level          -3.0 dB       Resonance      12%         │
+│  Pan            C             Drive          15%         │
+│  Start          0.0 ms        Vel→level      80%         │
+│  Reverse        off           Vel→filter     0%          │
+│  Mode           one-shot      Choke          none        │
+│  Hold           full          Note           C1          │
+│  Decay          420 ms                                   │
+│                                                          │
+│cc 71 → decay                                             │
+╰──────────────────────────────────────────────────────────╯
+ midi MIDI off · nothing yet
+ ↑↓  Param   ←→  Adjust   l  Learn   ⏎  Play   c  Choke

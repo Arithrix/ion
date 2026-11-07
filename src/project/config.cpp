@@ -46,12 +46,22 @@ Config Config::load(const std::filesystem::path& path, std::vector<std::string>&
   boolean("fm", "program_change", c.programChange);
   boolean("fm", "preview_on_move", c.previewOnMove);
   str("fm", "import_folder", c.importFolder);
+  if (const toml::array* roots = t["samples"]["roots"].as_array()) {
+    std::vector<std::string> r;
+    for (const auto& v : *roots)
+      if (auto root = v.value<std::string>(); root && !root->empty()) r.push_back(*root);
+    c.sampleRoots = r;
+  }
+  boolean("samples", "preview_on_move", c.samplePreview);
+  num("samples", "preview_level_db", c.previewLevelDb, -40, 0);
   num("project", "autosave_minutes", c.autosaveMinutes, 0, 120);
   if (auto v = t["project"]["startup"].value<std::string>()) c.openLastProject = *v != "new";
   return c;
 }
 
 bool Config::save(const std::filesystem::path& path, std::string& error) const {
+  toml::array roots;
+  for (const std::string& r : sampleRoots) roots.push_back(r);
   toml::table t{
       {"audio", toml::table{{"latency", static_cast<int64_t>(latencyFrames)}}},
       {"midi", toml::table{{"input", midiInput},
@@ -60,6 +70,7 @@ bool Config::save(const std::filesystem::path& path, std::string& error) const {
       {"keyboard", toml::table{{"gate_ms", gateMs}, {"lower_row", lowerRow}, {"upper_row", upperRow}}},
       {"fm", toml::table{{"program_change", programChange}, {"preview_on_move", previewOnMove},
                          {"import_folder", importFolder}}},
+      {"samples", toml::table{{"roots", roots}, {"preview_on_move", samplePreview}, {"preview_level_db", previewLevelDb}}},
       {"project", toml::table{{"autosave_minutes", autosaveMinutes},
                               {"startup", openLastProject ? "last" : "new"}}},
   };

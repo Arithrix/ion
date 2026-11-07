@@ -161,12 +161,6 @@ Element paramRow(const std::string& label, const std::string& value, bool focuse
   return focused ? e | bgcolor(palette::raised) : e;
 }
 
-std::string noteName(int note) {
-  static const char* names[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-  if (note < 0 || note > 127) return "?";
-  return std::string(names[note % 12]) + std::to_string(note / 12 - 2);
-}
-
 std::string fit(const std::string& s, int width) {
   // Count UTF-8 code points (each ion string is single-width per code point).
   std::vector<std::size_t> starts;

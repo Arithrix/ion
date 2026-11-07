@@ -108,7 +108,7 @@ X repeats at 20 Hz after 500 ms. Events for the same key within 75 ms are repeat
 Yamaha's factory voices stay out of the repo. `make-demo` builds "demo vX.Y.Z" from `~/ion/downloads/dx7/x/sysex/rom1a.syx`, installs it as a normal project, and copies it into the release folder.
 
 ### D-26 · decided · Voice stealing and global CC defaults
-- FM uses Synth_Dexed's own allocator, which reuses released voices first and then the oldest held one (it has a minor bookkeeping bug when every voice is held). A shared allocator ("oldest released first") arrives with the Drum and Sampler engines in Phase 3.
+- FM uses Synth_Dexed's own allocator, which reuses released voices first and then the oldest held one (it has a minor bookkeeping bug when every voice is held). The shared allocator (`engine/voice_alloc.h`: free, then oldest released, then oldest held) arrived with the drum engine in Phase 3 and will serve the Sampler.
 - Global default CC mappings (handoff §5, "optional") are deferred. `Session::addMapping` is the hook they'll use.
 
 ## Decided during Phase 2
@@ -156,6 +156,46 @@ Format 2 adds the macros (as FM parameters) and the program list. Both are optio
 ### D-34 · decided · `--syx` feeds the library
 `ion --syx FILE` imports the file into the library (idempotent) and, on an empty project, puts voice N (`--voice`) on track 1, as before. `ion --import PATH` imports and exits with a summary, for scripting.
 
+## Decided during Phase 3
+
+### D-35 · decided · Samples: decoded and converted to 48 kHz on a disk thread (supersedes D-10)
+- WAV (8/16/24/32-bit, float), AIFF and FLAC, through dr_wav and dr_flac (already vendored). The first two channels are kept; longer than 5 minutes is refused, not truncated.
+- Anything not at 48 kHz goes through **libsamplerate 0.2.2** (BSD-2), medium sinc converter: 97 dB SNR, flat to 90% of Nyquist. It's offline, so quality costs load time, not CPU. Measured on the laptop with your deep house pack: 3–8 ms for a one-shot, about 17 ms per second of stereo 44.1 kHz audio. Expect roughly ten times that on an A53; fine for loading, and on the Comet the fast converter is the fallback for previews. Only the fast and medium tables are vendored; the "best" table is 9 MB of source.
+- Playback is 4-point Hermite interpolation, so tuned pads cost about 1.5 µs per voice per 128-frame buffer on the laptop (`ion-bench`).
+- Loads run on one disk thread with a cache keyed by path, modification time and size, so a sample on several pads is decoded once. Previews coalesce: only the newest waiting preview is kept, so holding ↓ never builds a backlog.
+- Not done: the samples index in library.db (HANDOFF §9). The browser reads folders directly. An index arrives when there's something to search across folders (Phase 5/6).
+
+### D-36 · decided · Who owns a sample, and when it's freed
+The audio thread gets a plain pointer. The Session keeps a reference ("pin") for every pointer it sends, and drops it when the audio thread hands that pointer back (`SampleReleased`). A replaced pad sample is handed back only once no voice is still playing it, so a long tail finishes with its old sample. A retired drum engine's samples are unpinned when its retirement notice arrives. Nothing is ever freed on the audio thread, and a sample is never freed while it plays (tests cover both, and ASan is clean).
+
+### D-37 · decided · Drum pads: parameters and behaviour
+17 parameters per pad, every one a normal engine parameter: CC-learnable, saved, in the CC map as "Track 4 · DRUM Pad 5 decay". That needed the parameter index to grow from 8 to 16 bits (288 engine parameters a track).
+- **Tune** ±24 st plus **Fine** ±50 cents. Both apply to notes already sounding, so a pitch CC bends a tail.
+- **Level** −∞…+6 dB and **Pan** (the mixer's laws). **Velocity → level** 0–100%: gain = 1 − a + a·v², default 50% (a soft hit at velocity 64 is −4 dB). **Velocity → filter** 0–100%: soft hits up to 4 octaves darker.
+- **Start** 0–1000 ms. A moved start fades in over 1 ms so it doesn't click. **Reverse** plays from the end.
+- **Mode:**
+  - **one-shot** ignores note-off. **Hold** is how long the sample plays at full level before **Decay** (−60 dB in that time) begins; hold "full" (the default) plays the whole sample.
+  - **gate** holds while the key is down and decays from note-off; Hold is ignored and shows "gate".
+- **Filter** off / LP / HP / BP, a topology-preserving SVF (Simper); **Resonance** 0–100% gives Q 0.5…16. Band-pass is unity at its centre, so switching type doesn't drop the level. **Drive** 0–100% blends in a soft clipper (tanh-like) with make-up gain.
+- **Choke** none / A–D: a hit stops every voice in its group, **its own pad included**, with a 5 ms fade. A pad alone in a group is therefore monophonic. That's the way to make any pad mono, without a separate "voices" setting.
+- **Voices:** 64 per kit, at most 4 per pad. A fifth hit fades the pad's oldest voice over 5 ms. The pool is shared through the new allocator (D-26: free, then oldest released, then oldest).
+- **Note** per pad, default C1–D#2 (36–51). Two pads on one note both play.
+- Pads are numbered left to right, top to bottom, 1–16, as in the mockup.
+
+### D-38 · decided · Kits, collect, and where sample paths point
+- **Kits** are `~/ion/kits/<name>.json`: for each pad, its sample (an absolute path, written `~/…` when under home) and all 17 settings. Loading a kit replaces all 16 pads; pads the kit leaves out are cleared, so a kit sounds the same wherever it's loaded. Saving under an existing name replaces it (the prompt says so).
+- **Projects** store each pad's path as it was chosen. **Collect** (`g`) copies every sample from outside the project into `<project>/samples/` and repoints the pads at `samples/<file>`. Same name, different file → `kick 2.wav`; the same file twice is copied once. After collecting, the project can be moved or backed up whole. **Save as** copies the project's `samples/` along with it.
+- A missing sample keeps its path; its pad shows "missing" in red and is silent. Loading the project again after the file is restored brings it back.
+
+### D-39 · decided · Project format 3
+Format 3 adds drum tracks (pads and kit name; pad settings are ordinary engine parameters). Formats 1 and 2 open unchanged. ion 0.2.x refuses format 3 with "saved by a newer ion" rather than losing the drum tracks. Loading sends only the parameters that differ from the defaults, so eight full kits fit through the command queue even with no audio thread running (ion-render).
+
+### D-40 · decided · Sample preview goes straight to the master
+Moving onto a file in the browser plays it once into the master, before the master fader and the safety ceiling, at −6 dB (Settings → Samples). It bypasses the track, so its fader and EQ don't colour it. A new preview fades the previous one out over 5 ms. Moving off a file, Esc and panic stop it. "Preview on move" can be turned off; the waveform still loads.
+
+### D-41 · decided · Sample roots
+The browser's top level lists the roots from the config (`[samples] roots`, default `~/ion/samples`), then the kits folder, then home, so any folder can be reached. Roots are added and removed in Settings → Samples. Up from a root returns to the top level.
+
 ## Proposed (waiting for Michael)
 
 ### D-01 · implemented in Phase 0 · Direct ALSA sequencer instead of RtMidi
@@ -198,7 +238,7 @@ Hash the unpacked 155-byte voice minus the name (bytes 145–154), after masking
 ### D-09 · proposed · Exact-length recording by construction
 The record start is the audio frame that matches the bar tick, mapped through timestamps. The length is `bars × 4 × 60 / bpm × 48000` frames from the smoothed tempo, captured in-engine. The loop is the right length without depending on the stop tick's jitter.
 
-### D-10 · proposed · Samples are converted to 48 kHz float at load (disk thread)
+### D-10 · superseded by D-35 · Samples are converted to 48 kHz float at load (disk thread)
 Use a windowed-sinc SRC (libsamplerate BSD-2 or r8brain MIT, to evaluate). Playback interpolation: cubic Hermite by default for A53 cost.
 
 ### D-11 · proposed · UI is in-process for v1; the protocol is serialisable

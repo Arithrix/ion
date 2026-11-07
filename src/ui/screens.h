@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -21,6 +22,7 @@ class AlsaSeqInput;
 namespace ion::ui {
 
 class FmBrowse;
+class SampleBrowse;
 
 // What every screen can see and do.
 struct Context {
@@ -30,7 +32,9 @@ struct Context {
   PipeWireOutput* audio = nullptr;  // null in tests and offline
   AlsaSeqInput* midi = nullptr;
   FmBrowse* fm = nullptr;  // the FM library browser's state, shared by Tracks and Instrument
+  SampleBrowse* samples = nullptr;  // the sample browser's state
   int track = 0;        // selected track, 0-7
+  std::array<int, kTrackCount> pad{};  // selected pad on each drum track, 0-15 (Space plays it)
   int width = 130;      // terminal size this frame
   int height = 36;
   bool piano = false;   // piano mode on (pane borders change colour)
@@ -85,12 +89,16 @@ class Screen {
   virtual bool capturesText(Context&) { return false; }
 };
 
+// What a track plays, in a few words: the FM patch, the kit, "— empty —".
+std::string trackSoundName(const Session& s, int t);
+
 // Asks for a folder and starts an FM library import (Instrument and Library screens).
 void requestImport(Context& ctx);
 
 std::unique_ptr<Screen> makeTracksScreen();
 std::unique_ptr<Screen> makeMixerScreen();
 std::unique_ptr<Screen> makeInstrumentScreen();
+std::unique_ptr<Screen> makeDrumScreen();  // the Instrument screen for DRUM tracks
 std::unique_ptr<Screen> makeSettingsScreen();
 std::unique_ptr<Screen> makeLibraryScreen();
 std::unique_ptr<Screen> makePlaceholderScreen(std::string title, std::string message);
