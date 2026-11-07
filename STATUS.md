@@ -14,7 +14,7 @@
 - Tracks screen at 130×36 / 80×24 / 60×35, meters, patch stepping, audition, panic. `--ui-snapshot WxH` prints a frame as text.
 - `ion-bench`: 4–6 µs per FM voice per 128-frame buffer (V-09).
 - 20 test cases (syx round-trip and damage, FM render, module routing, callback-size independence, ceiling, SPSC).
-- 10-minute soak with continuous MIDI and clock: see the checkpoint note.
+- Soak tests (V-10): 0 dropouts idle; many dropouts under a 16-core compile without RT priority. RT should fix it; Michael to confirm after logging in again.
 
 ## Waiting on Michael
 - Try 0.0.1 with the OXI (`TESTING.md`): go/no-go on the stack.

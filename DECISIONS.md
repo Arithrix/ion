@@ -59,6 +59,12 @@ Headless ion, PipeWire 1.4.5:
 `ion-bench`, Release, i7-1270P. E.PIANO 1 (six operators, algorithm 5), notes retriggered every 250 ms: **4–6 µs per voice per 128-frame buffer**, which is about 0.2% of the 2.67 ms period per voice. Eight FM tracks × 8 voices ≈ 12% of one core.
 INIT VOICE (one operator) costs about 1 µs per voice. Expect the Comet's A53 to be several times slower; measure in Phase 8.
 
+### V-10 · verified 2026-11-06 · Dropouts without real-time priority
+128-frame buffer, fake OXI playing notes and 124 BPM clock, audio thread **not** RT (Michael not yet logged in again):
+- idle machine, 3 min: **0 dropouts**, worst callback 11% of the period;
+- while compiling on all 16 cores, 2 min: **438 dropouts**, worst callback 261% of the period.
+The DSP is cheap (2% average); the thread is simply being preempted. Real-time priority is the fix. Michael must confirm after logging in again: `no RT` gone from the header, and 0 dropouts under the same load. If dropouts remain with RT, the fallback is `--latency 256`.
+
 ## Decided during Phase 0
 
 ### D-14 · decided · FM engine mode: Mark I
