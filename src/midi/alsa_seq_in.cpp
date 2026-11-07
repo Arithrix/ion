@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 
 #include "engine/module.h"
 
@@ -91,6 +92,7 @@ void AlsaSeqInput::stop() {
   seq_ = nullptr;
 }
 
+// Caller holds mutex_.
 bool AlsaSeqInput::matches(const std::string& client, const std::string& port) const {
   if (client == "ion" || client == "Midi Through") return false;
   if (options_.match.empty()) return true;
@@ -101,6 +103,7 @@ bool AlsaSeqInput::matches(const std::string& client, const std::string& port) c
 void AlsaSeqInput::connectMatching() {
   const int self = snd_seq_client_id(seq_);
   std::vector<Port> found;
+  std::lock_guard lock(mutex_);
   forEachReadablePort(seq_, [&](int client, const std::string& cname, int port, const std::string& pname,
                                 unsigned type) {
     if (client == self || client == SND_SEQ_CLIENT_SYSTEM) return;
@@ -110,13 +113,33 @@ void AlsaSeqInput::connectMatching() {
     found.push_back({client, port, cname + ": " + pname});
   });
 
-  std::lock_guard lock(mutex_);
   for (const Port& p : found) {
     const bool already = std::any_of(connected_.begin(), connected_.end(),
                                      [&](const Port& c) { return c.client == p.client && c.port == p.port; });
     if (already) continue;
     if (snd_seq_connect_from(seq_, myPort_, p.client, p.port) >= 0) connected_.push_back(p);
   }
+}
+
+void AlsaSeqInput::setMatch(const std::string& match) {
+  {
+    std::lock_guard lock(mutex_);
+    options_.match = match;
+    std::erase_if(connected_, [&](const Port& p) {
+      const auto colon = p.name.find(": ");
+      if (matches(p.name.substr(0, colon), colon == std::string::npos ? "" : p.name.substr(colon + 2))) return false;
+      snd_seq_disconnect_from(seq_, myPort_, p.client, p.port);
+      return true;
+    });
+  }
+  connectMatching();
+}
+
+std::string AlsaSeqInput::clientName(int client) const {
+  std::lock_guard lock(mutex_);
+  for (const Port& p : connected_)
+    if (p.client == client) return p.name.substr(0, p.name.find(": "));
+  return {};
 }
 
 std::vector<std::string> AlsaSeqInput::connected() const {
@@ -165,6 +188,11 @@ void AlsaSeqInput::run() {
         case SND_SEQ_EVENT_START: m = {0xFA, 0, 0}; break;
         case SND_SEQ_EVENT_CONTINUE: m = {0xFB, 0, 0}; break;
         case SND_SEQ_EVENT_STOP: m = {0xFC, 0, 0}; break;
+        case SND_SEQ_EVENT_SONGPOS: {
+          const int v = std::clamp(ev->data.control.value, 0, 16383);
+          m = {0xF2, static_cast<uint8_t>(v & 0x7F), static_cast<uint8_t>(v >> 7)};
+          break;
+        }
 
         case SND_SEQ_EVENT_PORT_START:
         case SND_SEQ_EVENT_CLIENT_START:
@@ -181,10 +209,14 @@ void AlsaSeqInput::run() {
           });
           continue;
         }
-        default:
+          default:
           continue;
       }
-      module_.pushMidi(m);
+      const int64_t now = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                              std::chrono::steady_clock::now().time_since_epoch())
+                              .count();
+      module_.pushMidi({m, MidiEvent::Timing::Monotonic, now});
+      monitor_.push({m, now, ev->source.client});
     }
   }
 }

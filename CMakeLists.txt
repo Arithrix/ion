@@ -47,25 +47,50 @@ target_compile_options(ion_warnings INTERFACE -Wall -Wextra -Wpedantic -Wshadow 
 
 # ---- engine library: everything except the UI ------------------------------
 add_library(ion_engine STATIC
+  src/core/params.cpp
   src/core/version.cpp
+  src/dsp/biquad.cpp
   src/library/syx.cpp
+  src/engine/channel_eq.cpp
+  src/engine/clock.cpp
+  src/engine/engine_types.cpp
   src/engine/fm/fm_engine.cpp
   src/engine/module.cpp
   src/audio/pipewire_out.cpp
+  src/audio/wav.cpp
   src/midi/alsa_seq_in.cpp
+  src/midi/smf.cpp
+  src/project/config.cpp
+  src/project/offline.cpp
+  src/project/paths.cpp
+  src/project/session.cpp
 )
 add_dependencies(ion_engine ion_version_header)
 target_include_directories(ion_engine PUBLIC src ${ION_GENERATED_DIR})
 target_link_libraries(ion_engine
   PUBLIC Threads::Threads
-  PRIVATE ion_warnings synth_dexed PkgConfig::PIPEWIRE PkgConfig::ALSA)
+  PRIVATE ion_warnings synth_dexed nlohmann_json tomlplusplus dr_libs PkgConfig::PIPEWIRE PkgConfig::ALSA)
 
 # ---- executables -----------------------------------------------------------
-add_executable(ion src/app/main.cpp src/ui/shell.cpp)
-target_link_libraries(ion PRIVATE ion_engine ion_warnings ftxui::component ftxui::dom ftxui::screen)
+add_library(ion_ui STATIC
+  src/ui/app.cpp
+  src/ui/instrument_screen.cpp
+  src/ui/mixer_screen.cpp
+  src/ui/piano.cpp
+  src/ui/settings_screen.cpp
+  src/ui/theme.cpp
+  src/ui/tracks_screen.cpp
+)
+target_link_libraries(ion_ui PUBLIC ion_engine ftxui::component ftxui::dom ftxui::screen PRIVATE ion_warnings)
+
+add_executable(ion src/app/main.cpp)
+target_link_libraries(ion PRIVATE ion_ui ion_warnings)
 
 add_executable(ion-bench src/app/bench.cpp)
 target_link_libraries(ion-bench PRIVATE ion_engine ion_warnings)
+
+add_executable(ion-render src/app/render.cpp)
+target_link_libraries(ion-render PRIVATE ion_engine ion_warnings)
 
 if(ION_BUILD_TESTS)
   enable_testing()

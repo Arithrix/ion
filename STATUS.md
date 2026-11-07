@@ -1,26 +1,25 @@
 # Status
 
-**Phase:** 0 · prototype gate — built; release 0.0.1 is the checkpoint build.
-**Branch:** `phase/0-prototype`, merged to `main` for the release.
+**Phase:** 1 · engine skeleton — done; release 0.1.0 is the checkpoint build.
+**Branch:** `phase/1-engine-skeleton`, merged to `main` for the release.
 **Updated:** 2026-11-06
 
-## Done (Phase 0)
-- CMake build, generated version header, `ion --version`; release and rollback scripts.
-- Vendored and pinned: Synth_Dexed, FTXUI 7.0.3, miniaudio, dr_libs, doctest (`third_party/README.md`).
-- Synth_Dexed building on Linux via `arm_math.h` shim. Fixed the post-load envelope bug that silenced most decaying patches (V-07).
-- syx parsing/packing, tolerant of the damage seen in the real archive.
-- PipeWire playback: 128 frames, follows the default device, 0 errors (V-08).
-- ALSA MIDI input with hot-plug, verified with the `fake-oxi` tool (unplug/replug, clock).
-- Tracks screen at 130×36 / 80×24 / 60×35, meters, patch stepping, audition, panic. `--ui-snapshot WxH` prints a frame as text.
-- `ion-bench`: 4–6 µs per FM voice per 128-frame buffer (V-09).
-- 20 test cases (syx round-trip and damage, FM render, module routing, callback-size independence, ceiling, SPSC).
-- Soak tests (V-10): 0 dropouts idle; many dropouts under a 16-core compile without RT priority. RT should fix it; Michael to confirm after logging in again.
+## Done (Phase 1)
+- **Engine:** 8 tracks, channel map with layering, timestamped sample-accurate MIDI (tight/immediate), clock follower (regression tempo, transport, bars), panic.
+- **Mixer:** fader, pan, mute, solo-in-place, RMS/peak/hold meters, channel EQ (RBJ, glides, click-free switches), master fader, safety ceiling.
+- **Parameters:** stable keys, ParamStore, CC map and learn.
+- **Projects:** JSON format 1 with migration hook, save/load/save-as, autosave, recovery, last-project start-up; `config.toml`; headless mode.
+- **UI:** Tracks, Mixer (braille EQ curve), Instrument (live bank browsing), Settings, Library (projects), help, MIDI monitor, engine picker, piano mode, wide/narrow layouts.
+- **Tools:** `ion-render`, SMF reader/writer, golden WAV test, UI snapshot goldens at 4 sizes, ALSA virtual-port test (routing, CC map, clock, hot-plug), `make-demo`.
+- 60 test cases.
 
 ## Waiting on Michael
-- Try 0.0.1 with the OXI (`TESTING.md`): go/no-go on the stack.
-- Log out and back in so ion gets real-time priority (it shows `no RT` until then).
-- GitHub: `sudo apt install gh`, then `gh auth login`. After that I create the private repo and push.
-- `ion --list-midi` output with the OXI plugged in.
+- Try 0.1.0 (`TESTING.md`).
+- Still unconfirmed from 0.0.1: real-time priority after logging in again (the header shows `no RT` if not), latency feel, and `ion --list-midi` with the OXI.
 
-## Next (Phase 1, after go)
-Engine interface `setParam`/serialize, sample-accurate MIDI, clock follower, channel map, mixer + EQ, project save/load/autosave, CC learn, piano mode, MIDI monitor, help overlay, Settings, narrow layout, `ion-render` + golden tests.
+## Next (Phase 2: FM + library)
+syx import into SQLite with dedupe, the FM browser (filter, favourites, tags, categories, live-load with a click-free handover), the six macros, save-as/bake, bank export, the favourites list and program change.
+
+## Known gaps carried forward
+- Global default CC mappings (D-26).
+- Shared voice allocator: Phase 3 (D-26).

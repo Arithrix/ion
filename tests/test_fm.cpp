@@ -23,7 +23,7 @@ Render render(FmEngine& fm, std::size_t blocks, Fn at) {
   for (std::size_t b = 0; b < blocks; ++b) {
     at(b);
     FmEngine::setClock(b * kBlockSize);
-    fm.render(r.left.data() + b * kBlockSize, r.right.data() + b * kBlockSize);
+    fm.render(r.left.data() + b * kBlockSize, r.right.data() + b * kBlockSize, kBlockSize);
   }
   return r;
 }
@@ -91,7 +91,7 @@ TEST_CASE("FM: a note sounds, stays finite and in range, and stops after release
 }
 
 TEST_CASE("FM: polyphony and panic") {
-  FmEngine fm(8);
+  FmEngine fm;
   render(fm, 20, [&](std::size_t b) {
     if (b == 0)
       for (uint8_t n = 60; n < 64; ++n) fm.noteOn(n, 100);
@@ -103,6 +103,33 @@ TEST_CASE("FM: polyphony and panic") {
   // Voices stop at once; what's left is Dexed's DC-blocking filter settling.
   CHECK(peak(r.left) < 0.001f);                   // below −60 dB immediately
   CHECK(peak(r.left, 32 * kBlockSize) < 1e-5f);   // below −100 dB soon after
+}
+
+TEST_CASE("FM: renders identically in any chunk size") {
+  auto run = [](std::size_t chunk) {
+    FmEngine fm;
+    fm.loadVoice(decayingVoice());
+    fm.noteOn(60, 100);
+    std::vector<float> l(64 * 50, 0.0f), r(64 * 50, 0.0f);
+    for (std::size_t pos = 0; pos < l.size();) {
+      const std::size_t n = std::min(chunk, l.size() - pos);
+      fm.render(l.data() + pos, r.data() + pos, n);
+      pos += n;
+    }
+    return l;
+  };
+  CHECK(run(64) == run(17));
+  CHECK(run(64) == run(1));
+}
+
+TEST_CASE("FM: polyphony parameter limits voices") {
+  FmEngine fm;
+  fm.setParam(FmEngine::kPoly, 2);
+  render(fm, 5, [&](std::size_t b) {
+    if (b == 0)
+      for (uint8_t n = 60; n < 66; ++n) fm.noteOn(n, 100);
+  });
+  CHECK(fm.voiceCount() == 2);
 }
 
 TEST_CASE("FM: output is deterministic") {

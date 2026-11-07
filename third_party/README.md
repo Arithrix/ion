@@ -9,6 +9,8 @@ Pinned copies with their license files intact (HANDOFF §13). Sources were check
 | `miniaudio/` | miniaudio | 0.11.26 (`877ea4a`) | Public domain / MIT-0 | github.com/mackron/miniaudio |
 | `dr_libs/` | dr_wav, dr_flac | `35b5c39` (2026-10-31) | Public domain / MIT-0 | github.com/mackron/dr_libs |
 | `doctest/` | doctest | v2.5.3 (`2d0a935`) | MIT | github.com/doctest/doctest |
+| `nlohmann/` | nlohmann/json | v3.12.0 (`55f9368`) | MIT | github.com/nlohmann/json |
+| `tomlplusplus/` | toml++ | v3.4.0 (`3017243`) | MIT | github.com/marzer/tomlplusplus |
 
 ## Local changes
 None to upstream files. Two things are worked around from our side instead:
@@ -16,4 +18,4 @@ None to upstream files. Two things are worked around from our side instead:
 - **FTXUI:** only `include/`, `src/` (tests removed), `cmake/` and the top-level CMake files are copied. `examples/` and `doc/` hold just their `CMakeLists.txt`, which return early when those options are off; upstream's CMake adds both directories unconditionally.
 
 ## Not yet used
-miniaudio (the ALSA backend for the Comet) and dr_libs (sample loading, Phase 3) are vendored now so the versions are fixed early.
+miniaudio (the ALSA backend for the Comet) and dr_flac (Phase 3) are vendored now so the versions are fixed early. dr_wav is used from Phase 1 (ion-render).

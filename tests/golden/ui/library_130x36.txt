@@ -1,0 +1,36 @@
+ ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
+╭ Projects ────────────────────────────────────────────────────────────────╮╭ Project ───────────────────────────────────────────╮
+│   name                                                            saved  ││snapshot                                            │
+│   no saved projects yet: w saves this one                                ││● unsaved changes                                   │
+│                                                                          ││                                                    │
+│                                                                          ││⏎ loads the selected project                        │
+│                                                                          ││n starts a new one · w saves · W saves under a new  │
+│                                                                          ││name                                                │
+│                                                                          ││                                                    │
+│                                                                          ││FM patches, samples, kits and recordings join this  │
+│                                                                          ││screen in Phase 2.                                  │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│                                                                          ││                                                    │
+│ /tmp/ion-ui-snapshot/projects                                            ││                                                    │
+╰──────────────────────────────────────────────────────────────────────────╯╰────────────────────────────────────────────────────╯
+ midi MIDI off  ·  last: nothing yet
+ ↑↓  Move   ⏎  Load   n  New   w  Save   W  Save as   Esc  Back

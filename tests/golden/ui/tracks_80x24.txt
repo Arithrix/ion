@@ -1,0 +1,24 @@
+ ion  Tracks Instr Mixer Fx Rec Library            no clock   cpu 0%   no audio
+╭ Tracks ──────────────────────────────────╮╭ Track 1 · FM ────────────────────╮
+│ #  ch  engine  sounlevel       dB        ││SNAP TEST                         │
+│ 1  01  FM      SNAP ░░░░░░░░░░   0.0  ·  ││from unit                         │
+│ 2  02  —       — em ░░░░░░░░░░        ·  ││                                  │
+│ 3  03  FM      INIT ░░░░░░░░░░  -9.0  · M││engine     FM                     │
+│ 4  04  —       — em ░░░░░░░░░░        ·  ││patch      no bank (--syx)        │
+│ 5  05  —       — em ░░░░░░░░░░        ·  ││polyphony  8                      │
+│ 6  06  —       — em ░░░░░░░░░░        ·  ││bend range 2                      │
+│ 7  07  —       — em ░░░░░░░░░░        ·  ││mono       off                    │
+│ 8  08  —       — em ░░░░░░░░░░        ·  ││                                  │
+│                                          ││mixer                             │
+│                                          ││fader      ███████▏░░ 0.0 dB      │
+│                                          ││pan        ███▌░░░░░░ L30         │
+│                                          ││eq         hp 40 · 400 +6.0       │
+│                                          ││midi ch    1                      │
+│                                          ││                                  │
+│                                          ││inserts · sends   arrive in Phase │
+│                                          ││                                  │
+├──────────────────────────────────────────┤├──────────────────────────────────┤
+│ 2 of 8 tracks in use · 0 voices          ││midi ch 01 · 0 voices             │
+╰──────────────────────────────────────────╯╰──────────────────────────────────╯
+ midi MIDI off  ·  last: nothing yet
+ 1-8  Track   ↑↓  Move   ←→  Fader   Tab  Pane   ⏎  Edit   m  Mute   s  Solo

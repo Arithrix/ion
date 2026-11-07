@@ -79,6 +79,38 @@ Engines always render 64 frames, which is Synth_Dexed's native block. `Module::p
 ### D-17 · decided · Version: `ION_PRERELEASE` next to `project(VERSION)`
 CMake's `VERSION` can't hold `-dev.N`, so `CMakeLists.txt` has a second line, `set(ION_PRERELEASE "")`. Both live in the one file, and `scripts/release.sh` edits both. A build counts as dirty if anything is uncommitted, untracked files included.
 
+## Decided during Phase 1
+
+### D-18 · decided · Engines are pure DSP; saving goes through the Session
+The handoff puts `serialize`/`deserialize` on the engine interface. The audio thread owns each engine, so no other thread may read one, and serializing from the UI thread would be a data race. So the interface has `setParam` plus a static parameter table per engine type, and `Session` keeps the savable state (engine type, voice data, parameter values) and writes it. Adding an engine still means one class plus its table.
+
+### D-19 · decided · Live MIDI timing: "tight" by default
+Each event is timestamped (CLOCK_MONOTONIC) on arrival and placed one buffer later at its exact offset: +2.7 ms constant at 128 frames, no jitter. "Immediate" (block start, up to 2.7 ms jitter, no added delay) is in Settings. Engines get blocks split at event frames, so they're sample-exact. **FM note-ons stay on Synth_Dexed's 64-frame grid** (1.3 ms); that's inherent to MSFA's block size.
+
+### D-20 · decided · Tempo: least-squares slope over the last 48 ticks
+A one-pole filter on tick intervals didn't work: interval jitter is twice the timestamp jitter (about ±10% at ±1 ms), so it can't tell jitter from a tempo change. A regression over two beats of timestamps gives under 0.3 BPM of wobble with ±1 ms jitter, and fully follows a tempo change two beats later (tested).
+
+### D-21 · decided · Session keeps the intended parameter values
+Edits update `Session::values_` at once and go to the audio thread as commands. CC moves made on the audio thread are pulled from the ParamStore each tick. "Dirty" means the values differ from the last save, plus a flag for non-parameter edits. This means repeated key presses never read a value the audio thread hasn't applied yet, and edits work even with no audio device running.
+
+### D-22 · decided · Settings apply at once and save themselves
+No "write" key: `w` is "save project" everywhere (D-06). Audio buffer changes apply on restart and say so.
+
+### D-23 · decided · New projects, autosave, recovery
+- A fresh start creates "sketch YYYY-MM-DD" (numbered if taken), not saved until `w`.
+- Autosave every 2 minutes (configurable) and on every exit with changes. Writing an autosave also records the project as the last one, so an unsaved sketch comes back next start with a recovery offer.
+- `q` with unsaved changes asks first; "quit anyway" keeps the autosave. Headless never recovers by itself; it prints a notice.
+
+### D-24 · decided · Piano repeat window 75 ms
+X repeats at 20 Hz after 500 ms. Events for the same key within 75 ms are repeats, which still lets fast deliberate taps through. The first repeat at ~500 ms looks exactly like a second tap to a terminal, so holding a key retriggers once. That's accepted under D-05.
+
+### D-25 · decided · The demo project is built at release time from ROM1A
+Yamaha's factory voices stay out of the repo. `make-demo` builds "demo vX.Y.Z" from `~/ion/downloads/dx7/x/sysex/rom1a.syx`, installs it as a normal project, and copies it into the release folder.
+
+### D-26 · decided · Voice stealing and global CC defaults
+- FM uses Synth_Dexed's own allocator, which reuses released voices first and then the oldest held one (it has a minor bookkeeping bug when every voice is held). A shared allocator ("oldest released first") arrives with the Drum and Sampler engines in Phase 3.
+- Global default CC mappings (handoff §5, "optional") are deferred. `Session::addMapping` is the hook they'll use.
+
 ## Proposed (waiting for Michael)
 
 ### D-01 · implemented in Phase 0 · Direct ALSA sequencer instead of RtMidi

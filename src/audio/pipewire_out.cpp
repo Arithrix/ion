@@ -73,7 +73,8 @@ void PipeWireOutput::onProcess(void* self) {
   // The graph clock advances by one cycle's worth of frames per callback. If it
   // moved further, cycles were skipped: count a dropout.
   pw_time t{};
-  if (pw_stream_get_time_n(out->stream_, &t, sizeof t) == 0 && t.ticks != 0) {
+  const bool haveTime = pw_stream_get_time_n(out->stream_, &t, sizeof t) == 0;
+  if (haveTime && t.ticks != 0) {
     if (out->lastTicks_ != 0 && out->lastFrames_ != 0 && t.ticks > out->lastTicks_ &&
         t.ticks - out->lastTicks_ > out->lastFrames_ + out->lastFrames_ / 2)
       out->dropouts_.fetch_add(1, std::memory_order_relaxed);
@@ -81,7 +82,9 @@ void PipeWireOutput::onProcess(void* self) {
   }
   out->lastFrames_ = frames;
 
-  out->module_.process(dst, frames);
+  // t.now is the CLOCK_MONOTONIC start of this graph cycle: the reference for
+  // placing timestamped MIDI.
+  out->module_.process(dst, frames, haveTime ? t.now : 0);
 
   d.chunk->offset = 0;
   d.chunk->stride = static_cast<int32_t>(kStride);
