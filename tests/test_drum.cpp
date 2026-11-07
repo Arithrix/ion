@@ -690,7 +690,7 @@ TEST_CASE("session: drum tracks save and load, pads and pad settings included") 
   REQUIRE(r.session.save(error));
 
   const std::string json = r.session.toJson();
-  CHECK(json.find("\"format\": 3") != std::string::npos);
+  CHECK(json.find("\"format\": " + std::to_string(kProjectFormat)) != std::string::npos);
   CHECK(json.find("\"pad16.tune\": 7.0") != std::string::npos);
   CHECK(json.find("track2.drum.pad1.cutoff") != std::string::npos);
 

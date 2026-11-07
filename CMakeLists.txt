@@ -59,6 +59,7 @@ add_library(ion_engine STATIC
   src/engine/fm/dx7_voice.cpp
   src/engine/drum/drum_engine.cpp
   src/engine/fm/fm_engine.cpp
+  src/engine/fx/effects.cpp
   src/engine/module.cpp
   src/audio/pipewire_out.cpp
   src/audio/wav.cpp
@@ -72,8 +73,8 @@ add_library(ion_engine STATIC
 add_dependencies(ion_engine ion_version_header)
 target_include_directories(ion_engine PUBLIC src ${ION_GENERATED_DIR})
 target_link_libraries(ion_engine
-  PUBLIC Threads::Threads
-  PRIVATE ion_warnings synth_dexed sqlite3 samplerate nlohmann_json tomlplusplus dr_libs PkgConfig::PIPEWIRE PkgConfig::ALSA)
+  PUBLIC Threads::Threads nlohmann_json
+  PRIVATE ion_warnings synth_dexed sqlite3 samplerate tomlplusplus dr_libs PkgConfig::PIPEWIRE PkgConfig::ALSA)
 
 # ---- executables -----------------------------------------------------------
 add_library(ion_ui STATIC

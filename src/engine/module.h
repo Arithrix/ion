@@ -12,6 +12,7 @@
 #include "engine/channel_eq.h"
 #include "engine/clock.h"
 #include "engine/engine.h"
+#include "engine/fx/effects.h"
 #include "engine/midi_types.h"
 #include "engine/sample.h"
 #include "library/syx.h"
@@ -63,6 +64,7 @@ struct Command {
     SetPrograms,   // `programs` (may be null: program change off); the old table comes back as a Notification
     SetSample,     // `sample` (may be null) onto pad `slot` of drum `track`; the old one comes back as SampleReleased
     Preview,       // play `sample` once at gain `value`, straight to the master (null stops); comes back as SampleReleased
+    SetInsert,     // `effect` (may be null) into insert `slot` of `scope`; the old one comes back as EffectRetired
   };
   Type type = Type::Panic;
   uint8_t track = 0;
@@ -75,6 +77,8 @@ struct Command {
   syx::Voice voice{};
   ProgramTable* programs = nullptr;
   const Sample* sample = nullptr;
+  uint8_t scope = 0;  // SetInsert: any scope, returns and master included
+  Effect* effect = nullptr;
 };
 
 // Audio thread → control thread.
@@ -85,6 +89,7 @@ struct Notification {
     ProgramsRetired,  // delete `programs`
     ProgramChanged,   // program `program` was loaded onto `track`
     SampleReleased,   // the audio thread no longer uses `sample` (one per SetSample/Preview that sent it)
+    EffectRetired,    // delete `effect`
   };
   Type type = Type::EngineRetired;
   Engine* engine = nullptr;
@@ -95,6 +100,7 @@ struct Notification {
   uint8_t track = 0;
   uint8_t program = 0;
   const Sample* sample = nullptr;
+  Effect* effect = nullptr;
 };
 
 struct MeterStatus {
@@ -115,6 +121,10 @@ struct ModuleStatus {
   std::atomic<uint32_t> clippedBlocks{0};
   std::array<MeterStatus, kTrackCount> track{};
   MeterStatus master{};
+  std::array<MeterStatus, 2> returns{};  // delay, reverb
+  // Gain reduction in dB of each insert (compressors), and of the master limiter.
+  std::array<std::array<std::atomic<float>, kInsertSlots>, kScopeCount> reduction{};
+  std::atomic<float> limiter{0};
   std::array<std::atomic<uint32_t>, kTrackCount> trackNotes{};  // note-on counter, for activity lights
   std::array<std::atomic<int>, kTrackCount> trackVoices{};
   std::array<std::atomic<uint8_t>, kTrackCount> trackEngine{};  // EngineType
@@ -168,6 +178,10 @@ class Module {
   void notify(const Notification& n) noexcept;
   void releaseSample(const Sample* s) noexcept;
   void renderPreview() noexcept;
+  // Runs scope's insert chain over l/r (kBlockSize), with bypass crossfades.
+  void runInserts(int scope, float* l, float* r) noexcept;
+  // EQ, then fader and pan into the master sum, for a return or a track.
+  void strip(int scope, float* l, float* r, float gainScale, float* outL, float* outR) noexcept;
 
   // ---- audio-thread state ----
   std::array<Engine*, kTrackCount> engines_{};
@@ -189,13 +203,22 @@ class Module {
   };
   std::array<PreviewVoice, 2> preview_{};
 
-  std::array<ChannelEq, kTrackCount> eq_;
+  std::array<ChannelEq, kScopeCount> eq_;
   struct StripState {
     float gainLeft = 0, gainRight = 0;  // current, ramped per block
     float peakLeft = 0, peakRight = 0, msLeft = 0, msRight = 0;
+    float sendA = 0, sendB = 0;         // current send gains, ramped
   };
-  std::array<StripState, kTrackCount> strips_{};
-  StripState master_{};
+  std::array<StripState, kScopeCount> strips_{};  // master_ is strips_[kMasterScope]
+  StripState& master_ = strips_[kMasterScope];
+
+  // Inserts, per scope. The returns' slot 0 is their own effect (the delay,
+  // the reverb), made with the module and never swapped.
+  std::array<std::array<Effect*, kInsertSlots>, kScopeCount> fx_{};
+  std::array<std::array<float, kInsertSlots>, kScopeCount> fxMix_{};  // bypass crossfade, 1 = in
+  Limiter limiter_;
+  float busLeft_[2][kBlockSize]{}, busRight_[2][kBlockSize]{};
+  float scratchLeft_[kBlockSize]{}, scratchRight_[kBlockSize]{};
   ClockFollower clock_;
 
   float trackLeft_[kTrackCount][kBlockSize]{};

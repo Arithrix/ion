@@ -7,6 +7,7 @@ add_executable(ion-tests
   test_library.cpp
   test_fm.cpp
   test_fm_handover.cpp
+  test_fx.cpp
   test_midi_alsa.cpp
   test_module.cpp
   test_params_eq.cpp

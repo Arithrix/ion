@@ -59,26 +59,46 @@ Module::Module() : clock_(kSampleRate) {
   for (int s = 0; s < ParamStore::kScopes; ++s)
     for (int i = 0; i < kMixerParamCount; ++i)
       values_[static_cast<std::size_t>(s)][static_cast<std::size_t>(i)] = mixerParams()[static_cast<std::size_t>(i)].def;
-  for (int t = 0; t < kTrackCount; ++t) {
+  for (int s = 0; s < kScopeCount; ++s) {
     const PanGains g = panGains(0);
-    strips_[static_cast<std::size_t>(t)].gainLeft = g.left;
-    strips_[static_cast<std::size_t>(t)].gainRight = g.right;
+    strips_[static_cast<std::size_t>(s)].gainLeft = g.left;
+    strips_[static_cast<std::size_t>(s)].gainRight = g.right;
   }
   master_.gainLeft = master_.gainRight = 1.0f;
+  // The send buses' own effects: wet only, always in.
+  for (const auto& [scope, type] : {std::pair{kDelayScope, EffectType::Delay}, std::pair{kReverbScope, EffectType::Reverb}}) {
+    Effect* e = createEffect(type).release();
+    e->setWetOnly(true);
+    fx_[scope][0] = e;
+    fxMix_[scope][0] = 1;
+    const ParamRef on = insertOnRef(scope, 0);
+    values_[scope][on.index] = 1;
+    store_.publish(on, 1);
+    const auto table = effectParams(type);
+    for (std::size_t i = 0; i < table.size(); ++i) {
+      const ParamRef ref = insertParamRef(scope, 0, static_cast<int>(i));
+      values_[scope][ref.index] = table[i].def;
+      store_.publish(ref, table[i].def);
+    }
+  }
 }
 
 Module::~Module() {
   for (Engine* e : engines_) delete e;
+  for (auto& scope : fx_)
+    for (Effect* e : scope) delete e;
   delete programs_;
   // Samples belong to the Session, which frees them itself.
   while (auto n = notifications_.pop()) {
     if (n->type == Notification::Type::EngineRetired) delete n->engine;
     if (n->type == Notification::Type::ProgramsRetired) delete n->programs;
+    if (n->type == Notification::Type::EffectRetired) delete n->effect;
   }
   // Engines and tables still in flight to the audio thread.
   while (auto c = commandQueue_.pop()) {
     if (c->type == Command::Type::SetEngine) delete c->engine;
     if (c->type == Command::Type::SetPrograms) delete c->programs;
+    if (c->type == Command::Type::SetInsert) delete c->effect;
   }
 }
 
@@ -212,9 +232,70 @@ void Module::renderEngines(std::size_t from, std::size_t to) noexcept {
     if (Engine* e = engines_[static_cast<std::size_t>(t)]) e->render(trackLeft_[t] + from, trackRight_[t] + from, to - from);
 }
 
+void Module::runInserts(int scope, float* l, float* r) noexcept {
+  const auto si = static_cast<std::size_t>(scope);
+  for (int slot = 0; slot < kInsertSlots; ++slot) {
+    const auto k = static_cast<std::size_t>(slot);
+    Effect* e = fx_[si][k];
+    if (!e) continue;
+    // A return's own effect is the return: it can't be bypassed.
+    const bool fixed = scope >= kDelayScope && slot == 0;
+    const float target = fixed || values_[si][insertOnRef(scope, slot).index] >= 0.5f ? 1.0f : 0.0f;
+    float& m = fxMix_[si][k];
+    if (m == 0 && target == 0) {
+      status_.reduction[si][k].store(0, std::memory_order_relaxed);
+      continue;  // bypassed: costs nothing
+    }
+    if (m == 0) e->reset();  // coming back in: no stale tail
+    if (m == 1 && target == 1) {
+      e->process(l, r, kBlockSize);
+    } else {
+      // Switching in or out: crossfade over this block.
+      std::memcpy(scratchLeft_, l, sizeof scratchLeft_);
+      std::memcpy(scratchRight_, r, sizeof scratchRight_);
+      e->process(scratchLeft_, scratchRight_, kBlockSize);
+      const float step = (target - m) / static_cast<float>(kBlockSize);
+      for (std::size_t i = 0; i < kBlockSize; ++i) {
+        const float w = m + step * static_cast<float>(i + 1);
+        l[i] += (scratchLeft_[i] - l[i]) * w;
+        r[i] += (scratchRight_[i] - r[i]) * w;
+      }
+      m = target;
+    }
+    status_.reduction[si][k].store(e->reduction(), std::memory_order_relaxed);
+  }
+}
+
+void Module::strip(int scope, float* l, float* r, float gainScale, float* outL, float* outR) noexcept {
+  const auto si = static_cast<std::size_t>(scope);
+  const auto& v = values_[si];
+  StripState& s = strips_[si];
+  const float gain = gainScale * faderGain(v[kFader]);
+  const PanGains pan = panGains(v[kPan]);
+  constexpr float kInvBlock = 1.0f / static_cast<float>(kBlockSize);
+  const float targetL = gain * pan.left, targetR = gain * pan.right;
+  const float stepL = (targetL - s.gainLeft) * kInvBlock, stepR = (targetR - s.gainRight) * kInvBlock;
+  for (std::size_t i = 0; i < kBlockSize; ++i) {
+    l[i] *= s.gainLeft + stepL * static_cast<float>(i + 1);
+    r[i] *= s.gainRight + stepR * static_cast<float>(i + 1);
+    outL[i] += l[i];
+    outR[i] += r[i];
+  }
+  s.gainLeft = targetL;
+  s.gainRight = targetR;
+}
+
 void Module::mix() noexcept {
   std::memset(left_, 0, sizeof left_);
   std::memset(right_, 0, sizeof right_);
+  std::memset(busLeft_, 0, sizeof busLeft_);
+  std::memset(busRight_, 0, sizeof busRight_);
+
+  // Tempo for synced effects: the OXI's clock, or 120 BPM without one.
+  const double bpm = clock_.present() ? clock_.bpm() : 120.0;
+  for (auto& scope : fx_)
+    for (Effect* e : scope)
+      if (e) e->setTempo(bpm);
 
   bool anySolo = false;
   for (int t = 0; t < kTrackCount; ++t) anySolo |= values_[static_cast<std::size_t>(t)][kSolo] >= 0.5f;
@@ -229,22 +310,39 @@ void Module::mix() noexcept {
     float* r = trackRight_[t];
 
     if (engines_[ti]) eq_[ti].process(l, r, kBlockSize, EqSettings::fromParams(v.data()));
+    runInserts(t, l, r);
 
+    // Fader and pan into the master; sends to the buses, before or after the
+    // fader. Mute (and solo elsewhere) silences the sends too.
     const bool audible = v[kMute] < 0.5f && (!anySolo || v[kSolo] >= 0.5f);
     const float gain = audible ? faderGain(v[kFader]) : 0.0f;
     const PanGains pan = panGains(v[kPan]);
     const float targetL = gain * pan.left, targetR = gain * pan.right;
     const float stepL = (targetL - s.gainLeft) * kInvBlock, stepR = (targetR - s.gainRight) * kInvBlock;
+    const float sendA = audible ? faderGain(v[kSendA]) : 0.0f, sendB = audible ? faderGain(v[kSendB]) : 0.0f;
+    const float stepA = (sendA - s.sendA) * kInvBlock, stepB = (sendB - s.sendB) * kInvBlock;
+    const bool pre = v[kSendPre] >= 0.5f;
+    const bool sends = sendA > 0 || sendB > 0 || s.sendA > 0 || s.sendB > 0;
     for (std::size_t i = 0; i < kBlockSize; ++i) {
-      const float gl = s.gainLeft + stepL * static_cast<float>(i + 1);
-      const float gr = s.gainRight + stepR * static_cast<float>(i + 1);
-      l[i] *= gl;
-      r[i] *= gr;
+      const float k = static_cast<float>(i + 1);
+      const float dryL = l[i], dryR = r[i];
+      l[i] *= s.gainLeft + stepL * k;
+      r[i] *= s.gainRight + stepR * k;
       left_[i] += l[i];
       right_[i] += r[i];
+      if (sends) {
+        const float srcL = pre ? dryL : l[i], srcR = pre ? dryR : r[i];
+        const float ga = s.sendA + stepA * k, gb = s.sendB + stepB * k;
+        busLeft_[0][i] += srcL * ga;
+        busRight_[0][i] += srcR * ga;
+        busLeft_[1][i] += srcL * gb;
+        busRight_[1][i] += srcR * gb;
+      }
     }
     s.gainLeft = targetL;
     s.gainRight = targetR;
+    s.sendA = sendA;
+    s.sendB = sendB;
     meter(l, r, kBlockSize, s.peakLeft, s.peakRight, s.msLeft, s.msRight, status_.track[ti]);
 
     const int tv = engines_[ti] ? engines_[ti]->voiceCount() : 0;
@@ -253,9 +351,34 @@ void Module::mix() noexcept {
   }
   status_.voices.store(voices, std::memory_order_relaxed);
 
-  renderPreview();
+  // The returns. Solo doesn't silence them (they're solo-safe); mute does.
+  // The delay return can feed the reverb (its Send B, after its fader).
+  for (int bus = 0; bus < 2; ++bus) {
+    const int scope = bus == 0 ? kDelayScope : kReverbScope;
+    const auto si = static_cast<std::size_t>(scope);
+    float* l = busLeft_[bus];
+    float* r = busRight_[bus];
+    runInserts(scope, l, r);
+    eq_[si].process(l, r, kBlockSize, EqSettings::fromParams(values_[si].data()));
+    StripState& s = strips_[si];
+    strip(scope, l, r, values_[si][kMute] >= 0.5f ? 0.0f : 1.0f, left_, right_);
+    if (bus == 0) {
+      const float sendB = values_[si][kMute] >= 0.5f ? 0.0f : faderGain(values_[si][kSendB]);
+      const float step = (sendB - s.sendB) * kInvBlock;
+      for (std::size_t i = 0; i < kBlockSize; ++i) {
+        const float g = s.sendB + step * static_cast<float>(i + 1);
+        busLeft_[1][i] += l[i] * g;
+        busRight_[1][i] += r[i] * g;
+      }
+      s.sendB = sendB;
+    }
+    meter(l, r, kBlockSize, s.peakLeft, s.peakRight, s.msLeft, s.msRight, status_.returns[static_cast<std::size_t>(bus)]);
+  }
 
-  // Master: fader, then the safety ceiling.
+  // Master: EQ → inserts (the glue compressor) → fader → limiter.
+  eq_[kMasterScope].process(left_, right_, kBlockSize, EqSettings::fromParams(values_[kMasterScope].data()));
+  runInserts(kMasterScope, left_, right_);
+  renderPreview();
   const float mg = faderGain(values_[kMasterScope][kFader]);
   const float step = (mg - master_.gainLeft) * kInvBlock;
   bool clipped = false;
@@ -265,13 +388,13 @@ void Module::mix() noexcept {
     float& r = right_[i];
     l *= g;
     r *= g;
-    if (!std::isfinite(l)) l = 0;  // never let a NaN reach the speakers
+    if (!std::isfinite(l)) l = 0;  // never let a NaN reach the limiter or the speakers
     if (!std::isfinite(r)) r = 0;
     if (std::fabs(l) > kCeiling || std::fabs(r) > kCeiling) clipped = true;
-    l = std::clamp(l, -kCeiling, kCeiling);
-    r = std::clamp(r, -kCeiling, kCeiling);
   }
   master_.gainLeft = master_.gainRight = mg;
+  limiter_.process(left_, right_, kBlockSize);
+  status_.limiter.store(limiter_.reduction(), std::memory_order_relaxed);
   if (clipped) status_.clippedBlocks.fetch_add(1, std::memory_order_relaxed);
   meter(left_, right_, kBlockSize, master_.peakLeft, master_.peakRight, master_.msLeft, master_.msRight,
         status_.master);
@@ -376,6 +499,14 @@ void Module::dispatch(const MidiMessage& m, int64_t frame) noexcept {
 
 const ParamInfo* Module::info(ParamRef ref) const noexcept {
   if (ref.scope >= ParamStore::kScopes) return nullptr;
+  if (ref.isInsert()) {
+    if (ref.slotIndex() == 0) return &insertOnInfo();
+    const Effect* e = fx_[ref.scope][static_cast<std::size_t>(ref.slot())];
+    if (!e) return nullptr;
+    const auto table = effectParams(e->type());
+    const std::size_t i = static_cast<std::size_t>(ref.slotIndex() - 1);
+    return i < table.size() ? &table[i] : nullptr;
+  }
   if (!ref.isEngine()) return ref.index < kMixerParamCount ? &mixerParams()[ref.index] : nullptr;
   if (ref.scope >= kTrackCount) return nullptr;
   const Engine* e = engines_[ref.scope];
@@ -392,6 +523,7 @@ void Module::applyParam(ParamRef ref, float value) noexcept {
   values_[ref.scope][ref.index] = value;
   store_.publish(ref, value);
   if (ref.isEngine()) engines_[ref.scope]->setParam(ref.index - kEngineParamBase, value);
+  else if (ref.isInsert() && ref.slotIndex() > 0) fx_[ref.scope][static_cast<std::size_t>(ref.slot())]->setParam(ref.slotIndex() - 1, value);
 }
 
 void Module::handleCommand(const Command& c) noexcept {
@@ -407,6 +539,11 @@ void Module::handleCommand(const Command& c) noexcept {
         releaseSample(p.sample);
         p = {};
       }
+      // Silence means the tails too.
+      for (auto& scope : fx_)
+        for (Effect* e : scope)
+          if (e) e->reset();
+      limiter_.reset();
       break;
     case Command::Type::LoadVoice:
       if (Engine* e = engines_[track]; e && e->type() == EngineType::Fm) static_cast<FmEngine*>(e)->loadVoice(c.voice);
@@ -470,6 +607,41 @@ void Module::handleCommand(const Command& c) noexcept {
         PreviewVoice& slot = preview_[0].sample ? preview_[1] : preview_[0];
         if (slot.sample) releaseSample(slot.sample);
         slot = {c.sample, 0, c.value, 1, false};
+      }
+      break;
+    }
+    case Command::Type::SetInsert: {
+      const auto scope = static_cast<std::size_t>(c.scope);
+      const bool fixed = c.scope >= kDelayScope && c.slot == 0;  // the returns' own effects stay
+      if (scope >= kScopeCount || c.slot < 0 || c.slot >= kInsertSlots || fixed) {
+        if (c.effect) {
+          Notification n{Notification::Type::EffectRetired};
+          n.effect = c.effect;
+          notify(n);
+        }
+        break;
+      }
+      const auto slot = static_cast<std::size_t>(c.slot);
+      Effect* old = fx_[scope][slot];
+      fx_[scope][slot] = c.effect;
+      // A new insert starts at its defaults, switched in, and fades in over a block.
+      fxMix_[scope][slot] = 0;
+      status_.reduction[scope][slot].store(0, std::memory_order_relaxed);
+      const ParamRef on = insertOnRef(c.scope, c.slot);
+      values_[scope][on.index] = 1;
+      store_.publish(on, 1);
+      if (c.effect) {
+        const auto table = effectParams(c.effect->type());
+        for (std::size_t i = 0; i < table.size(); ++i) {
+          const ParamRef ref = insertParamRef(c.scope, c.slot, static_cast<int>(i));
+          values_[scope][ref.index] = table[i].def;
+          store_.publish(ref, table[i].def);
+        }
+      }
+      if (old) {
+        Notification n{Notification::Type::EffectRetired};
+        n.effect = old;
+        notify(n);
       }
       break;
     }
