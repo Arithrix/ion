@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#6CC5D9}a:hover{color:#9FDCEA}
+button{font:inherit;border:0;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 1040px; height: 680px; box-sizing: border-box; background: #0F1218; color: #D8DEE9; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; line-height: 18px; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="display: flex; align-items: center; gap: 14px; padding: 7px 12px; border-bottom: 1px solid #2A3140">
+    <span style="color: #F0A04B; font-weight: 700; letter-spacing: 1px">ion</span>
+    <span style="background: #F0A04B; color: #0F1218; padding: 0 8px; font-weight: 600">settings</span>
+    <div style="display: flex; gap: 4px; margin-left: 10px">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="6">
+        <button type="button" style="background: transparent; color: #8B95A7; padding: 0 8px; line-height: 18px"><span style="color: #F0A04B; font-weight: 700">{{t.k}}</span>{{t.rest}}</button>
+      </sc-for>
+    </div>
+    <div style="margin-left: auto; color: #8B95A7">~/.config/ion/config.toml</div>
+  </div>
+
+  <div style="flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto minmax(0, 1fr); gap: 20px 10px; padding: 18px 12px 8px; min-height: 0">
+
+    <section style="position: relative; border: 1px solid #F0A04B; padding: 14px 10px 8px; display: flex; flex-direction: column">
+      <span style="position: absolute; top: -10px; left: 10px; background: #0F1218; padding: 0 6px; color: #F0A04B; font-weight: 600">Audio</span>
+      <sc-for list="{{audio}}" as="a" hint-placeholder-count="6">
+        <div style="display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 10px; padding: 2px 6px; background: {{a.bg}}">
+          <span style="color: {{a.lc}}">{{a.l}}</span><span>{{a.v}}</span>
+        </div>
+      </sc-for>
+      <span style="color: #8B95A7; padding: 6px 6px 0">128 frames at 48 kHz ≈ 2.7 ms · Comet default 256</span>
+    </section>
+
+    <section style="position: relative; border: 1px solid #39424F; padding: 14px 10px 8px; display: flex; flex-direction: column">
+      <span style="position: absolute; top: -10px; left: 10px; background: #0F1218; padding: 0 6px; color: #8B95A7; font-weight: 600">MIDI + clock</span>
+      <sc-for list="{{midi}}" as="a" hint-placeholder-count="6">
+        <div style="display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 10px; padding: 2px 6px">
+          <span>{{a.l}}</span><span>{{a.v}}</span>
+        </div>
+      </sc-for>
+      <span style="color: #8B95A7; padding: 6px 6px 0">status <span style="color: #6CC5D9">● OXI connected</span> · clock steady at 124.0</span>
+    </section>
+
+    <section style="position: relative; border: 1px solid #39424F; padding: 14px 10px 8px; display: flex; flex-direction: column; min-height: 0">
+      <span style="position: absolute; top: -10px; left: 10px; background: #0F1218; padding: 0 6px; color: #8B95A7; font-weight: 600">Track ↔ channel</span>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px">
+        <sc-for list="{{chmap}}" as="c" hint-placeholder-count="8">
+          <div style="display: grid; grid-template-columns: 70px 50px minmax(0, 1fr); gap: 8px; padding: 2px 6px">
+            <span>track {{c.t}}</span><span style="color: #6CC5D9">ch {{c.ch}}</span><span style="color: #8B95A7">{{c.eng}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <span style="color: #8B95A7; padding: 8px 6px 0">two tracks can share a channel to layer sounds</span>
+    </section>
+
+    <section style="position: relative; border: 1px solid #39424F; padding: 14px 10px 8px; display: flex; flex-direction: column; min-height: 0">
+      <span style="position: absolute; top: -10px; left: 10px; background: #0F1218; padding: 0 6px; color: #8B95A7; font-weight: 600">CC map</span>
+      <div style="display: grid; grid-template-columns: 54px 50px minmax(0, 1fr) 70px; gap: 8px; padding: 0 6px 2px; color: #8B95A7; border-bottom: 1px solid #2A3140; margin-bottom: 2px">
+        <span>cc</span><span>ch</span><span>target</span><span>range</span>
+      </div>
+      <sc-for list="{{ccs}}" as="c" hint-placeholder-count="6">
+        <div style="display: grid; grid-template-columns: 54px 50px minmax(0, 1fr) 70px; gap: 8px; padding: 2px 6px; background: {{c.bg}}; color: {{c.fg}}">
+          <span>{{c.cc}}</span><span>{{c.ch}}</span><span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{c.target}}</span><span>{{c.range}}</span>
+        </div>
+      </sc-for>
+      <span style="margin-top: auto; padding: 6px 6px 0; color: #FF7A7A">● learn: move a control on the OXI…</span>
+    </section>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; padding: 4px 12px 6px; border-top: 1px solid #2A3140">
+    <sc-for list="{{hints}}" as="h" hint-placeholder-count="8">
+      <span style="display: inline-flex; margin-right: 6px"><span style="color: #D8DEE9; font-weight: 700; padding: 0 4px">{{h.k}}</span><span style="background: #6CC5D9; color: #0F1218; padding: 0 6px">{{h.l}}</span></span>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1040,"height":680}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const tabs = [['T', 'racks'], ['I', 'nstr'], ['M', 'ixer'], ['F', 'x'], ['R', 'ec'], ['L', 'ibrary']].map(t => ({ k: t[0], rest: t[1] }));
+    const audio = [
+      ['backend', 'JACK (PipeWire)  ·  ALSA  ·  auto'],
+      ['device', 'system · built-in analog'],
+      ['sample rate', '48000'],
+      ['buffer', '128 frames'],
+      ['cpu guard', 'drop voices above 85%'],
+      ['start-up', 'load last project']
+    ].map((a, i) => ({ l: a[0], v: a[1], bg: i === 3 ? '#F0A04B' : 'transparent', lc: i === 3 ? '#0F1218' : '#D8DEE9' }));
+    audio[3].v = '◀ 128 frames ▶';
+    const midi = [
+      ['input', 'OXI One MK2 (usb)'],
+      ['also accept', 'all other inputs'],
+      ['clock', 'external · follow start/stop'],
+      ['program chg', 'project favourites list'],
+      ['midi thru', 'off'],
+      ['panic', 'p sends all notes off']
+    ].map(a => ({ l: a[0], v: a[1] }));
+    const chmap = [['1', '1', 'drum'], ['2', '2', 'drum'], ['3', '3', 'fm'], ['4', '4', 'fm'], ['5', '5', 'sampler'], ['6', '6', 'plaits'], ['7', '7', 'sampler'], ['8', '8', 'empty']]
+      .map(c => ({ t: c[0], ch: c[1], eng: c[2] }));
+    const ccs = [
+      ['74', '4', 'FM bright', '0–100%'],
+      ['73', '4', 'FM release', '0–100%'],
+      ['20', '6', 'Plaits harmonics', 'full'],
+      ['21', '6', 'Plaits timbre', 'full'],
+      ['71', '5', 'Sampler resonance', '0–60%'],
+      ['91', 'all', 'Reverb send', 'full']
+    ].map((c, i) => ({
+      cc: c[0], ch: c[1], target: c[2], range: c[3],
+      bg: i === 0 ? '#1B222C' : 'transparent',
+      fg: i === 0 ? '#F0A04B' : '#D8DEE9'
+    }));
+    const hints = [['Tab', 'Section'], ['↑↓', 'Field'], ['←→', 'Change'], ['l', 'Learn CC'], ['x', 'Remove'], ['w', 'Write'], ['Esc', 'Back'], ['?', 'Help']]
+      .map(h => ({ k: h[0], l: h[1] }));
+    return { tabs, audio, midi, chmap, ccs, hints };
+  }
+}
+</script>
+</body>
+</html>

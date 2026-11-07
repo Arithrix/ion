@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FM patch browser</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#6CC5D9}a:hover{color:#9FDCEA}
+button{font:inherit;border:0;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 1040px; height: 680px; box-sizing: border-box; background: #0F1218; color: #D8DEE9; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; line-height: 18px; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="display: flex; align-items: center; gap: 14px; padding: 7px 12px; border-bottom: 1px solid #2A3140">
+    <span style="color: #F0A04B; font-weight: 700; letter-spacing: 1px">ion</span>
+    <span style="color: #8B95A7">track 4 · FM</span>
+    <div style="display: flex; gap: 4px; margin-left: 10px">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="6">
+        <button type="button" style="background: {{t.bg}}; color: {{t.fg}}; padding: 0 8px; line-height: 18px"><span style="color: {{t.kc}}; font-weight: 700">{{t.k}}</span>{{t.rest}}</button>
+      </sc-for>
+    </div>
+    <div style="margin-left: auto; display: flex; gap: 18px; color: #8B95A7">
+      <span><span style="color: #6CC5D9">▶</span> <span style="color: #D8DEE9">124.0</span> ext clock</span>
+      <span>cpu <span style="color: #D8DEE9">27%</span></span>
+    </div>
+  </div>
+
+  <div style="flex: 1; display: flex; gap: 10px; padding: 18px 12px 8px; min-height: 0">
+
+    <section style="flex: 1.25; position: relative; border: 1px solid #F0A04B; padding: 12px 8px 8px; display: flex; flex-direction: column; min-width: 0">
+      <span style="position: absolute; top: -10px; left: 10px; background: #0F1218; padding: 0 6px; color: #F0A04B; font-weight: 600">Library · FM</span>
+      <div style="display: flex; justify-content: space-between; padding: 2px 6px 6px; border-bottom: 1px solid #2A3140; margin-bottom: 4px">
+        <span><span style="color: #F0A04B; font-weight: 700">/</span> bass<span style="background: #D8DEE9; color: #0F1218"> </span></span>
+        <span style="color: #8B95A7">214 of 2,340 · duplicates hidden</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 16px minmax(0, 1fr) 88px 52px; gap: 10px; padding: 0 6px 2px; color: #8B95A7">
+        <span></span><span>name</span><span>from</span><span>alg</span>
+      </div>
+      <sc-for list="{{patches}}" as="p" hint-placeholder-count="18">
+        <div style="display: grid; grid-template-columns: 16px minmax(0, 1fr) 88px 52px; gap: 10px; padding: 2px 6px; background: {{p.bg}}; color: {{p.fg}}">
+          <span style="color: {{p.sc}}">{{p.star}}</span>
+          <span style="font-weight: 600">{{p.name}}</span>
+          <span style="color: {{p.dim}}">{{p.src}}</span>
+          <span style="color: {{p.dim}}">{{p.alg}}</span>
+        </div>
+      </sc-for>
+      <div style="margin-top: auto; color: #8B95A7; padding: 6px 6px 0; border-top: 1px solid #2A3140">
+        auto-load on move <span style="color: #6CC5D9">● on</span> · preview note C3 <span style="color: #5C6677">○ off</span>
+      </div>
+    </section>
+
+    <section style="flex: 1; position: relative; border: 1px solid #39424F; padding: 12px 14px 8px; display: flex; flex-direction: column; gap: 12px; min-width: 0">
+      <span style="position: absolute; top: -10px; left: 10px; background: #0F1218; padding: 0 6px; color: #8B95A7; font-weight: 600">SYN-BAS 4</span>
+
+      <div style="display: flex; gap: 22px; align-items: flex-start">
+        <pre style="margin: 0; font: inherit; color: #6CC5D9; line-height: 16px">┌─┐↺ ┌─┐   ┌─┐
+│6├┘ │4│   │2│
+└┬┘  └┬┘   └┬┘
+┌┴┐  ┌┴┐   ┌┴┐
+│5│  │3│   │1│
+└┬┘  └┬┘   └┬┘
+ └────┴─────┘</pre>
+        <div style="display: flex; flex-direction: column; color: #8B95A7">
+          <span style="color: #D8DEE9">algorithm 5</span>
+          <span>three 2-op stacks</span>
+          <span>feedback on op 6</span>
+          <span style="margin-top: 8px">from <span style="color: #D8DEE9">cart_17.syx</span></span>
+          <span>tags <span style="color: #C3A6FF">bass · garage</span></span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; border-top: 1px solid #2A3140; padding-top: 8px">
+        <span style="color: #8B95A7; margin-bottom: 2px">macros · adjust without overwriting the patch</span>
+        <sc-for list="{{macros}}" as="m" hint-placeholder-count="6">
+          <div style="display: grid; grid-template-columns: 70px 140px 44px minmax(0, 1fr); gap: 8px; padding: 1px 0; background: {{m.bg}}">
+            <span style="color: {{m.lc}}">{{m.label}}</span>
+            <span style="white-space: nowrap"><span style="color: #6CC5D9">{{m.on}}</span><span style="color: #39424F">{{m.off}}</span></span>
+            <span style="text-align: right">{{m.v}}</span>
+            <span style="color: #8B95A7">{{m.note}}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display: flex; flex-direction: column; border-top: 1px solid #2A3140; padding-top: 8px; color: #8B95A7">
+        <span><span style="color: #F0A04B">●</span> edited: bright +12, release −8 · not saved</span>
+        <span>a save as new patch · e export .syx · u undo edits</span>
+      </div>
+
+      <div style="margin-top: auto; color: #8B95A7; border-top: 1px solid #2A3140; padding-top: 6px">poly 8 voices · pitch bend ±2 · cc 74 → bright</div>
+    </section>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; padding: 4px 12px 6px; border-top: 1px solid #2A3140">
+    <sc-for list="{{hints}}" as="h" hint-placeholder-count="9">
+      <span style="display: inline-flex; margin-right: 6px"><span style="color: #D8DEE9; font-weight: 700; padding: 0 4px">{{h.k}}</span><span style="background: #6CC5D9; color: #0F1218; padding: 0 6px">{{h.l}}</span></span>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1040,"height":680}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const tabNames = [['T', 'racks'], ['I', 'nstr'], ['M', 'ixer'], ['F', 'x'], ['R', 'ec'], ['L', 'ibrary']];
+    const tabs = tabNames.map((t, i) => ({
+      k: t[0], rest: t[1],
+      bg: i === 1 ? '#F0A04B' : 'transparent',
+      fg: i === 1 ? '#0F1218' : '#8B95A7',
+      kc: i === 1 ? '#0F1218' : '#F0A04B'
+    }));
+    const raw = [
+      [true, 'BASS 1', 'rom1a', '16'],
+      [false, 'BASS 2', 'rom1a', '16'],
+      [true, 'SLAP BASS', 'rom2b', '1'],
+      [true, 'SYN-BAS 4', 'cart_17', '5'],
+      [false, 'FRETLESS', 'cart_03', '3'],
+      [false, 'WOODBASS', 'rom3a', '2'],
+      [false, 'ANALOGBASS', 'cart_22', '5'],
+      [false, 'PICK BASS', 'cart_09', '16'],
+      [true, 'SUB BASS 2', 'cart_31', '1'],
+      [false, 'RUBBERBASS', 'cart_12', '4'],
+      [false, 'HOUSE BASS', 'cart_44', '7'],
+      [false, 'ORGAN BASS', 'cart_05', '32'],
+      [false, 'BRASS BASS', 'cart_18', '22'],
+      [false, 'DUB BASS', 'cart_40', '5'],
+      [false, 'KLANK BASS', 'cart_27', '15'],
+      [false, 'WARM BASS', 'cart_15', '17'],
+      [false, 'BASS PLUCK', 'cart_33', '18']
+    ];
+    const sel = 3;
+    const patches = raw.map((r, i) => {
+      const s = i === sel;
+      return {
+        star: r[0] ? '★' : '·', name: r[1], src: r[2], alg: r[3],
+        bg: s ? '#F0A04B' : 'transparent',
+        fg: s ? '#0F1218' : '#D8DEE9',
+        dim: s ? '#0F1218' : '#8B95A7',
+        sc: s ? '#0F1218' : (r[0] ? '#F0A04B' : '#5C6677')
+      };
+    });
+    const mraw = [
+      ['Bright', 9, '+12', 'modulator levels'],
+      ['Attack', 0, '0', 'all envelope attacks'],
+      ['Release', 4, '−8', 'all envelope releases'],
+      ['Feedback', 7, '6', 'op 6 feedback'],
+      ['Detune', 2, '0', 'spread between ops'],
+      ['Velocity', 8, '0', 'touch sensitivity']
+    ];
+    const macros = mraw.map((m, i) => ({
+      label: m[0], on: '█'.repeat(m[1]), off: '░'.repeat(14 - m[1]), v: m[2], note: m[3],
+      bg: i === 0 ? '#1B222C' : 'transparent',
+      lc: i === 0 ? '#F0A04B' : '#D8DEE9'
+    }));
+    const hints = [['↑↓', 'Browse'], ['/', 'Filter'], ['*', 'Fav'], ['t', 'Tag'], ['⏎', 'Audition'], ['Tab', 'Macros'], ['a', 'Save as'], ['e', 'Export'], ['Esc', 'Back']]
+      .map(h => ({ k: h[0], l: h[1] }));
+    return { tabs, patches, macros, hints };
+  }
+}
+</script>
+</body>
+</html>

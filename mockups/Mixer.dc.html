@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mixer and EQ</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#6CC5D9}a:hover{color:#9FDCEA}
+button{font:inherit;border:0;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 1040px; height: 680px; box-sizing: border-box; background: #0F1218; color: #D8DEE9; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; line-height: 18px; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="display: flex; align-items: center; gap: 14px; padding: 7px 12px; border-bottom: 1px solid #2A3140">
+    <span style="color: #F0A04B; font-weight: 700; letter-spacing: 1px">ion</span>
+    <span style="color: #8B95A7">mixer</span>
+    <div style="display: flex; gap: 4px; margin-left: 10px">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="6">
+        <button type="button" style="background: {{t.bg}}; color: {{t.fg}}; padding: 0 8px; line-height: 18px"><span style="color: {{t.kc}}; font-weight: 700">{{t.k}}</span>{{t.rest}}</button>
+      </sc-for>
+    </div>
+    <div style="margin-left: auto; display: flex; gap: 18px; color: #8B95A7">
+      <span><span style="color: #6CC5D9">▶</span> <span style="color: #D8DEE9">124.0</span> ext clock</span>
+      <span>cpu <span style="color: #D8DEE9">26%</span></span>
+    </div>
+  </div>
+
+  <div style="flex: 1; display: flex; flex-direction: column; gap: 16px; padding: 18px 12px 8px; min-height: 0">
+
+    <section style="position: relative; border: 1px solid #39424F; padding: 12px 8px 6px">
+      <span style="position: absolute; top: -10px; left: 10px; background: #0F1218; padding: 0 6px; color: #8B95A7; font-weight: 600">Channels</span>
+      <div style="display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 6px">
+        <sc-for list="{{strips}}" as="c" hint-placeholder-count="11">
+          <div style="border: 1px solid {{c.border}}; background: {{c.bg}}; padding: 4px 6px; display: flex; flex-direction: column; gap: 3px; min-width: 0">
+            <div style="display: flex; justify-content: space-between"><span style="font-weight: 700; color: {{c.nc}}">{{c.id}}</span><span style="color: {{c.ec}}">{{c.eng}}</span></div>
+            <span style="color: #8B95A7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{c.name}}</span>
+            <span style="color: {{c.eqc}}; letter-spacing: 1px; white-space: nowrap">{{c.eq}}</span>
+            <span style="color: #8B95A7">dly <span style="color: #D8DEE9">{{c.dly}}</span></span>
+            <span style="color: #8B95A7">rev <span style="color: #D8DEE9">{{c.rev}}</span></span>
+            <span style="color: #8B95A7">pan <span style="color: #D8DEE9">{{c.pan}}</span></span>
+            <div style="height: 112px; display: flex; justify-content: center; align-items: flex-end; gap: 6px; margin: 4px 0">
+              <div style="width: 6px; height: {{c.meter}}; background: {{c.mc}}"></div>
+              <div style="width: 12px; height: 100%; background: #1B222C; position: relative">
+                <div style="position: absolute; left: -3px; width: 18px; height: 5px; bottom: {{c.cap}}; background: {{c.capc}}"></div>
+              </div>
+            </div>
+            <span style="text-align: center">{{c.db}}</span>
+            <div style="display: flex; justify-content: center; gap: 6px">
+              <span style="padding: 0 4px; background: {{c.mbg}}; color: {{c.mfg}}">M</span>
+              <span style="padding: 0 4px; background: {{c.sbg}}; color: {{c.sfg}}">S</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section style="flex: 1; position: relative; border: 1px solid #F0A04B; padding: 14px 12px 8px; display: flex; gap: 16px; min-height: 0">
+      <span style="position: absolute; top: -10px; left: 10px; background: #0F1218; padding: 0 6px; color: #F0A04B; font-weight: 600">EQ · track 3 · E.PIANO 1</span>
+      <figure style="margin: 0; flex: 1.3; display: flex; flex-direction: column; gap: 2px; min-width: 0">
+        <svg viewBox="0 0 560 160" width="100%" height="160" aria-hidden="true" style="display: block; background: #141A22">
+          <line x1="0" y1="80" x2="560" y2="80" stroke="#39424F" stroke-width="1"></line>
+          <line x1="0" y1="32" x2="560" y2="32" stroke="#232A35" stroke-width="1"></line>
+          <line x1="0" y1="128" x2="560" y2="128" stroke="#232A35" stroke-width="1"></line>
+          <line x1="139.6" y1="0" x2="139.6" y2="160" stroke="#232A35" stroke-width="1"></line>
+          <line x1="326.4" y1="0" x2="326.4" y2="160" stroke="#232A35" stroke-width="1"></line>
+          <line x1="513.2" y1="0" x2="513.2" y2="160" stroke="#232A35" stroke-width="1"></line>
+          <path d="{{eqPath}}" fill="none" stroke="#6CC5D9" stroke-width="2"></path>
+          <sc-for list="{{nodes}}" as="n" hint-placeholder-count="5">
+            <circle cx="{{n.x}}" cy="{{n.y}}" r="{{n.r}}" fill="{{n.fill}}" stroke="#0F1218" stroke-width="2"></circle>
+          </sc-for>
+        </svg>
+        <div style="display: flex; justify-content: space-between; color: #8B95A7"><span>20</span><span>100</span><span>1k</span><span>10k</span><span>20k</span></div>
+        <figcaption style="color: #8B95A7">±12 dB · drawn with braille characters in the real terminal</figcaption>
+      </figure>
+      <div style="flex: 1; display: flex; flex-direction: column; min-width: 0">
+        <div style="display: grid; grid-template-columns: 18px 26px minmax(0, 1fr) 64px 48px 32px; gap: 8px; padding: 0 4px 2px; color: #8B95A7; border-bottom: 1px solid #2A3140">
+          <span></span><span>#</span><span>type</span><span>freq</span><span>gain</span><span>Q</span>
+        </div>
+        <sc-for list="{{bands}}" as="b" hint-placeholder-count="6">
+          <div style="display: grid; grid-template-columns: 18px 26px minmax(0, 1fr) 64px 48px 32px; gap: 8px; padding: 3px 4px; background: {{b.bg}}; color: {{b.fg}}">
+            <span style="color: {{b.oc}}">{{b.on}}</span><span style="font-weight: 700">{{b.n}}</span><span>{{b.type}}</span><span>{{b.f}}</span><span>{{b.g}}</span><span>{{b.q}}</span>
+          </div>
+        </sc-for>
+        <div style="margin-top: auto; color: #8B95A7; border-top: 1px solid #2A3140; padding-top: 6px">eq sits before inserts · b bypass to compare</div>
+      </div>
+    </section>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; padding: 4px 12px 6px; border-top: 1px solid #2A3140">
+    <sc-for list="{{hints}}" as="h" hint-placeholder-count="9">
+      <span style="display: inline-flex; margin-right: 6px"><span style="color: #D8DEE9; font-weight: 700; padding: 0 4px">{{h.k}}</span><span style="background: #6CC5D9; color: #0F1218; padding: 0 6px">{{h.l}}</span></span>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1040,"height":680}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const tabNames = [['T', 'racks'], ['I', 'nstr'], ['M', 'ixer'], ['F', 'x'], ['R', 'ec'], ['L', 'ibrary']];
+    const tabs = tabNames.map((t, i) => ({
+      k: t[0], rest: t[1],
+      bg: i === 2 ? '#F0A04B' : 'transparent',
+      fg: i === 2 ? '#0F1218' : '#8B95A7',
+      kc: i === 2 ? '#0F1218' : '#F0A04B'
+    }));
+    const engColor = { DRUM: '#F0A04B', FM: '#6CC5D9', SMPL: '#C3A6FF', PLTS: '#9BD48A', RTN: '#8B95A7', OUT: '#F0A04B', '—': '#5C6677' };
+    const raw = [
+      ['1', 'DRUM', 'Garage Kit', '▁▁▂▂▂▂', '0', '10', 'C', '−4.0', 78, 72, '', ''],
+      ['2', 'DRUM', 'Perc Chops', '▂▂▂▂▃▃', '25', '20', 'R15', '−7.5', 55, 60, '', ''],
+      ['3', 'FM', 'E.PIANO 1', '▃▃▂▂▃▃', '30', '45', 'L10', '−6.0', 64, 66, '', ''],
+      ['4', 'FM', 'FM BASS 3', '▄▃▂▂▂▂', '0', '0', 'C', '−3.0', 86, 76, '', 'S'],
+      ['5', 'SMPL', 'chords', '▂▂▂▂▂▂', '10', '30', 'C', '−8.0', 50, 58, '', ''],
+      ['6', 'PLTS', 'String mach', '▂▂▂▂▂▂', '0', '50', 'R20', '−9.0', 0, 54, 'M', ''],
+      ['7', 'SMPL', 'vox_chop_A', '▁▂▃▃▂▁', '40', '35', 'L25', '−10.5', 30, 48, '', ''],
+      ['8', '—', 'empty', '', '', '', '', '', 0, 0, '', ''],
+      ['D', 'RTN', 'delay', '▂▂▂▂▂▁', '—', '20', 'C', '−6.0', 34, 66, '', ''],
+      ['R', 'RTN', 'reverb', '▁▂▂▂▂▁', '—', '—', 'C', '−4.5', 46, 70, '', ''],
+      ['M', 'OUT', 'master', '▂▂▂▂▂▂', '', '', 'C', '−1.0', 92, 86, '', '']
+    ];
+    const sel = 2;
+    const strips = raw.map((r, i) => {
+      const s = i === sel, empty = r[1] === '—';
+      return {
+        id: r[0], eng: r[1], name: r[2], eq: r[3] || ' ', dly: r[4] || '·', rev: r[5] || '·', pan: r[6] || '·', db: r[7] || '·',
+        meter: r[8] + '%', mc: r[8] > 88 ? '#F0A04B' : '#6CC5D9',
+        cap: r[9] + '%', capc: s ? '#F0A04B' : (empty ? '#2A3140' : '#D8DEE9'),
+        border: s ? '#F0A04B' : (i === 10 ? '#6CC5D9' : '#39424F'),
+        bg: s ? '#1B222C' : 'transparent',
+        nc: s ? '#F0A04B' : (empty ? '#5C6677' : '#D8DEE9'),
+        ec: engColor[r[1]],
+        eqc: '#6CC5D9',
+        mbg: r[10] ? '#F0A04B' : '#1B222C', mfg: r[10] ? '#0F1218' : '#8B95A7',
+        sbg: r[11] ? '#6CC5D9' : '#1B222C', sfg: r[11] ? '#0F1218' : '#8B95A7'
+      };
+    });
+    const fx = f => (Math.log10(f) - Math.log10(20)) / 3 * 560;
+    const gy = g => 80 - g * 4;
+    const gain = f => {
+      const l = Math.log2(f);
+      let g = 0;
+      g += 2.0 / (1 + Math.exp((l - Math.log2(120)) * 3));
+      g += -1.5 * Math.exp(-Math.pow((l - Math.log2(420)) / 0.9, 2));
+      g += 1.5 * Math.exp(-Math.pow((l - Math.log2(2500)) / 1.1, 2));
+      g += 1.0 / (1 + Math.exp(-(l - Math.log2(8000)) * 3));
+      if (f < 40) g -= 24 * Math.log2(40 / f);
+      return Math.max(-19, g);
+    };
+    let eqPath = '';
+    for (let x = 0; x <= 560; x += 4) {
+      const f = Math.pow(10, Math.log10(20) + x / 560 * 3);
+      eqPath += (x === 0 ? 'M' : ' L') + x + ' ' + gy(gain(f)).toFixed(1);
+    }
+    const nodeDefs = [[40, 0, 'HP'], [120, 2.0], [420, -1.5], [2500, 1.5], [8000, 1.0]];
+    const nodes = nodeDefs.map((n, i) => ({
+      x: fx(n[0]).toFixed(1), y: gy(i === 0 ? gain(40) : gain(n[0])).toFixed(1),
+      r: i === 2 ? 7 : 5, fill: i === 2 ? '#F0A04B' : '#D8DEE9'
+    }));
+    const braw = [
+      [true, 'HP', '24 dB/oct', '40 Hz', '—', '—'],
+      [true, '1', 'low shelf', '120 Hz', '+2.0', '0.7'],
+      [true, '2', 'bell', '420 Hz', '−1.5', '1.0'],
+      [true, '3', 'bell', '2.5 kHz', '+1.5', '0.8'],
+      [true, '4', 'high shelf', '8.0 kHz', '+1.0', '0.7'],
+      [false, 'LP', 'off', '—', '—', '—']
+    ];
+    const bands = braw.map((b, i) => ({
+      on: b[0] ? '●' : '○', n: b[1], type: b[2], f: b[3], g: b[4], q: b[5],
+      oc: b[0] ? '#6CC5D9' : '#5C6677',
+      bg: i === 2 ? '#F0A04B' : 'transparent',
+      fg: i === 2 ? '#0F1218' : (b[0] ? '#D8DEE9' : '#8B95A7')
+    }));
+    const hints = [['←→', 'Channel'], ['↑↓', 'Fader'], ['Tab', 'EQ'], ['1-4', 'Band'], ['f g q', 'Freq/Gain/Q'], ['b', 'Bypass'], ['m', 'Mute'], ['s', 'Solo'], ['Esc', 'Back']]
+      .map(h => ({ k: h[0], l: h[1] }));
+    return { tabs, strips, eqPath, nodes, bands, hints };
+  }
+}
+</script>
+</body>
+</html>

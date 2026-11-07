@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sampler</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#6CC5D9}a:hover{color:#9FDCEA}
+button{font:inherit;border:0;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 1040px; height: 680px; box-sizing: border-box; background: #0F1218; color: #D8DEE9; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; line-height: 18px; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="display: flex; align-items: center; gap: 14px; padding: 7px 12px; border-bottom: 1px solid #2A3140">
+    <span style="color: #F0A04B; font-weight: 700; letter-spacing: 1px">ion</span>
+    <span style="color: #8B95A7">track 5 · SAMPLER</span>
+    <div style="display: flex; gap: 4px; margin-left: 10px">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="6">
+        <button type="button" style="background: {{t.bg}}; color: {{t.fg}}; padding: 0 8px; line-height: 18px"><span style="color: {{t.kc}}; font-weight: 700">{{t.k}}</span>{{t.rest}}</button>
+      </sc-for>
+    </div>
+    <div style="margin-left: auto; display: flex; gap: 18px; color: #8B95A7">
+      <span><span style="color: #6CC5D9">▶</span> <span style="color: #D8DEE9">124.0</span> ext clock</span>
+      <span>cpu <span style="color: #D8DEE9">19%</span></span>
+    </div>
+  </div>
+
+  <div style="flex: 1; display: flex; flex-direction: column; gap: 16px; padding: 18px 12px 8px; min-height: 0">
+
+    <section style="position: relative; border: 1px solid #F0A04B; padding: 12px 12px 8px; display: flex; flex-direction: column; gap: 4px">
+      <span style="position: absolute; top: -10px; left: 10px; background: #0F1218; padding: 0 6px; color: #F0A04B; font-weight: 600">chords_124bpm_4bar.wav</span>
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); color: #8B95A7">
+        <span>1 · · ·</span><span>2 · · ·</span><span>3 · · ·</span><span>4 · · ·</span>
+      </div>
+      <div style="height: 120px; display: flex; align-items: center; gap: 2px; background: #141A22; border-top: 1px solid #2A3140; border-bottom: 1px solid #2A3140">
+        <sc-for list="{{wave}}" as="w" hint-placeholder-count="160">
+          <div style="width: 4px; flex-shrink: 0; height: {{w.h}}; background: {{w.c}}"></div>
+        </sc-for>
+      </div>
+      <div style="display: flex; justify-content: space-between">
+        <span><span style="color: #F0A04B">▲</span> start · loop <span style="color: #8B95A7">0.000 s</span></span>
+        <span style="color: #8B95A7">4 bars · 124.0 bpm · 7.742 s · 48k stereo · resampled from tracks 3 + 6</span>
+        <span>end <span style="color: #8B95A7">7.742 s</span> <span style="color: #F0A04B">▲</span></span>
+      </div>
+    </section>
+
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; flex: 1; min-height: 0">
+      <sc-for list="{{sections}}" as="s" hint-placeholder-count="4">
+        <section style="position: relative; border: 1px solid #39424F; padding: 14px 10px 8px; display: flex; flex-direction: column; gap: 2px">
+          <span style="position: absolute; top: -10px; left: 10px; background: #0F1218; padding: 0 6px; color: #8B95A7; font-weight: 600">{{s.title}}</span>
+          <sc-for list="{{s.rows}}" as="r" hint-placeholder-count="6">
+            <div style="display: flex; justify-content: space-between; gap: 8px; padding: 1px 4px; background: {{r.bg}}">
+              <span style="color: {{r.lc}}">{{r.label}}</span>
+              <span style="color: {{r.vc}}">{{r.v}}</span>
+            </div>
+          </sc-for>
+          <span style="margin-top: auto; color: #6CC5D9; white-space: nowrap; letter-spacing: 1px">{{s.viz}}</span>
+        </section>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; padding: 4px 12px 6px; border-top: 1px solid #2A3140">
+    <sc-for list="{{hints}}" as="h" hint-placeholder-count="9">
+      <span style="display: inline-flex; margin-right: 6px"><span style="color: #D8DEE9; font-weight: 700; padding: 0 4px">{{h.k}}</span><span style="background: #6CC5D9; color: #0F1218; padding: 0 6px">{{h.l}}</span></span>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1040,"height":680}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const tabNames = [['T', 'racks'], ['I', 'nstr'], ['M', 'ixer'], ['F', 'x'], ['R', 'ec'], ['L', 'ibrary']];
+    const tabs = tabNames.map((t, i) => ({
+      k: t[0], rest: t[1],
+      bg: i === 1 ? '#F0A04B' : 'transparent',
+      fg: i === 1 ? '#0F1218' : '#8B95A7',
+      kc: i === 1 ? '#0F1218' : '#F0A04B'
+    }));
+    const N = 166;
+    const wave = [];
+    for (let i = 0; i < N; i++) {
+      const pos = (i % (N / 4)) / (N / 4);
+      const env = pos < 0.04 ? pos / 0.04 : Math.max(0.35, 1 - (pos - 0.04) * 0.7);
+      const tex = 0.72 + 0.28 * Math.abs(Math.sin(i * 1.7) * Math.cos(i * 0.83));
+      const h = Math.max(3, Math.round(108 * env * tex));
+      wave.push({ h: h + 'px', c: '#6CC5D9' });
+    }
+    const mk = (rows, hi) => rows.map((r, i) => ({
+      label: r[0], v: r[1],
+      bg: i === hi ? '#1B222C' : 'transparent',
+      lc: i === hi ? '#F0A04B' : '#D8DEE9',
+      vc: r[2] ? '#5C6677' : '#D8DEE9'
+    }));
+    const sections = [
+      { title: 'Play', viz: '', rows: mk([['mode', 'Repitch'], ['stretch', 'later', true], ['loop', 'forward'], ['root', 'C3'], ['range', 'C0 – C8'], ['glide', 'off']], 0) },
+      { title: 'Amp', viz: '▁▄█████▇▆▅▅▅▅▄▃▂▁', rows: mk([['attack', '4 ms'], ['decay', '300 ms'], ['sustain', '80%'], ['release', '220 ms'], ['vel→amp', '60%']], -1) },
+      { title: 'Filter', viz: '▇▇▇▇▇▇▇▆▅▃▂▁▁', rows: mk([['type', 'LP 24'], ['cutoff', '6.4 kHz'], ['reso', '18%'], ['env amt', '+20%'], ['key track', '50%']], -1) },
+      { title: 'Mod', viz: '▃▅▇▅▃▁▃▅▇▅▃▁▃▅', rows: mk([['lfo', 'sine 1/4'], ['→ cutoff', '+15%'], ['→ pan', '0'], ['cc 74', '→ cutoff'], ['cc 71', '→ reso']], -1) }
+    ];
+    const hints = [['←→', 'Section'], ['↑↓', 'Param'], ['⏎', 'Edit'], ['[ ]', 'Loop pts'], ['z', 'Zoom'], ['n', 'Normalize'], ['o', 'Open file'], ['Spc', 'Audition'], ['Esc', 'Back']]
+      .map(h => ({ k: h[0], l: h[1] }));
+    return { tabs, wave, sections, hints };
+  }
+}
+</script>
+</body>
+</html>

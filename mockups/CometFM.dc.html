@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Comet FM browser</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#6CC5D9}a:hover{color:#9FDCEA}
+button{font:inherit;border:0;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 620px; height: 712px; box-sizing: border-box; background: #0F1218; color: #D8DEE9; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 16px; line-height: 21px; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid #2A3140">
+    <span style="color: #F0A04B; font-weight: 700; letter-spacing: 1px">ion</span>
+    <span style="color: #8B95A7">trk 4 · FM</span>
+    <span style="margin-left: auto; color: #8B95A7"><span style="color: #6CC5D9">▶</span> <span style="color: #D8DEE9">124.0</span></span>
+  </div>
+  <div style="display: flex; gap: 0; padding: 6px 12px; border-bottom: 1px solid #2A3140">
+    <span style="background: #F0A04B; color: #0F1218; padding: 0 8px; font-weight: 600">Browse</span>
+    <span style="color: #8B95A7; padding: 0 8px">Macros</span>
+    <span style="margin-left: auto; color: #8B95A7">Tab ⇄</span>
+  </div>
+
+  <section style="margin: 18px 12px 0; position: relative; border: 1px solid #F0A04B; padding: 12px 6px 6px; flex: 1; min-height: 0; display: flex; flex-direction: column">
+    <span style="position: absolute; top: -11px; left: 10px; background: #0F1218; padding: 0 6px; color: #F0A04B; font-weight: 600">Library · FM</span>
+    <div style="display: flex; justify-content: space-between; padding: 0 6px 6px; border-bottom: 1px solid #2A3140; margin-bottom: 4px">
+      <span><span style="color: #F0A04B; font-weight: 700">/</span> bass<span style="background: #D8DEE9; color: #0F1218"> </span></span>
+      <span style="color: #8B95A7">214 / 2,340</span>
+    </div>
+    <sc-for list="{{patches}}" as="p" hint-placeholder-count="14">
+      <div style="display: grid; grid-template-columns: 18px minmax(0, 1fr) 90px; gap: 8px; padding: 2px 6px; background: {{p.bg}}; color: {{p.fg}}">
+        <span style="color: {{p.sc}}">{{p.star}}</span>
+        <span style="font-weight: 600">{{p.name}}</span>
+        <span style="color: {{p.dim}}">{{p.src}}</span>
+      </div>
+    </sc-for>
+  </section>
+
+  <div style="margin: 10px 12px 0; padding: 6px 8px; background: #141A22; border: 1px solid #2A3140; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 12px">
+    <sc-for list="{{mini}}" as="m" hint-placeholder-count="6">
+      <span style="white-space: nowrap"><span style="color: #8B95A7">{{m.l}}</span> <span style="color: #6CC5D9">{{m.v}}</span></span>
+    </sc-for>
+  </div>
+
+  <div style="margin-top: 10px; display: flex; flex-wrap: wrap; row-gap: 4px; padding: 6px 12px 8px; border-top: 1px solid #2A3140">
+    <sc-for list="{{hints}}" as="h" hint-placeholder-count="6">
+      <span style="display: inline-flex; margin-right: 6px"><span style="color: #D8DEE9; font-weight: 700; padding: 0 4px">{{h.k}}</span><span style="background: #6CC5D9; color: #0F1218; padding: 0 6px">{{h.l}}</span></span>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":620,"height":712}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const raw = [
+      [true, 'BASS 1', 'rom1a'], [false, 'BASS 2', 'rom1a'], [true, 'SLAP BASS', 'rom2b'],
+      [true, 'SYN-BAS 4', 'cart_17'], [false, 'FRETLESS', 'cart_03'], [false, 'WOODBASS', 'rom3a'],
+      [false, 'ANALOGBASS', 'cart_22'], [false, 'PICK BASS', 'cart_09'], [true, 'SUB BASS 2', 'cart_31'],
+      [false, 'RUBBERBASS', 'cart_12'], [false, 'HOUSE BASS', 'cart_44'], [false, 'ORGAN BASS', 'cart_05'],
+      [false, 'DUB BASS', 'cart_40'], [false, 'WARM BASS', 'cart_15']
+    ];
+    const sel = 3;
+    const patches = raw.map((r, i) => {
+      const s = i === sel;
+      return {
+        star: r[0] ? '★' : '·', name: r[1], src: r[2],
+        bg: s ? '#F0A04B' : 'transparent',
+        fg: s ? '#0F1218' : '#D8DEE9',
+        dim: s ? '#0F1218' : '#8B95A7',
+        sc: s ? '#0F1218' : (r[0] ? '#F0A04B' : '#5C6677')
+      };
+    });
+    const mini = [['brt', '+12'], ['atk', '0'], ['rel', '−8'], ['fb', '6'], ['det', '0'], ['vel', '0']].map(m => ({ l: m[0], v: m[1] }));
+    const hints = [['↑↓', 'Browse'], ['/', 'Filter'], ['*', 'Fav'], ['⏎', 'Audition'], ['Tab', 'Macros'], ['Esc', 'Back']]
+      .map(h => ({ k: h[0], l: h[1] }));
+    return { patches, mini, hints };
+  }
+}
+</script>
+</body>
+</html>

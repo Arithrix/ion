@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tracks overview</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#6CC5D9}a:hover{color:#9FDCEA}
+button{font:inherit;border:0;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 1040px; height: 680px; box-sizing: border-box; background: #0F1218; color: #D8DEE9; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; line-height: 18px; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="display: flex; align-items: center; gap: 14px; padding: 7px 12px; border-bottom: 1px solid #2A3140">
+    <span style="color: #F0A04B; font-weight: 700; letter-spacing: 1px">ion</span>
+    <span style="color: #8B95A7">sound module</span>
+    <div style="display: flex; gap: 4px; margin-left: 10px">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="6">
+        <button type="button" style="background: {{t.bg}}; color: {{t.fg}}; padding: 0 8px; line-height: 18px"><span style="color: {{t.kc}}; font-weight: 700">{{t.k}}</span>{{t.rest}}</button>
+      </sc-for>
+    </div>
+    <div style="margin-left: auto; display: flex; gap: 18px; color: #8B95A7">
+      <span><span style="color: #6CC5D9">▶</span> <span style="color: #D8DEE9">124.0</span> ext clock</span>
+      <span>cpu <span style="color: #D8DEE9">23%</span></span>
+      <span>48k · 128 · pipewire</span>
+    </div>
+  </div>
+
+  <div style="flex: 1; display: flex; gap: 10px; padding: 18px 12px 8px; min-height: 0">
+
+    <section style="flex: 1.35; position: relative; border: 1px solid #F0A04B; padding: 12px 8px 8px; display: flex; flex-direction: column">
+      <span style="position: absolute; top: -10px; left: 10px; background: #0F1218; padding: 0 6px; color: #F0A04B; font-weight: 600">Tracks</span>
+      <div style="display: grid; grid-template-columns: 22px 30px 50px minmax(0, 1fr) 96px 52px 18px 18px; gap: 8px; padding: 2px 6px; color: #8B95A7; border-bottom: 1px solid #2A3140; margin-bottom: 4px">
+        <span>#</span><span>ch</span><span>engine</span><span>sound</span><span>level</span><span>dB</span><span></span><span></span>
+      </div>
+      <sc-for list="{{tracks}}" as="r" hint-placeholder-count="8">
+        <div style="display: grid; grid-template-columns: 22px 30px 50px minmax(0, 1fr) 96px 52px 18px 18px; gap: 8px; padding: 4px 6px; background: {{r.bg}}; color: {{r.fg}}">
+          <span style="font-weight: 700">{{r.n}}</span>
+          <span style="color: {{r.dim}}">{{r.ch}}</span>
+          <span style="color: {{r.ec}}; font-weight: 600">{{r.eng}}</span>
+          <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.sound}}</span>
+          <span style="white-space: nowrap"><span style="color: {{r.meter}}">{{r.on}}</span><span style="color: {{r.off}}">{{r.offBar}}</span></span>
+          <span style="color: {{r.dim}}; text-align: right">{{r.lvl}}</span>
+          <span style="color: {{r.ac}}">{{r.act}}</span>
+          <span style="font-weight: 700">{{r.ms}}</span>
+        </div>
+      </sc-for>
+      <div style="margin-top: auto; color: #8B95A7; padding: 6px 6px 0; border-top: 1px solid #2A3140">
+        7 of 8 tracks in use · 22 voices · resampled loop on track 5
+      </div>
+    </section>
+
+    <section style="flex: 1; position: relative; border: 1px solid #39424F; padding: 12px 12px 8px; display: flex; flex-direction: column; gap: 10px; min-width: 0">
+      <span style="position: absolute; top: -10px; left: 10px; background: #0F1218; padding: 0 6px; color: #8B95A7; font-weight: 600">Track 3 · FM</span>
+
+      <div style="display: flex; flex-direction: column">
+        <div style="display: flex; justify-content: space-between"><span style="font-weight: 700; color: #6CC5D9">E.PIANO 1</span><span style="color: #F0A04B">★ fav</span></div>
+        <span style="color: #8B95A7">from rom1a · edited (not saved)</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column">
+        <span style="color: #8B95A7">macros</span>
+        <sc-for list="{{macros}}" as="m" hint-placeholder-count="6">
+          <div style="display: grid; grid-template-columns: 64px 96px 32px; gap: 8px">
+            <span>{{m.label}}</span>
+            <span style="white-space: nowrap"><span style="color: #6CC5D9">{{m.on}}</span><span style="color: #39424F">{{m.off}}</span></span>
+            <span style="text-align: right; color: #8B95A7">{{m.v}}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display: flex; flex-direction: column">
+        <span style="color: #8B95A7">eq</span>
+        <div style="display: grid; grid-template-columns: 64px minmax(0, 1fr) 40px; gap: 8px">
+          <span>4-band</span><span>hp 40 · lo +2 · 420 −1.5 · 2.5k +1.5</span><span style="color: #6CC5D9; text-align: right">● on</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column">
+        <span style="color: #8B95A7">inserts</span>
+        <div style="display: grid; grid-template-columns: 18px 64px minmax(0, 1fr) 40px; gap: 8px"><span>1</span><span>COMP</span><span style="color: #8B95A7">thr −18 · 3:1 · att 10</span><span style="color: #6CC5D9; text-align: right">● on</span></div>
+        <div style="display: grid; grid-template-columns: 18px 64px minmax(0, 1fr) 40px; gap: 8px"><span>2</span><span>CHORUS</span><span style="color: #8B95A7">rate 0.4 · depth 30</span><span style="color: #6CC5D9; text-align: right">● on</span></div>
+        <div style="display: grid; grid-template-columns: 18px 64px minmax(0, 1fr) 40px; gap: 8px; color: #5C6677"><span>3</span><span>—</span><span>empty</span><span></span></div>
+      </div>
+
+      <div style="display: flex; flex-direction: column">
+        <span style="color: #8B95A7">sends</span>
+        <div style="display: grid; grid-template-columns: 64px 96px 40px; gap: 8px"><span>→ DLY</span><span style="white-space: nowrap"><span style="color: #C3A6FF">███</span><span style="color: #39424F">░░░░░░░</span></span><span style="text-align: right; color: #8B95A7">30%</span></div>
+        <div style="display: grid; grid-template-columns: 64px 96px 40px; gap: 8px"><span>→ REV</span><span style="white-space: nowrap"><span style="color: #C3A6FF">█████</span><span style="color: #39424F">░░░░░</span></span><span style="text-align: right; color: #8B95A7">45%</span></div>
+      </div>
+
+      <div style="margin-top: auto; color: #8B95A7; border-top: 1px solid #2A3140; padding-top: 6px">midi ch 03 · poly 6/16 · vel curve soft</div>
+    </section>
+  </div>
+
+  <div style="margin: 4px 12px 8px; position: relative; border: 1px solid #39424F; padding: 9px 10px 5px; display: flex; gap: 22px; align-items: center">
+    <span style="position: absolute; top: -10px; left: 10px; background: #0F1218; padding: 0 6px; color: #8B95A7; font-weight: 600">Master</span>
+    <span>COMP <span style="color: #6CC5D9">●</span> <span style="color: #8B95A7">−2.1 GR</span></span>
+    <span style="white-space: nowrap">OUT <span style="color: #6CC5D9">████████████████</span><span style="color: #F0A04B">██</span><span style="color: #39424F">░░░░░░</span> <span style="color: #8B95A7">−8.2 dB</span></span>
+    <span>DLY bus <span style="color: #8B95A7">1/8D · fb 40%</span></span>
+    <span>REV bus <span style="color: #8B95A7">hall · 2.4 s</span></span>
+  </div>
+
+  <div style="padding: 3px 12px; color: #8B95A7; border-top: 1px solid #2A3140">
+    midi <span style="color: #D8DEE9">OXI One MK2</span> (usb) · ch 1–7 active · last: note on ch03 C4 vel 96
+  </div>
+  <div style="display: flex; flex-wrap: wrap; gap: 0; padding: 0 12px 6px">
+    <sc-for list="{{hints}}" as="h" hint-placeholder-count="10">
+      <span style="display: inline-flex; margin-right: 6px"><span style="color: #D8DEE9; font-weight: 700; padding: 0 4px">{{h.k}}</span><span style="background: #6CC5D9; color: #0F1218; padding: 0 6px">{{h.l}}</span></span>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1040,"height":680}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const tabNames = [['T', 'racks'], ['I', 'nstr'], ['M', 'ixer'], ['F', 'x'], ['R', 'ec'], ['L', 'ibrary']];
+    const tabs = tabNames.map((t, i) => ({
+      k: t[0], rest: t[1],
+      bg: i === 0 ? '#F0A04B' : 'transparent',
+      fg: i === 0 ? '#0F1218' : '#8B95A7',
+      kc: i === 0 ? '#0F1218' : '#F0A04B'
+    }));
+    const engColor = { DRUM: '#F0A04B', FM: '#6CC5D9', SMPL: '#C3A6FF', PLTS: '#9BD48A', '—': '#5C6677' };
+    const raw = [
+      ['1', '01', 'DRUM', 'Garage Kit 02', 8, '−4.0', true, ''],
+      ['2', '02', 'DRUM', 'Perc Chops', 5, '−7.5', true, ''],
+      ['3', '03', 'FM', 'E.PIANO 1', 7, '−6.0', true, ''],
+      ['4', '04', 'FM', 'FM BASS 3', 9, '−3.0', true, 'S'],
+      ['5', '05', 'SMPL', 'chords_124_4bar', 6, '−8.0', true, ''],
+      ['6', '06', 'PLTS', 'String machine', 0, '−9.0', false, 'M'],
+      ['7', '07', 'SMPL', 'vox_chop_A', 3, '−10.5', true, ''],
+      ['8', '08', '—', '— empty —', 0, '', false, '']
+    ];
+    const sel = 2;
+    const tracks = raw.map((r, i) => {
+      const s = i === sel;
+      return {
+        n: r[0], ch: r[1], eng: r[2], sound: r[3],
+        on: '█'.repeat(r[4]), offBar: '░'.repeat(10 - r[4]),
+        lvl: r[5], act: r[6] ? '●' : '·', ms: r[7],
+        bg: s ? '#F0A04B' : 'transparent',
+        fg: s ? '#0F1218' : (r[2] === '—' ? '#5C6677' : '#D8DEE9'),
+        ec: s ? '#0F1218' : engColor[r[2]],
+        dim: s ? '#0F1218' : '#8B95A7',
+        meter: s ? '#0F1218' : '#6CC5D9',
+        off: s ? '#8A5A26' : '#39424F',
+        ac: s ? '#0F1218' : (r[6] ? '#6CC5D9' : '#5C6677')
+      };
+    });
+    const macros = [['Bright', 6, '62'], ['Attack', 0, '0'], ['Release', 5, '48'], ['Feedbk', 3, '30'], ['Detune', 2, '18'], ['Vel', 7, '70']]
+      .map(m => ({ label: m[0], on: '█'.repeat(m[1]), off: '░'.repeat(10 - m[1]), v: m[2] }));
+    const hints = [['1-8', 'Track'], ['↑↓', 'Move'], ['Tab', 'Pane'], ['⏎', 'Edit'], ['/', 'Find'], ['m', 'Mute'], ['s', 'Solo'], ['r', 'Rec'], ['?', 'Help'], ['q', 'Quit']]
+      .map(h => ({ k: h[0], l: h[1] }));
+    return { tabs, tracks, macros, hints };
+  }
+}
+</script>
+</body>
+</html>

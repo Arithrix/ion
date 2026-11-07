@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Library and projects</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#6CC5D9}a:hover{color:#9FDCEA}
+button{font:inherit;border:0;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 1040px; height: 680px; box-sizing: border-box; background: #0F1218; color: #D8DEE9; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; line-height: 18px; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="display: flex; align-items: center; gap: 14px; padding: 7px 12px; border-bottom: 1px solid #2A3140">
+    <span style="color: #F0A04B; font-weight: 700; letter-spacing: 1px">ion</span>
+    <span style="color: #8B95A7">library</span>
+    <div style="display: flex; gap: 4px; margin-left: 10px">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="6">
+        <button type="button" style="background: {{t.bg}}; color: {{t.fg}}; padding: 0 8px; line-height: 18px"><span style="color: {{t.kc}}; font-weight: 700">{{t.k}}</span>{{t.rest}}</button>
+      </sc-for>
+    </div>
+    <div style="margin-left: auto; display: flex; gap: 18px; color: #8B95A7">
+      <span>project <span style="color: #D8DEE9">garage_sketch_03</span> <span style="color: #F0A04B">●</span> unsaved</span>
+    </div>
+  </div>
+
+  <div style="flex: 1; display: flex; gap: 10px; padding: 18px 12px 8px; min-height: 0">
+
+    <section style="width: 200px; flex-shrink: 0; position: relative; border: 1px solid #39424F; padding: 12px 6px 8px; display: flex; flex-direction: column">
+      <span style="position: absolute; top: -10px; left: 10px; background: #0F1218; padding: 0 6px; color: #8B95A7; font-weight: 600">Browse</span>
+      <sc-for list="{{cats}}" as="c" hint-placeholder-count="7">
+        <div style="display: flex; justify-content: space-between; padding: 3px 6px; background: {{c.bg}}; color: {{c.fg}}">
+          <span>{{c.name}}</span><span style="color: {{c.dim}}">{{c.n}}</span>
+        </div>
+      </sc-for>
+      <div style="margin-top: auto; border-top: 1px solid #2A3140; padding: 6px 6px 0; color: #8B95A7">
+        tags: bass · keys · garage · pads · vox
+      </div>
+    </section>
+
+    <section style="flex: 1; position: relative; border: 1px solid #F0A04B; padding: 12px 8px 8px; display: flex; flex-direction: column; min-width: 0">
+      <span style="position: absolute; top: -10px; left: 10px; background: #0F1218; padding: 0 6px; color: #F0A04B; font-weight: 600">Projects</span>
+      <div style="display: grid; grid-template-columns: 16px minmax(0, 1fr) 70px 110px; gap: 10px; padding: 0 6px 2px; color: #8B95A7; border-bottom: 1px solid #2A3140; margin-bottom: 4px">
+        <span></span><span>name</span><span>tracks</span><span>saved</span>
+      </div>
+      <sc-for list="{{projects}}" as="p" hint-placeholder-count="6">
+        <div style="display: grid; grid-template-columns: 16px minmax(0, 1fr) 70px 110px; gap: 10px; padding: 3px 6px; background: {{p.bg}}; color: {{p.fg}}">
+          <span style="color: {{p.mc}}">{{p.mark}}</span><span style="font-weight: 600">{{p.name}}</span><span style="color: {{p.dim}}">{{p.tracks}}</span><span style="color: {{p.dim}}">{{p.saved}}</span>
+        </div>
+      </sc-for>
+      <div style="margin-top: auto; border-top: 1px solid #2A3140; padding: 6px 6px 0; display: flex; flex-direction: column; color: #8B95A7">
+        <span>last FM import: <span style="color: #D8DEE9">412 banks → 13,184 voices → 2,340 unique</span></span>
+        <span>37 corrupt banks skipped · see import log</span>
+      </div>
+    </section>
+
+    <section style="width: 330px; flex-shrink: 0; position: relative; border: 1px solid #39424F; padding: 12px 12px 8px; display: flex; flex-direction: column; gap: 10px">
+      <span style="position: absolute; top: -10px; left: 10px; background: #0F1218; padding: 0 6px; color: #8B95A7; font-weight: 600">deep_house_bolly_01</span>
+      <div style="display: flex; flex-direction: column">
+        <span style="color: #8B95A7">tracks</span>
+        <sc-for list="{{detail}}" as="d" hint-placeholder-count="8">
+          <div style="display: grid; grid-template-columns: 16px 46px minmax(0, 1fr); gap: 8px">
+            <span>{{d.n}}</span><span style="color: {{d.ec}}">{{d.eng}}</span><span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{d.sound}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display: flex; flex-direction: column; border-top: 1px solid #2A3140; padding-top: 8px; color: #8B95A7">
+        <span>samples <span style="color: #D8DEE9">31</span> · all inside project</span>
+        <span>recordings <span style="color: #D8DEE9">4</span></span>
+        <span>fm favourites list <span style="color: #D8DEE9">18</span></span>
+      </div>
+      <div style="margin-top: auto; border-top: 1px solid #2A3140; padding-top: 8px; display: flex; flex-direction: column; gap: 4px">
+        <span><span style="color: #F0A04B; font-weight: 700">⏎</span> load · current project asks to save first</span>
+        <span><span style="color: #F0A04B; font-weight: 700">c</span> collect samples into project folder</span>
+      </div>
+    </section>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; padding: 4px 12px 6px; border-top: 1px solid #2A3140">
+    <sc-for list="{{hints}}" as="h" hint-placeholder-count="9">
+      <span style="display: inline-flex; margin-right: 6px"><span style="color: #D8DEE9; font-weight: 700; padding: 0 4px">{{h.k}}</span><span style="background: #6CC5D9; color: #0F1218; padding: 0 6px">{{h.l}}</span></span>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1040,"height":680}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const tabNames = [['T', 'racks'], ['I', 'nstr'], ['M', 'ixer'], ['F', 'x'], ['R', 'ec'], ['L', 'ibrary']];
+    const tabs = tabNames.map((t, i) => ({
+      k: t[0], rest: t[1],
+      bg: i === 5 ? '#F0A04B' : 'transparent',
+      fg: i === 5 ? '#0F1218' : '#8B95A7',
+      kc: i === 5 ? '#0F1218' : '#F0A04B'
+    }));
+    const craw = [['Projects', '6'], ['FM patches', '2,340'], ['Samples', '1,812'], ['Drum kits', '14'], ['Plaits presets', '22'], ['Recordings', '23'], ['Favourites', '87']];
+    const cats = craw.map((c, i) => ({
+      name: c[0], n: c[1],
+      bg: i === 0 ? '#2A3140' : 'transparent',
+      fg: i === 0 ? '#F0A04B' : '#D8DEE9',
+      dim: '#8B95A7'
+    }));
+    const praw = [
+      ['●', 'garage_sketch_03', '7', 'unsaved'],
+      ['', 'deep_house_bolly_01', '8', 'yesterday'],
+      ['', 'ukg_chops_02', '6', '3 days ago'],
+      ['', 'fm_bass_jam', '4', 'last week'],
+      ['', 'pad_study', '3', 'last week'],
+      ['', 'test_kit_mapping', '2', 'Oct 28']
+    ];
+    const psel = 1;
+    const projects = praw.map((p, i) => {
+      const s = i === psel;
+      return {
+        mark: p[0], name: p[1], tracks: p[2], saved: p[3],
+        mc: s ? '#0F1218' : '#F0A04B',
+        bg: s ? '#F0A04B' : 'transparent',
+        fg: s ? '#0F1218' : '#D8DEE9',
+        dim: s ? '#0F1218' : '#8B95A7'
+      };
+    });
+    const engColor = { DRUM: '#F0A04B', FM: '#6CC5D9', SMPL: '#C3A6FF', PLTS: '#9BD48A' };
+    const detail = [
+      ['1', 'DRUM', 'Deep Kit 01'], ['2', 'DRUM', 'Tabla chops'], ['3', 'FM', 'E.PIANO 1'], ['4', 'FM', 'SUB BASS 2'],
+      ['5', 'SMPL', 'sitar_phrase_A'], ['6', 'PLTS', 'Chords'], ['7', 'SMPL', 'vox_hook_124'], ['8', 'SMPL', 'pad_resample_8bar']
+    ].map(d => ({ n: d[0], eng: d[1], sound: d[2], ec: engColor[d[1]] }));
+    const hints = [['↑↓', 'Move'], ['Tab', 'Pane'], ['⏎', 'Load'], ['w', 'Save'], ['W', 'Save as'], ['i', 'Import'], ['t', 'Tag'], ['/', 'Find'], ['Esc', 'Back']]
+      .map(h => ({ k: h[0], l: h[1] }));
+    return { tabs, cats, projects, detail, hints };
+  }
+}
+</script>
+</body>
+</html>

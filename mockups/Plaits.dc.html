@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plaits engine</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0E13}
+a{color:#6CC5D9}a:hover{color:#9FDCEA}
+button{font:inherit;border:0;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 1040px; height: 680px; box-sizing: border-box; background: #0F1218; color: #D8DEE9; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; line-height: 18px; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="display: flex; align-items: center; gap: 14px; padding: 7px 12px; border-bottom: 1px solid #2A3140">
+    <span style="color: #F0A04B; font-weight: 700; letter-spacing: 1px">ion</span>
+    <span style="color: #8B95A7">track 6 · PLAITS</span>
+    <div style="display: flex; gap: 4px; margin-left: 10px">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="6">
+        <button type="button" style="background: {{t.bg}}; color: {{t.fg}}; padding: 0 8px; line-height: 18px"><span style="color: {{t.kc}}; font-weight: 700">{{t.k}}</span>{{t.rest}}</button>
+      </sc-for>
+    </div>
+    <div style="margin-left: auto; display: flex; gap: 18px; color: #8B95A7">
+      <span><span style="color: #6CC5D9">▶</span> <span style="color: #D8DEE9">124.0</span> ext clock</span>
+      <span>cpu <span style="color: #D8DEE9">25%</span></span>
+    </div>
+  </div>
+
+  <div style="flex: 1; display: flex; gap: 10px; padding: 18px 12px 8px; min-height: 0">
+
+    <section style="width: 470px; flex-shrink: 0; position: relative; border: 1px solid #39424F; padding: 12px 8px 8px; display: flex; flex-direction: column">
+      <span style="position: absolute; top: -10px; left: 10px; background: #0F1218; padding: 0 6px; color: #8B95A7; font-weight: 600">Models</span>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+        <sc-for list="{{banks}}" as="b" hint-placeholder-count="3">
+          <div style="display: flex; flex-direction: column">
+            <span style="color: {{b.c}}; font-weight: 600; padding: 0 6px 4px; border-bottom: 1px solid #2A3140; margin-bottom: 4px">● {{b.name}}</span>
+            <sc-for list="{{b.models}}" as="m" hint-placeholder-count="8">
+              <div style="display: flex; gap: 6px; padding: 3px 6px; background: {{m.bg}}; color: {{m.fg}}">
+                <span style="color: {{m.dim}}">{{m.n}}</span><span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{m.name}}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+      <div style="margin-top: auto; border-top: 1px solid #2A3140; padding: 6px 6px 0; color: #8B95A7">
+        24 models · 6-op FM models draw on your FM library
+      </div>
+    </section>
+
+    <section style="flex: 1; position: relative; border: 1px solid #F0A04B; padding: 14px 14px 8px; display: flex; flex-direction: column; gap: 12px; min-width: 0">
+      <span style="position: absolute; top: -10px; left: 10px; background: #0F1218; padding: 0 6px; color: #F0A04B; font-weight: 600">String machine</span>
+      <span style="color: #8B95A7">ensemble strings with a stereo filter and chorus</span>
+
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <sc-for list="{{macros}}" as="m" hint-placeholder-count="3">
+          <div style="display: flex; flex-direction: column; padding: 4px 6px; background: {{m.bg}}">
+            <div style="display: grid; grid-template-columns: 82px minmax(0, 1fr) 60px; gap: 8px">
+              <span style="color: {{m.lc}}; font-weight: 600">{{m.label}}</span>
+              <span style="white-space: nowrap"><span style="color: #6CC5D9">{{m.on}}</span><span style="color: #39424F">{{m.off}}</span></span>
+              <span style="text-align: right">{{m.v}}</span>
+            </div>
+            <span style="color: #8B95A7; padding-left: 90px">{{m.does}}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; border-top: 1px solid #2A3140; padding-top: 8px">
+        <sc-for list="{{extras}}" as="e" hint-placeholder-count="6">
+          <div style="display: flex; justify-content: space-between; padding: 1px 6px"><span>{{e.l}}</span><span style="color: #8B95A7">{{e.v}}</span></div>
+        </sc-for>
+      </div>
+
+      <div style="border-top: 1px solid #2A3140; padding-top: 8px; display: flex; flex-direction: column">
+        <span style="color: #8B95A7">from the OXI</span>
+        <span>cc 20 → harmonics · cc 21 → timbre · cc 22 → morph</span>
+      </div>
+
+      <div style="margin-top: auto; color: #8B95A7; border-top: 1px solid #2A3140; padding-top: 6px">each voice is one Plaits engine · fewer voices on the Comet if cpu runs short</div>
+    </section>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; padding: 4px 12px 6px; border-top: 1px solid #2A3140">
+    <sc-for list="{{hints}}" as="h" hint-placeholder-count="8">
+      <span style="display: inline-flex; margin-right: 6px"><span style="color: #D8DEE9; font-weight: 700; padding: 0 4px">{{h.k}}</span><span style="background: #6CC5D9; color: #0F1218; padding: 0 6px">{{h.l}}</span></span>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1040,"height":680}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const tabNames = [['T', 'racks'], ['I', 'nstr'], ['M', 'ixer'], ['F', 'x'], ['R', 'ec'], ['L', 'ibrary']];
+    const tabs = tabNames.map((t, i) => ({
+      k: t[0], rest: t[1],
+      bg: i === 1 ? '#F0A04B' : 'transparent',
+      fg: i === 1 ? '#0F1218' : '#8B95A7',
+      kc: i === 1 ? '#0F1218' : '#F0A04B'
+    }));
+    const defs = [
+      ['green', '#9BD48A', ['Virtual analog', 'Waveshaper', '2-op FM', 'Formant', 'Harmonic', 'Wavetable', 'Chords', 'Speech']],
+      ['red', '#FF7A7A', ['Swarm', 'Filtered noise', 'Particles', 'String', 'Modal', 'Kick', 'Snare', 'Hi-hat']],
+      ['orange', '#F0A04B', ['VA + filter', 'Phase dist.', '6-op FM a', '6-op FM b', '6-op FM c', 'Wave terrain', 'String machine', 'Chiptune']]
+    ];
+    const banks = defs.map((b, bi) => ({
+      name: b[0], c: b[1],
+      models: b[2].map((name, i) => {
+        const s = bi === 2 && i === 6;
+        return {
+          n: String(i + 1), name,
+          bg: s ? '#F0A04B' : 'transparent',
+          fg: s ? '#0F1218' : '#D8DEE9',
+          dim: s ? '#0F1218' : '#5C6677'
+        };
+      })
+    }));
+    const macros = [
+      ['Harmonics', 5, 'min 7', 'chord'],
+      ['Timbre', 7, '68', 'chorus and filter amount'],
+      ['Morph', 4, '40', 'waveform']
+    ].map((m, i) => ({
+      label: m[0], on: '█'.repeat(m[1]), off: '░'.repeat(14 - m[1]), v: m[2], does: m[3],
+      bg: i === 1 ? '#1B222C' : 'transparent',
+      lc: i === 1 ? '#F0A04B' : '#D8DEE9'
+    }));
+    const extras = [
+      ['voices', 'poly 6'], ['lpg decay', '55%'],
+      ['out / aux', '30% aux'], ['lpg colour', 'warm'],
+      ['vel →', 'level + lpg'], ['glide', 'off']
+    ].map(e => ({ l: e[0], v: e[1] }));
+    const hints = [['↑↓←→', 'Model'], ['⏎', 'Select'], ['Tab', 'Params'], ['h t o', 'Harm/Timb/Morph'], ['Spc', 'Audition'], ['p', 'Preset'], ['Esc', 'Back'], ['?', 'Help']]
+      .map(h => ({ k: h[0], l: h[1] }));
+    return { tabs, banks, macros, extras, hints };
+  }
+}
+</script>
+</body>
+</html>
