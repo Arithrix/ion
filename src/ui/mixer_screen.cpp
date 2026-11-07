@@ -150,6 +150,8 @@ class MixerScreen final : public Screen {
             {"m", "Mute"},     {"s", "Solo"},   {"l", "Learn"}, {"Esc", "Back"}};
   }
 
+  std::optional<int> focusedScope(Context&) override { return scopeOf(strip_); }
+
   std::optional<ParamRef> focusedParam(Context&) override {
     const auto scope = static_cast<uint8_t>(scopeOf(strip_));
     if (pane_ == 0) return ParamRef{scope, kFader};

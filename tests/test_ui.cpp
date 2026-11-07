@@ -359,3 +359,20 @@ TEST_CASE("import: a failed or empty import is still written to the log") {
   CHECK(log.find("no .syx or .snd files") != std::string::npos);
   fs::remove_all(root);
 }
+
+TEST_CASE("mixer: m and s act on the selected strip; returns mute but don't solo") {
+  SnapshotRig r;
+  // Strips: 8 tracks, then D, R, M. From track 1, eight steps right is D.
+  const std::vector<std::string> toDelay = {"Right", "Right", "Right", "Right", "Right", "Right", "Right", "Right"};
+  auto keys = toDelay;
+  keys.push_back("m");
+  keys.push_back("s");
+  ui::snapshot(r.session, *r.module, ui::ScreenId::Mixer, 130, 36, false, false, 0, keys);
+  CHECK(r.session.param({kDelayScope, kMute}) == 1.0f);
+  CHECK(r.session.param({kDelayScope, kSolo}) == 0.0f);
+  CHECK(r.session.param({0, kMute}) == 0.0f);
+  CHECK(r.session.param({7, kSolo}) == 0.0f);
+  // On a track, m mutes that track.
+  ui::snapshot(r.session, *r.module, ui::ScreenId::Mixer, 130, 36, false, false, 0, {"Right", "m"});
+  CHECK(r.session.param({1, kMute}) == 1.0f);
+}

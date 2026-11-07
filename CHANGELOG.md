@@ -5,6 +5,39 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 
 ## [Unreleased]
 
+### Added
+- **Effects.** Every track, the master and both send returns have **three insert slots**. The effects:
+  - **Compressor:** threshold, ratio, attack, release, knee, makeup, mix. It shows how much it's turning down.
+  - **Chorus:** rate, depth, mix, width.
+  - **Delay:** synced to the OXI's clock in note values (straight, dotted, triplet), or in ms. Feedback with high and low cut, ping-pong, width.
+  - **Reverb:** Plate, Hall or Room; size, decay, pre-delay, damping, width, modulation, low and high cut.
+- **The FX screen (`F`):** the selected track's chain (EQ, slots, sends), the send buses, and the master (EQ, slots, limiter).
+  - ⏎ or `a` adds an effect, `x` removes one, `b` bypasses it, and `[ ]` moves it up or down.
+  - Tab edits its settings. The reverb's tail is drawn as you change it, and a synced delay shows its time in ms.
+- **Send buses.** Every track has Send A (to the delay) and Send B (to the reverb), after the fader by default (or before it, one switch per track).
+  - The returns have their own fader, pan, mute and EQ in the Mixer.
+  - The delay can send into the reverb.
+  - Soloing a track never mutes the returns.
+- **Master chain:** EQ, then your inserts, then the fader, then a **safety limiter** that never lets anything past −0.3 dBFS.
+  - Every project has a glue compressor on the master, switched off until you turn it on (`b` on the FX screen).
+- **Mixer:** delay and reverb return strips, send levels on every strip, and the EQ for the master and the returns.
+- **Tracks** shows each track's inserts and its two sends.
+- **Everything is MIDI-learnable** (`l`), including each slot's on/off.
+- The demo project ("demo v0.4.0") adds:
+  - chorus on the piano;
+  - compressors on the bass and the drums;
+  - piano, brass and drums sent to the reverb, brass and drums to the delay;
+  - CC 75 / CC 76 on channel 1 mapped to the reverb's size and the delay's feedback.
+
+### Changed
+- Everything you hear is 1 ms later: the limiter looks ahead so it never clips. Tell me if you feel it.
+- Projects are now format 4. Older projects open as before; 0.3.x can't open projects saved by 0.4.0.
+- Idle tracks, returns and the master cost almost nothing now. Idle CPU is lower than in 0.3.0, even with both returns running.
+
+### Known issues
+- No effect presets yet.
+- A big hall can't decay faster than about a second, whatever Decay says.
+
 ## [0.3.0] - 2026-11-07
 
 ### Added

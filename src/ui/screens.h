@@ -84,6 +84,8 @@ class Screen {
   virtual Hints hints(Context& ctx) = 0;
   // The parameter `l` would learn a CC for.
   virtual std::optional<ParamRef> focusedParam(Context&) { return std::nullopt; }
+  // The strip `m` and `s` act on, when it isn't the selected track (the Mixer's returns).
+  virtual std::optional<int> focusedScope(Context&) { return std::nullopt; }
   // True while the screen is taking typed text (a filter): letters, digits and
   // Backspace then go to onEvent instead of being shortcuts.
   virtual bool capturesText(Context&) { return false; }

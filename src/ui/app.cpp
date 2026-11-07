@@ -199,8 +199,14 @@ class App {
           case 'w': save(); return true;
           case 'W': startSaveAs(); return true;
           case 'l': startLearn(); return true;
-          case 'm': s.nudgeParam({static_cast<uint8_t>(ctx_.track), kMute}, 1, false); return true;
-          case 's': s.nudgeParam({static_cast<uint8_t>(ctx_.track), kSolo}, 1, false); return true;
+          case 'm':
+          case 's': {
+            const int scope = screen().focusedScope(ctx_).value_or(ctx_.track);
+            if (scope == kMasterScope) return true;                    // the master has neither
+            if (c[0] == 's' && scope >= kTrackCount) return true;      // returns are solo-safe
+            s.nudgeParam({static_cast<uint8_t>(scope), c[0] == 'm' ? kMute : kSolo}, 1, false);
+            return true;
+          }
           case ' ': audition(); return true;
           default:
             if (c[0] >= '1' && c[0] <= '8') {

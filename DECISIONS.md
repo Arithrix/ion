@@ -191,10 +191,67 @@ The audio thread gets a plain pointer. The Session keeps a reference ("pin") for
 Format 3 adds drum tracks (pads and kit name; pad settings are ordinary engine parameters). Formats 1 and 2 open unchanged. ion 0.2.x refuses format 3 with "saved by a newer ion" rather than losing the drum tracks. Loading sends only the parameters that differ from the defaults, so eight full kits fit through the command queue even with no audio thread running (ion-render).
 
 ### D-40 · decided · Sample preview goes straight to the master
-Moving onto a file in the browser plays it once into the master, before the master fader and the safety ceiling, at −6 dB (Settings → Samples). It bypasses the track, so its fader and EQ don't colour it. A new preview fades the previous one out over 5 ms. Moving off a file, Esc and panic stop it. "Preview on move" can be turned off; the waveform still loads.
+Moving onto a file in the browser plays it once into the master (after its EQ and inserts, since 0.4.0: D-45), before the master fader and the safety ceiling, at −6 dB (Settings → Samples). It bypasses the track, so its fader and EQ don't colour it. A new preview fades the previous one out over 5 ms. Moving off a file, Esc and panic stop it. "Preview on move" can be turned off; the waveform still loads.
 
 ### D-41 · decided · Sample roots
 The browser's top level lists the roots from the config (`[samples] roots`, default `~/ion/samples`), then the kits folder, then home, so any folder can be reached. Roots are added and removed in Settings → Samples. Up from a root returns to the top level.
+
+## Decided during Phase 4
+
+### D-42 · decided · The effects are written for ion, from published designs
+The handoff prefers proven open-source DSP. What I found when looking:
+- DaisySP's compressor has no knee, and its good reverb (ReverbSc) is in the LGPL part.
+- Airwindows effects are whole plugins with fixed internal choices and their own parameter conventions.
+- Clouds' reverb (Mutable, MIT) is the same Dattorro family as below.
+
+So ion has its own, each a short, well-known design with tests:
+- **Compressor:** feed-forward and stereo-linked. Peak detector, soft knee and log-domain attack/release, after Giannoulis, Massberg & Reiss (JAES 2012). Threshold, ratio, attack, release, knee, makeup, mix (for parallel compression). It reports its gain reduction.
+- **Chorus:** two delay taps of 7 ms ± up to 4 ms, sine LFO, the right side up to half a cycle behind (Width), Hermite reads.
+- **Delay:** sync to the clock (1/32 to 1/1, dotted and triplet), or 1 ms–5 s. Low and high cut, plus soft saturation in the feedback, so 100% feedback rings without exploding. Ping-pong and width. A time or tempo change glides over about 50 ms instead of jumping.
+- **Reverb:** Dattorro's plate tank (JAES 1997) in three characters:
+  - Plate: the paper's figure;
+  - Hall: tank 1.5× larger and more diffusion;
+  - Room: tank half size, with early reflections.
+
+  Size, decay (RT60 within about 7% of the setting, measured), pre-delay, damping, width, modulation, low cut, high cut. A big hall can't decay faster than its tank allows: set to 0.5 s, it rings about 1.2 s.
+- **Limiter:** the master's safety limiter (D-45).
+
+Costs on the laptop, per 128-frame buffer: compressor 2.7 µs, chorus 3.3, delay 2.7, reverb 13–17, limiter 0.8. The reverb is about 0.6% of the budget, so roughly 8% on an A53.
+**To choose by ear with Michael** ("sound first"): the reverb. If it doesn't please, the next candidates are an FDN hall, or Airwindows' reverbs wrapped behind the same interface.
+
+### D-43 · decided · Insert slots
+Every scope (tracks, master, both returns) has 3 slots. Each slot holds one effect plus its own **on** switch, which can be learned like any parameter.
+- Switching in or out crossfades over one block (1.3 ms). Switched out, it costs nothing, and it's cleared when it comes back, so no stale tail plays.
+- A return's first slot is its own delay or reverb and can't be changed or bypassed.
+- Reordering (`[ ]`) moves the effect with its settings.
+- Parameter numbering: mixer 0–63, inserts from 64 (20 per slot: on, then up to 19 settings), engine from 128. Keys in files and the CC map read `track3.fx1.ratio`, `master.fx1.on`, `reverb.fx1.decay`.
+
+### D-44 · decided · Sends and returns
+- **Sends:** each track has Send A (delay) and Send B (reverb), −∞ (the default) to +6 dB. One switch per track makes both pre-fader (after the inserts, before fader and pan); the default is post-fader.
+- **Mute and solo:** muting a track silences its sends. Solo on another track silences it and its sends, but never the returns (they're solo-safe).
+- **Returns:** each has fader, pan, mute and EQ. The delay return's Send B feeds the reverb after its fader, so echoes can sit in the room.
+- **Tempo:** synced times follow the OXI's clock, or 120 BPM without one. The FX screen says which.
+- **Idle strips sleep:** a strip whose input is silent, and whose output has stayed below −140 dB for longer than its effects can hold sound (a delay's time, a reverb's pre-delay plus one trip round its tank), skips its EQ and inserts until sound arrives.
+  - Live idle CPU went from 6.3% to 1.3% with both returns running.
+  - A test checks that a 3 s echo still arrives after 3 s of silence.
+
+### D-45 · decided · Master chain and the limiter's latency
+- **Chain:** EQ → 3 inserts → fader → safety limiter.
+- **Glue compressor:** every project has one in master slot 1 (−12 dB, 2:1, 10/200 ms), switched out. Projects therefore sound as they did until it's turned on.
+- **Limiter:** −0.3 dBFS ceiling with a 1 ms lookahead.
+  - The lookahead means it never clips: the gain ramps down before the peak arrives.
+  - The cost is 1 ms of latency on everything you hear. 1 ms rather than the usual 1.5–5 ms because playing feel matters here (Michael's latency question is still open).
+  - It's always on. Its reduction shows on the FX screen.
+- **Sample preview** (D-40) now enters after the master inserts, before the fader and the limiter.
+
+### D-46 · decided · Project format 4
+Format 4 adds:
+- per-track inserts;
+- the sends (mixer parameters);
+- the master's whole strip (EQ too) and its inserts;
+- the two returns.
+
+Older formats open with no inserts, sends off and the glue compressor out, and keep their master fader. 0.3.x refuses format 4 with "saved by a newer ion".
 
 ## Proposed (waiting for Michael)
 
