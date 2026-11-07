@@ -10,6 +10,7 @@
 #include "core/version.h"
 #include "engine/drum/drum_engine.h"
 #include "engine/fx/effects.h"
+#include "engine/sampler/sampler_engine.h"
 #include "engine/fm/fm_engine.h"
 #include "engine/module.h"
 #include "library/fm_library.h"
@@ -226,6 +227,42 @@ struct SnapshotRig {
     pad(1, DrumEngine::kTune, -2);
     session.addMapping(3, 71, engineParamRef(3, DrumEngine::param(0, DrumEngine::kDecay)));
     REQUIRE(session.saveKit(3, "Garage 02", error));
+
+    // Track 6: a sampler with a 4-bar resampled loop that knows its tempo (the Sampler mockup).
+    {
+      wav::Audio loop;
+      loop.channels = 2;
+      const int frames = static_cast<int>(4 * 4 * 60.0 / 124.0 * 48000);
+      loop.samples.resize(2 * static_cast<std::size_t>(frames));
+      for (int i = 0; i < frames; ++i) {
+        const double tm = i / 48000.0, beat = std::fmod(tm * 124.0 / 60.0, 4.0);
+        const double env = beat < 0.05 ? beat / 0.05 : std::max(0.35, 1 - (beat - 0.05) * 0.2);
+        const float x = static_cast<float>(0.6 * env * std::sin(2 * 3.14159265 * 220 * tm));
+        loop.samples[2 * static_cast<std::size_t>(i)] = x;
+        loop.samples[2 * static_cast<std::size_t>(i) + 1] = x;
+      }
+      const fs::path f = kSnapshotRoot / "samples" / "recordings" / "chords_124bpm_4bar.wav";
+      fs::create_directories(f.parent_path());
+      REQUIRE(wav::write(f, loop, error));
+      REQUIRE(writeFileAtomic(kSnapshotRoot / "samples" / "recordings" / "chords_124bpm_4bar.json",
+                              R"({"ion_recording": 1, "tempo": 124.0, "bars": 4, "sources": "tracks 3 + 6"})", error));
+      session.setEngine(5, EngineType::Sampler);
+      session.setPadSample(5, 0, f.string());
+      auto sp = [&](int p, float value) { session.setParam(engineParamRef(5, p), value); };
+      sp(SamplerEngine::kLoop, SamplerEngine::kLoopForward);
+      sp(SamplerEngine::kAttack, 4);
+      sp(SamplerEngine::kDecay, 300);
+      sp(SamplerEngine::kSustain, 0.8f);
+      sp(SamplerEngine::kRelease, 220);
+      sp(SamplerEngine::kFilter, SamplerEngine::kLp24);
+      sp(SamplerEngine::kCutoff, 6400);
+      sp(SamplerEngine::kReso, 0.18f);
+      sp(SamplerEngine::kEnvAmount, 0.2f);
+      sp(SamplerEngine::kLfoSync, 1);
+      sp(SamplerEngine::kLfoCutoff, 0.15f);
+      session.addMapping(5, 74, engineParamRef(5, SamplerEngine::kCutoff));
+      session.addMapping(5, 71, engineParamRef(5, SamplerEngine::kReso));
+    }
     REQUIRE(session.waitForSamples());
     std::vector<float> buf(2 * 256);
     module->process(buf.data(), 256);
@@ -292,6 +329,12 @@ TEST_CASE("ui snapshots: every screen at the handoff's sizes") {
       {"fx_80x24", ui::ScreenId::Fx, 80, 24, false, false, 2},
       {"fx_60x35", ui::ScreenId::Fx, 60, 35, false, false, 2},
       {"fx_picker_130x36", ui::ScreenId::Fx, 130, 36, false, false, 2, {"Down", "Down", "Return"}},
+      {"sampler_130x36", ui::ScreenId::Instrument, 130, 36, false, false, 5},
+      {"sampler_80x24", ui::ScreenId::Instrument, 80, 24, false, false, 5},
+      {"sampler_60x35", ui::ScreenId::Instrument, 60, 35, false, false, 5},
+      {"sampler_loop_zoom_130x36", ui::ScreenId::Instrument, 130, 36, false, false, 5, {"Down", "Down", "Down", "Down", "z"}},
+      {"sampler_browse_130x36", ui::ScreenId::Instrument, 130, 36, false, false, 5, {"o"}},
+      {"tracks_sampler_130x36", ui::ScreenId::Tracks, 130, 36, false, false, 5},
       {"library_kits_130x36", ui::ScreenId::Library, 130, 36, false, false, 3, {"Tab", "Down", "Down", "Right"}},
   };
   for (const Case& c : cases) {

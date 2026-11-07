@@ -71,11 +71,12 @@ class InstrumentScreen final : public Screen {
     const std::string title = "Track " + std::to_string(ctx.track + 1) + " · " + engineLabel(tr.engine);
     if (tr.engine == EngineType::None)
       return pane(title, vbox({text("This track is empty.") | color(palette::dim),
-                               paragraph("⏎ chooses an engine. FM and Drum are available now; Sampler and Plaits arrive in Phases 5 and 7.") |
+                               paragraph("⏎ chooses an engine. FM, Drum and Sampler are available now; Plaits arrives in Phase 7.") |
                                    color(palette::faint)}),
                   true) |
              flex;
     if (tr.engine == EngineType::Drum) return drum_->render(ctx);
+    if (tr.engine == EngineType::Sampler) return sampler_->render(ctx);
     if (tr.engine != EngineType::Fm) return pane(title, text("not built yet") | color(palette::faint), true) | flex;
 
     if (ctx.narrow()) return (pane_ == 0 ? list(ctx) : macroPane(ctx)) | flex;
@@ -94,6 +95,7 @@ class InstrumentScreen final : public Screen {
       return false;
     }
     if (tr.engine == EngineType::Drum) return drum_->onEvent(ctx, e);
+    if (tr.engine == EngineType::Sampler) return sampler_->onEvent(ctx, e);
     if (tr.engine != EngineType::Fm) return false;
     FmBrowse& fm = *ctx.fm;
 
@@ -205,6 +207,7 @@ class InstrumentScreen final : public Screen {
     const TrackState& tr = ctx.session.track(ctx.track);
     if (tr.engine == EngineType::None) return {{"⏎", "Engine"}, {"Esc", "Back"}};
     if (tr.engine == EngineType::Drum) return drum_->hints(ctx);
+    if (tr.engine == EngineType::Sampler) return sampler_->hints(ctx);
     if (tr.engine != EngineType::Fm) return {{"Esc", "Back"}};
     if (ctx.fm->typing) return {{"type", "Filter"}, {"⏎", "Done"}, {"Esc", "Clear"}, {"↑↓", "Browse"}};
     if (pane_ == 1)
@@ -223,6 +226,7 @@ class InstrumentScreen final : public Screen {
 
   std::optional<ParamRef> focusedParam(Context& ctx) override {
     if (ctx.session.track(ctx.track).engine == EngineType::Drum) return drum_->focusedParam(ctx);
+    if (ctx.session.track(ctx.track).engine == EngineType::Sampler) return sampler_->focusedParam(ctx);
     if (pane_ != 1 || ctx.session.track(ctx.track).engine != EngineType::Fm) return std::nullopt;
     return param(ctx);
   }
@@ -230,6 +234,7 @@ class InstrumentScreen final : public Screen {
   bool capturesText(Context& ctx) override {
     const EngineType type = ctx.session.track(ctx.track).engine;
     if (type == EngineType::Drum) return drum_->capturesText(ctx);
+    if (type == EngineType::Sampler) return sampler_->capturesText(ctx);
     return ctx.fm->typing && type == EngineType::Fm;
   }
 
@@ -519,6 +524,7 @@ class InstrumentScreen final : public Screen {
   int pane_ = 0;
   int row_ = 0;
   std::unique_ptr<Screen> drum_ = makeDrumScreen();
+  std::unique_ptr<Screen> sampler_ = makeSamplerScreen();
 };
 
 }  // namespace

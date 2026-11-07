@@ -6,7 +6,7 @@
 │ 3  03  FM      SYN-BAS 4                                 ░░░░░░░░░░  -9.0  · M││engine     DRUM                                │
 │ 4  04  DRUM    Garage 02                                 ░░░░░░░░░░   0.0  ·  ││pad        ◀ 1 · kick_tight_03 ▶               │
 │ 5  05  —       — empty —                                 ░░░░░░░░░░        ·  ││level      ██████░░░░ -3.0 dB                  │
-│ 6  06  —       — empty —                                 ░░░░░░░░░░        ·  ││tune       0 st                                │
+│ 6  06  SMPL    chords_124bpm_4bar                        ░░░░░░░░░░   0.0  ·  ││tune       0 st                                │
 │ 7  07  —       — empty —                                 ░░░░░░░░░░        ·  ││decay      420 ms                              │
 │ 8  08  —       — empty —                                 ░░░░░░░░░░        ·  ││pan        █████░░░░░ C                        │
 │                                                                               ││cutoff     8.20 kHz                            │
@@ -30,7 +30,7 @@
 │                                                                               ││                                               │
 │                                                                               ││                                               │
 ├───────────────────────────────────────────────────────────────────────────────┤├───────────────────────────────────────────────┤
-│ 3 of 8 tracks in use · 0 voices                                               ││midi ch 04 · 0 voices                          │
+│ 4 of 8 tracks in use · 0 voices                                               ││midi ch 04 · 0 voices                          │
 ╰───────────────────────────────────────────────────────────────────────────────╯╰───────────────────────────────────────────────╯
  midi MIDI off  ·  last: nothing yet
  1-8  Track   ↑↓  Move   ←→  Fader   Tab  Pane   ⏎  Edit   m  Mute   s  Solo   Spc  Audition   ?  Help   q  Quit

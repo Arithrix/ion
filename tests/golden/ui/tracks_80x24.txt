@@ -6,7 +6,7 @@
 │ 3  03  FM      SYN- ░░░░░░░░░░  -9.0  · M││engine     FM                     │
 │ 4  04  DRUM    Gara ░░░░░░░░░░   0.0  ·  ││patch      ◀ SNAP TEST ▶          │
 │ 5  05  —       — em ░░░░░░░░░░        ·  ││bright     0                      │
-│ 6  06  —       — em ░░░░░░░░░░        ·  ││attack     0                      │
+│ 6  06  SMPL    chor ░░░░░░░░░░   0.0  ·  ││attack     0                      │
 │ 7  07  —       — em ░░░░░░░░░░        ·  ││release    0                      │
 │ 8  08  —       — em ░░░░░░░░░░        ·  ││feedback   0                      │
 │                                          ││detune     0                      │
@@ -18,7 +18,7 @@
 │                                          ││eq         hp 40 · 400 +6.0       │
 │                                          ││inserts    — · — · —              │
 ├──────────────────────────────────────────┤│send A     ░░░░░░░░░░ −∞ dB       │
-│ 3 of 8 tracks in use · 0 voices          ││send B     ░░░░░░░░░░ −∞ dB       │
+│ 4 of 8 tracks in use · 0 voices          ││send B     ░░░░░░░░░░ −∞ dB       │
 ╰──────────────────────────────────────────╯╰──────────────────────────────────╯
  midi MIDI off  ·  last: nothing yet
  1-8  Track   ↑↓  Move   ←→  Fader   Tab  Pane   ⏎  Edit   m  Mute   s  Solo

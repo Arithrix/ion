@@ -1,7 +1,7 @@
  ion Trk Ins Mix Fx Rec Lib                     0% no audio
 ╭ Garage 02 · Tab ⇄ ───────────────────────────────────────╮
 │01 C1         02 C#1        03 D1         04 D#1          │
-│kick_tight_03 kick_sub_01   clap_room     snare_rim       │
+│chords_124bp… kick_sub_01   clap_room     snare_rim       │
 │▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯         │
 │                                                          │
 │05 E1   grp A 06 F1   grp A 07 F#1        08 G1           │
@@ -16,9 +16,9 @@
 │—             —             —             —               │
 │▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯         │
 ╰──────────────────────────────────────────────────────────╯
-╭ Pad 1 · kick_tight_03 ───────────────────────────────────╮
-│0.42 s · 44.1k→48k · mono · /tmp/ion-ui-snapshot/samp…    │
-│█▇▇▇▇▇▇▆▆▆▆▆▆▆▅▅▅▅▅▅▅▄▄▄▄▄▄▃▃▃▃▃▃▃▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁  │
+╭ Pad 1 · chords_124bpm_4bar ──────────────────────────────╮
+│7.74 s · 48k · stereo · /tmp/ion-ui-snapshot/samp…        │
+│▇▇▇▇▇▇▇▇▆▆▆▆▆▆▇▇▇▇▇▇▇▇▆▆▆▆▆▆▇▇▇▇▇▇▇▇▆▆▆▆▆▆▇▇▇▇▇▇▇▇▆▆▆▆▆▆  │
 │  Tune           0 st          Filter         LP          │
 │  Fine           0 ct          Cutoff         8.20 kHz    │
 │▸ Level          -3.0 dB       Resonance      12%         │
