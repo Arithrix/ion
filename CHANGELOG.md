@@ -5,6 +5,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-07
+
 ### Added
 - **Drum tracks.** Choose DRUM for any track: 16 pads, played on notes C1–D#2 (36–51) of the track's channel.
   - **The drum screen (`I` on a drum track):** the sample browser on the left, the 4×4 pads top right, and the selected pad's settings below.
