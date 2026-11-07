@@ -1,0 +1,35 @@
+ ion Trk Ins Mix Fx Rec Lib                     0% no audio
+╭ Browse · Tab ⇄ ──────────────────────────────────────────╮
+│/ filter                                                  │
+│17 / 17                                            ◀ all ▶│
+│                                                          │
+│  name       from                                         │
+│★ BASS 1     cart_17                                      │
+│· BRASS 1    cart_17                                      │
+│· E.ORGAN 1  cart_17                                      │
+│· E.PIANO 1  cart_17                                      │
+│· FLUTE 1    cart_17                                      │
+│· INIT VOICE cart_17                                      │
+│· KOTO       cart_17                                      │
+│· RHODES MK1 cart_17                                      │
+│· SLAP BASS  cart_17                                      │
+│· STRINGS 1  cart_17                                      │
+│· SUB BASS 2 cart_17                                      │
+│★ SYN-BAS 4  cart_17                                      │
+│· SYN-LEAD 1 cart_17                                      │
+│· TAKE OFF   cart_17                                      │
+│· TUB BELLS  cart_17                                      │
+│· VOICE 1    cart_17                                      │
+│· WARM PAD   cart_17                                      │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│brt +12  atk 0  rel −8  fb 0  det 0  vel 0                │
+╰──────────────────────────────────────────────────────────╯
+ midi MIDI off · nothing yet
+ ↑↓  Browse   /  Filter   ←→  View   *  Fav   t  Tag

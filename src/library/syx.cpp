@@ -182,6 +182,7 @@ std::string name(const Voice& voice) {
     s += (c >= 32 && c <= 126) ? c : ' ';
   }
   while (!s.empty() && s.back() == ' ') s.pop_back();
+  s.erase(0, s.find_first_not_of(' ') == std::string::npos ? s.size() : s.find_first_not_of(' '));
   return s;
 }
 
@@ -200,6 +201,42 @@ std::vector<uint8_t> makeSingleDump(const Voice& voice) {
   out.push_back(checksum(voice));
   out.push_back(kSysexEnd);
   return out;
+}
+
+Voice initVoice() {
+  Voice v{};
+  for (std::size_t op = 0; op < 6; ++op) {
+    uint8_t* o = v.data() + op * 21;
+    const uint8_t eg[8] = {99, 99, 99, 99, 99, 99, 99, 0};
+    std::copy(eg, eg + 8, o);
+    o[18] = 1;                       // coarse 1
+    o[20] = 7;                       // detune centre
+    o[16] = op == 5 ? 99 : 0;        // only operator 1 (the last block) is heard
+  }
+  for (std::size_t i = 0; i < 4; ++i) {
+    v[126 + i] = 99;  // pitch EG rates
+    v[130 + i] = 50;  // pitch EG levels (centre)
+  }
+  v[136] = 1;   // osc key sync
+  v[137] = 35;  // LFO speed
+  v[141] = 1;   // LFO key sync
+  v[143] = 3;   // pitch mod sensitivity
+  v[144] = 24;  // transpose: C3 = C3
+  const char name[] = "INIT VOICE";
+  std::copy(name, name + kNameLength, v.begin() + kNameOffset);
+  return v;
+}
+
+std::vector<std::vector<uint8_t>> makeBanks(std::span<const Voice> voices) {
+  std::vector<std::vector<uint8_t>> banks;
+  const PackedVoice init = pack(initVoice());
+  for (std::size_t first = 0; first < voices.size(); first += 32) {
+    std::array<PackedVoice, 32> packed;
+    packed.fill(init);
+    for (std::size_t i = 0; i < 32 && first + i < voices.size(); ++i) packed[i] = pack(normalize(voices[first + i]));
+    banks.push_back(makeBulkDump(packed));
+  }
+  return banks;
 }
 
 }  // namespace ion::syx

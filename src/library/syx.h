@@ -63,7 +63,7 @@ Voice normalize(const Voice& voice);
 // All voices in a dump, unpacked (32 for bulk dumps, 1 for single).
 std::vector<Voice> voices(const Dump& dump);
 
-// The voice name with trailing spaces removed and non-printable characters replaced.
+// The voice name with spaces trimmed from both ends and non-printable characters replaced.
 std::string name(const Voice& voice);
 
 // Builds a 4104-byte bulk dump (MIDI channel 1) from exactly 32 packed voices.
@@ -71,5 +71,12 @@ std::vector<uint8_t> makeBulkDump(std::span<const PackedVoice, 32> voices);
 
 // Builds a 163-byte single-voice dump (MIDI channel 1).
 std::vector<uint8_t> makeSingleDump(const Voice& voice);
+
+// The DX7's INIT VOICE: one sine carrier at full level. Pads exported banks.
+Voice initVoice();
+
+// Bulk dumps (4104 bytes each) holding `voices` in order, 32 per bank; the
+// last bank is padded with INIT VOICE.
+std::vector<std::vector<uint8_t>> makeBanks(std::span<const Voice> voices);
 
 }  // namespace ion::syx

@@ -25,6 +25,6 @@ int run(Session& session, Module& module, const RunOptions& options);
 
 // One frame as plain text at a fixed size, for snapshot tests and bug reports.
 std::string snapshot(Session& session, Module& module, ScreenId screen, int width, int height, bool piano = false,
-                     bool help = false);
+                     bool help = false, int track = 0);
 
 }  // namespace ion::ui

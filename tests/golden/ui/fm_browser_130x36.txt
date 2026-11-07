@@ -1,0 +1,36 @@
+ ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
+╭ Library · FM ────────────────────────────────────────────────────────╮╭ Patch ─────────────────────────────────────────────────╮
+│/ filter by name, tag, category or bank                               ││SYN-BAS 4                                           bass│
+│17 of 17                                                       ◀ all ▶││from cart_17                                            │
+│                                                                      ││tags bass · garage                                      │
+│  name       from         alg  pc                                     ││                                                        │
+│★ BASS 1     cart_17        1                                         ││  ┌─┐  ┌─┐  ┌─┐↺                                        │
+│· BRASS 1    cart_17       15                                         ││  │2│  │4│  │6│                                         │
+│· E.ORGAN 1  cart_17       27                                         ││  └┬┘  └┬┘  └┬┘                                         │
+│· E.PIANO 1  cart_17        9                                         ││  ┌┴┐  ┌┴┐  ┌┴┐                                         │
+│· FLUTE 1    cart_17       21                                         ││  │1│  │3│  │5│                                         │
+│· INIT VOICE cart_17        1                                         ││  └┬┘  └┬┘  └┬┘                                         │
+│· KOTO       cart_17       19                                         ││   └────┴────┘                                          │
+│· RHODES MK1 cart_17       11                                         ││algorithm 5 · three 2-op stacks                         │
+│· SLAP BASS  cart_17        5                                         ││feedback 6 on op 6                                      │
+│· STRINGS 1  cart_17       13                                         ││                                                        │
+│· SUB BASS 2 cart_17        7                                         ││macros · adjust without overwriting the patch           │
+│★ SYN-BAS 4  cart_17        5  1                                      ││  Bright    ░░░░░░░██░░░░░ +12   modulator levels       │
+│· SYN-LEAD 1 cart_17       25                                         ││  Attack    ░░░░░░░░░░░░░░ 0     all envelope attacks   │
+│· TAKE OFF   cart_17       31                                         ││  Release   ░░░░░░█░░░░░░░ −8    all envelope releases  │
+│· TUB BELLS  cart_17       17                                         ││  Feedback  ░░░░░░░░░░░░░░ 0     the patch feedback     │
+│· VOICE 1    cart_17       23                                         ││  Detune    ░░░░░░░░░░░░░░ 0     spread between ops     │
+│· WARM PAD   cart_17       29                                         ││  Velocity  ░░░░░░░░░░░░░░ 0     touch on carriers      │
+│                                                                      ││                                                        │
+│                                                                      ││  Polyphony   8                                         │
+│                                                                      ││  Bend range  2                                         │
+│                                                                      ││  Mono        off                                       │
+│                                                                      ││                                                        │
+│                                                                      ││● edited: bright +12, release −8                        │
+│                                                                      ││a save as new patch · u undo edits · e export           │
+│                                                                      ││cc 74 → bright                                          │
+│                                                                      ││                                                        │
+│moving loads the patch · preview on move ○ off (Settings)             ││                                                        │
+╰──────────────────────────────────────────────────────────────────────╯╰────────────────────────────────────────────────────────╯
+ midi MIDI off  ·  last: nothing yet
+ ↑↓  Browse   /  Filter   ←→  View   *  Fav   t  Tag   ⏎  Audition   Tab  Macros   +  Program   a  Save as   e  Export

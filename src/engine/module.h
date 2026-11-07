@@ -37,6 +37,15 @@ enum class MidiTiming : uint8_t {
   Immediate,  // at the start of the next block: lowest latency, up to one buffer of jitter
 };
 
+// The project's program-change list (HANDOFF §6.3): program N loads voice N
+// onto the FM tracks listening on that channel. Built on the control thread,
+// handed to the audio thread whole, and handed back to be freed.
+inline constexpr int kMaxPrograms = 128;
+struct ProgramTable {
+  int count = 0;
+  std::array<syx::Voice, kMaxPrograms> voices{};
+};
+
 // Control thread → audio thread. One producer (the UI thread, or main in headless).
 struct Command {
   enum class Type : uint8_t {
@@ -50,6 +59,7 @@ struct Command {
     LearnCc,       // next incoming CC is reported for `param`
     CancelLearn,
     SetTiming,     // `value`: MidiTiming
+    SetPrograms,   // `programs` (may be null: program change off); the old table comes back as a Notification
   };
   Type type = Type::Panic;
   uint8_t track = 0;
@@ -60,19 +70,25 @@ struct Command {
   int slot = 0;
   CcMapping mapping{};
   syx::Voice voice{};
+  ProgramTable* programs = nullptr;
 };
 
 // Audio thread → control thread.
 struct Notification {
   enum class Type : uint8_t {
-    EngineRetired,  // delete `engine` (it's no longer used)
-    CcLearned,      // `channel`/`cc` moved while learning `param`
+    EngineRetired,    // delete `engine` (it's no longer used)
+    CcLearned,        // `channel`/`cc` moved while learning `param`
+    ProgramsRetired,  // delete `programs`
+    ProgramChanged,   // program `program` was loaded onto `track`
   };
   Type type = Type::EngineRetired;
   Engine* engine = nullptr;
   uint8_t channel = 0;
   uint8_t cc = 0;
   ParamRef param{};
+  ProgramTable* programs = nullptr;
+  uint8_t track = 0;
+  uint8_t program = 0;
 };
 
 struct MeterStatus {
@@ -150,6 +166,7 @@ class Module {
   std::array<CcMapping, kMaxCcMappings> ccMap_{};
   std::optional<ParamRef> learn_;
   MidiTiming timing_ = MidiTiming::Tight;
+  ProgramTable* programs_ = nullptr;
 
   std::array<ChannelEq, kTrackCount> eq_;
   struct StripState {

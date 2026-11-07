@@ -3,27 +3,27 @@
 │ #  ch  engine  sound                                    level       dB        ││SNAP TEST                                      │
 │ 1  01  FM      SNAP TEST                                 ░░░░░░░░░░   0.0  ·  ││from unit                                      │
 │ 2  02  —       — empty —                                 ░░░░░░░░░░        ·  ││                                               │
-│ 3  03  FM      INIT VOICE                                ░░░░░░░░░░  -9.0  · M││engine     FM                                  │
-│ 4  04  —       — empty —                                 ░░░░░░░░░░        ·  ││patch      no bank (--syx)                     │
-│ 5  05  —       — empty —                                 ░░░░░░░░░░        ·  ││polyphony  8                                   │
-│ 6  06  —       — empty —                                 ░░░░░░░░░░        ·  ││bend range 2                                   │
-│ 7  07  —       — empty —                                 ░░░░░░░░░░        ·  ││mono       off                                 │
-│ 8  08  —       — empty —                                 ░░░░░░░░░░        ·  ││                                               │
+│ 3  03  FM      SYN-BAS 4                                 ░░░░░░░░░░  -9.0  · M││engine     FM                                  │
+│ 4  04  —       — empty —                                 ░░░░░░░░░░        ·  ││patch      ◀ SNAP TEST ▶                       │
+│ 5  05  —       — empty —                                 ░░░░░░░░░░        ·  ││bright     0                                   │
+│ 6  06  —       — empty —                                 ░░░░░░░░░░        ·  ││attack     0                                   │
+│ 7  07  —       — empty —                                 ░░░░░░░░░░        ·  ││release    0                                   │
+│ 8  08  —       — empty —                                 ░░░░░░░░░░        ·  ││feedback   0                                   │
+│                                                                               ││detune     0                                   │
+│                                                                               ││velocity   0                                   │
+│                                                                               ││                                               │
 │                                                                               ││mixer                                          │
 │                                                                               ││fader      ███████▏░░ 0.0 dB                   │
 │                                                                               ││pan        ███▌░░░░░░ L30                      │
 │                                                                               ││eq         hp 40 · 400 +6.0                    │
 │                                                                               ││midi ch    1                                   │
 │                                                                               ││                                               │
+│                                                                               ││voice                                          │
+│                                                                               ││polyphony  8                                   │
+│                                                                               ││bend range 2                                   │
+│                                                                               ││mono       off                                 │
+│                                                                               ││                                               │
 │                                                                               ││inserts · sends   arrive in Phase 4            │
-│                                                                               ││                                               │
-│                                                                               ││                                               │
-│                                                                               ││                                               │
-│                                                                               ││                                               │
-│                                                                               ││                                               │
-│                                                                               ││                                               │
-│                                                                               ││                                               │
-│                                                                               ││                                               │
 │                                                                               ││                                               │
 │                                                                               ││                                               │
 │                                                                               ││                                               │

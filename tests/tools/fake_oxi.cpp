@@ -2,7 +2,9 @@
 // plays a short phrase, for testing ion's MIDI input and hot-plug without the
 // hardware.
 //
-//   fake-oxi [--channel N] [--seconds S] [--clock BPM]
+//   fake-oxi [--channel N] [--seconds S] [--clock BPM] [--programs N]
+//
+// --programs N sends program change 1, 2, … N in turn, one per bar of the phrase.
 
 #include <alsa/asoundlib.h>
 
@@ -16,11 +18,13 @@ int main(int argc, char** argv) {
   int channel = 1;
   double seconds = 4;
   double bpm = 0;
+  int programs = 0;
   for (int i = 1; i + 1 < argc; i += 2) {
     const std::string a = argv[i];
     if (a == "--channel") channel = std::atoi(argv[i + 1]);
     else if (a == "--seconds") seconds = std::atof(argv[i + 1]);
     else if (a == "--clock") bpm = std::atof(argv[i + 1]);
+    else if (a == "--programs") programs = std::atoi(argv[i + 1]);
   }
 
   snd_seq_t* seq = nullptr;
@@ -65,6 +69,11 @@ int main(int argc, char** argv) {
       snd_seq_ev_clear(&ev);
       if (step > 0) {
         snd_seq_ev_set_noteoff(&ev, ch, phrase[(step - 1) % 6], 0);
+        send(ev);
+      }
+      if (programs > 0 && step % 6 == 0) {
+        snd_seq_ev_clear(&ev);
+        snd_seq_ev_set_pgmchange(&ev, ch, (step / 6) % programs);
         send(ev);
       }
       snd_seq_ev_clear(&ev);

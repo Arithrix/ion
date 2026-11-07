@@ -111,6 +111,51 @@ Yamaha's factory voices stay out of the repo. `make-demo` builds "demo vX.Y.Z" f
 - FM uses Synth_Dexed's own allocator, which reuses released voices first and then the oldest held one (it has a minor bookkeeping bug when every voice is held). A shared allocator ("oldest released first") arrives with the Drum and Sampler engines in Phase 3.
 - Global default CC mappings (handoff §5, "optional") are deferred. `Session::addMapping` is the hook they'll use.
 
+## Decided during Phase 2
+
+### D-27 · decided · Patch changes never cut a note: three Synth_Dexed instances per FM track
+Synth_Dexed's voice load stops every voice (`panic()`), so live browsing would chop whatever the OXI is holding. Each FM track keeps three instances:
+- **active** gets new notes;
+- **tail** finishes notes held when the patch changed (note-offs, the sustain pedal, bend and mod wheel still reach it);
+- **spare** is silent, ready for the next patch.
+
+A tail still sounding at the next change fades out over 10 ms. Only instances with sounding notes are rendered, plus 100 ms for Synth_Dexed's DC blocker to settle, so idle ones cost memory and no CPU. Mono mode releases notes on older instances when a new note starts.
+Tested: held notes survive a change; fast scrolling with notes held never steps by more than the signal's own slope; the same note retriggered across a change isn't left stuck.
+
+### D-28 · decided · Synth_Dexed `Env::update` patched (the only upstream change)
+Upstream sends every held note's envelopes to stage 3 whenever any voice parameter changes. A macro moved under a held pad cut its attack short, and under a CC sweep the note fell silent (measured). ion's version keeps the stage and retargets it. A standing level (sustain, or a hold between equal levels) glides to its new value at rate 75 or faster, about 0.1 s, so the macros respond at once even on slow patches. A running hold keeps its timer, so a sweep can't freeze a note in place. Recorded in `third_party/README.md`; two tests fail against the upstream code.
+
+### D-29 · decided · Macros: ranges and what they touch
+Integer offsets in DX7 units, clamped to valid ranges, so every result is a valid voice and "save as" can bake it:
+- **Bright** ±50 on the output level of modulators. Modulators at level 0 are left alone: bringing in an unused operator would change the patch rather than brighten it.
+- **Attack** ±50 on R1, and **Release** ±50 on R4, of every operator. + means slower or longer. DX7 rates are already logarithmic in time, so an offset scales time evenly.
+- **Feedback** ±7.
+- **Detune** ±7. + spreads the operators apart in alternating directions, outer operators furthest; − pulls them towards centre (−7 = all centred).
+- **Velocity** ±7 on the carriers' key velocity sensitivity.
+
+Macros are track parameters: CC-mappable, saved with the project, and they stay where they are when you browse to another patch. That makes it possible to audition the library "with +10 bright". `u` resets them; save-as bakes them into a new library voice and zeroes them.
+To tune by ear with Michael: the ranges, and whether Bright should scale rather than offset.
+
+### D-30 · decided · Library: SQLite, de-duplicated on normalised parameters
+- `~/.local/share/ion/library.db`, SQLite 3.54.1 vendored (public domain), WAL, one connection per thread. Import runs on a worker with its own connection; the UI keeps browsing.
+- Identity is a 64-bit FNV-1a over the unpacked voice minus the name, after `unpack()` masks don't-care bits and clamps ranges (supersedes D-08's "store raw bytes"). Voices are stored normalised and exported spec-clean, so an export loads anywhere. Junk bits in old carts are dropped; they never affected the sound.
+- The first-seen name wins. Files are imported in sorted path order, so this is repeatable. Every source bank is kept ("from cart_17 · +3 more").
+- Your 1,040 downloaded files: 33,248 voices, 12,876 unique, imported in 0.25 s. Re-importing adds nothing.
+- Categories are keyword rules on the name (first match wins). About 38% of the collection stays "other". Tags are the real tool.
+- Near-duplicates (the same name, a few parameters different) are kept as separate patches. E.PIANO 1 has six variants across the collection. Exact de-duplication is what the handoff asks for; folding them would hide genuine edits.
+
+### D-31 · decided · Corrupt banks are skipped (supersedes D-07)
+The handoff says "log and skip", and only one bank in the collection has a bad checksum, so ion skips it rather than importing it with a flag. A headerless 4096-byte file is accepted only if at least 24 of its 32 names are printable text, otherwise random data would import as noise. Problems go to `~/.local/share/ion/import.log`.
+
+### D-32 · decided · Program change: a per-project list, loaded on the audio thread
+Up to 128 voices, stored in the project with their data, so the list survives on a machine whose library lacks them. `+` in the browser adds or removes a patch. Program N on a channel loads entry N onto every FM track listening on that channel (layered tracks change together). The table lives on the audio thread (swapped whole, freed on the control thread), so a program change before a note takes effect before that note. Settings can turn it off.
+
+### D-33 · decided · Project format 2
+Format 2 adds the macros (as FM parameters) and the program list. Both are optional with defaults, so format 1 files open unchanged (tested). Saving writes format 2. ion 0.1.0 refuses format 2 with "saved by a newer ion" rather than silently dropping the new fields. After a rollback to 0.1.0, projects saved by 0.2.0 won't open there.
+
+### D-34 · decided · `--syx` feeds the library
+`ion --syx FILE` imports the file into the library (idempotent) and, on an empty project, puts voice N (`--voice`) on track 1, as before. `ion --import PATH` imports and exits with a summary, for scripting.
+
 ## Proposed (waiting for Michael)
 
 ### D-01 · implemented in Phase 0 · Direct ALSA sequencer instead of RtMidi
@@ -143,11 +188,11 @@ Global keys are never rebound by a screen. Screens are **uppercase** (`T I M F R
 - `t` tag vs `t` Timbre in Plaits' `h t o` → macros are ↑↓ rows like everywhere else.
 - `q` (Mixer `f g q`) vs `q` Quit → `Tab` cycles freq/gain/Q in the band table.
 - Quit isn't in the handoff keymap: `q` with a confirm if unsaved, plus Ctrl+C.
-### D-07 · proposed · syx import: bad checksum ≠ corrupt
+### D-07 · superseded by D-31 · syx import: bad checksum ≠ corrupt
 Skip a bank only if its data fails range validation. A bad checksum alone imports with a flag shown in the import log.
 Real data (V-06): only 1 of 1,008 banks had a bad checksum, so this is minor. Format tolerance matters more: accept a second sysex message after the bulk dump, a missing `F7`, headerless 4096-byte files, and `.snd`/`.dx7` extensions.
 
-### D-08 · proposed · Dedupe on normalised parameters, store raw bytes
+### D-08 · superseded by D-30 · Dedupe on normalised parameters, store raw bytes
 Hash the unpacked 155-byte voice minus the name (bytes 145–154), after masking unused bits and clamping out-of-range values. Otherwise junk bits in old carts defeat dedupe. Store the original packed bytes and export those, so export round-trips byte-exact.
 
 ### D-09 · proposed · Exact-length recording by construction

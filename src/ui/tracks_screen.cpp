@@ -7,7 +7,10 @@
 #include <cstdio>
 
 #include "engine/module.h"
+#include "engine/fm/fm_engine.h"
+#include "library/fm_library.h"
 #include "project/session.h"
+#include "ui/fm_browse.h"
 #include "ui/screens.h"
 
 namespace ion::ui {
@@ -20,7 +23,11 @@ std::string soundName(const Session& s, int t) {
   const TrackState& tr = s.track(t);
   switch (tr.engine) {
     case EngineType::None: return "— empty —";
-    case EngineType::Fm: return tr.hasVoice ? syx::name(tr.voice) : "INIT VOICE";
+    case EngineType::Fm: {
+      if (!tr.hasVoice) return "INIT VOICE";
+      const std::string n = syx::name(tr.voice);
+      return n.empty() ? "(no name)" : n;
+    }
     default: return engineLabel(tr.engine);
   }
 }
@@ -153,7 +160,7 @@ class TracksScreen final : public Screen {
       const Row& r = rows[static_cast<std::size_t>(row_)];
       if (const Nudge n = nudgeOf(e); n.direction) {
         if (r.param) s.nudgeParam(*r.param, n.direction, n.coarse);
-        else if (r.kind == Row::Patch) s.stepBank(ctx.track, n.direction * (n.coarse ? 8 : 1));
+        else if (r.kind == Row::Patch) ctx.fm->move(s, ctx.track, n.direction * (n.coarse ? 8 : 1));
         else if (r.kind == Row::Channel) s.setChannel(ctx.track, s.track(ctx.track).channel + n.direction);
         return true;
       }
@@ -201,15 +208,20 @@ class TracksScreen final : public Screen {
     rows.push_back({Row::Engine, "engine", std::nullopt});
     if (type == EngineType::Fm) rows.push_back({Row::Patch, "patch", std::nullopt});
     const auto table = engineParams(type);
-    for (std::size_t i = 0; i < table.size(); ++i) {
+    auto engineRow = [&](std::size_t i) {
       std::string label = table[i].label;
       if (!label.empty()) label[0] = static_cast<char>(std::tolower(static_cast<unsigned char>(label[0])));
       rows.push_back({Row::Param, label, ParamRef{tt, static_cast<uint8_t>(kEngineParamBase + i)}});
-    }
+    };
+    // FM: the macros up front (they're what you play with), the voice
+    // settings after the mixer rows.
+    const std::size_t first = type == EngineType::Fm ? FmEngine::kFirstMacro : 0;
+    for (std::size_t i = first; i < table.size(); ++i) engineRow(i);
     rows.push_back({Row::Param, "fader", ParamRef{tt, kFader}});
     rows.push_back({Row::Param, "pan", ParamRef{tt, kPan}});
     rows.push_back({Row::Eq, "eq", std::nullopt});
     rows.push_back({Row::Channel, "midi ch", std::nullopt});
+    for (std::size_t i = 0; i < first; ++i) engineRow(i);
     return rows;
   }
 
@@ -225,8 +237,7 @@ class TracksScreen final : public Screen {
     out.push_back(text(soundName(s, t)) | bold | color(tr.engine == EngineType::None ? palette::faint : engineColor(tr.engine)));
     if (tr.engine == EngineType::Fm) {
       std::string from = tr.hasVoice ? "from " + (tr.voiceSource.empty() ? std::string("project") : tr.voiceSource) : "Dexed init voice";
-      if (tr.bankIndex >= 0 && !s.bank().empty())
-        from += " · voice " + std::to_string(tr.bankIndex + 1) + " of " + std::to_string(s.bank().size());
+      if (const dx7::Macros m = s.macros(t); m.any()) from += " · ● edited";
       out.push_back(text(from) | color(palette::dim));
     } else if (tr.engine == EngineType::None) {
       out.push_back(text("⏎ on the track list chooses an engine") | color(palette::dim));
@@ -240,7 +251,11 @@ class TracksScreen final : public Screen {
       Element bar = nullptr;
       switch (r.kind) {
         case Row::Engine: value = tr.engine == EngineType::None ? "empty" : engineLabel(tr.engine); break;
-        case Row::Patch: value = s.bank().empty() ? "no bank (--syx)" : "◀ " + soundName(s, t) + " ▶"; break;
+        case Row::Patch: {
+          const FmLibrary* lib = s.library();
+          value = !lib || lib->patches().empty() ? "library empty: I, then i" : "◀ " + soundName(s, t) + " ▶";
+          break;
+        }
         case Row::Channel: value = std::to_string(tr.channel + 1); break;
         case Row::Eq: value = fit(eqSummary(s, t), 24); break;
         case Row::Param: {
@@ -254,6 +269,10 @@ class TracksScreen final : public Screen {
       if (r.kind == Row::Param && r.label == "fader") {
         out.push_back(text(""));
         out.push_back(text("mixer") | color(palette::dim));
+      }
+      if (r.kind == Row::Param && r.label == "polyphony") {
+        out.push_back(text(""));
+        out.push_back(text("voice") | color(palette::dim));
       }
       out.push_back(paramRow(r.label, value, f, 10, bar));
     }

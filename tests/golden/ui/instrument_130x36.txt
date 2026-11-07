@@ -1,36 +1,36 @@
  ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
-╭ Bank ────────────────────────────────────────────────────────────────────╮╭ Patch ─────────────────────────────────────────────╮
-│No bank loaded.                                                           ││SNAP TEST                                           │
-│Start ion with --syx FILE to browse a DX7 bank here.                      ││from unit                                           │
-│The full FM library (import, search, favourites) is Phase 2.              ││                                                    │
-│                                                                          ││algorithm    5                                      │
-│                                                                          ││feedback     6                                      │
-│                                                                          ││transpose    0 st                                   │
-│                                                                          ││                                                    │
-│                                                                          ││engine                                              │
-│                                                                          ││Polyphony    8                                      │
-│                                                                          ││Bend range   2                                      │
-│                                                                          ││Mono         off                                    │
-│                                                                          ││                                                    │
-│                                                                          ││macros (bright, attack, release, feedback, detune,  │
-│                                                                          ││velocity) arrive in Phase 2                         │
-│                                                                          ││                                                    │
-│                                                                          ││                                                    │
-│                                                                          ││                                                    │
-│                                                                          ││                                                    │
-│                                                                          ││                                                    │
-│                                                                          ││                                                    │
-│                                                                          ││                                                    │
-│                                                                          ││                                                    │
-│                                                                          ││                                                    │
-│                                                                          ││                                                    │
-│                                                                          ││                                                    │
-│                                                                          ││                                                    │
-│                                                                          ││                                                    │
-│                                                                          ││                                                    │
-│                                                                          ││                                                    │
-│                                                                          ││                                                    │
-│                                                                          ││                                                    │
-╰──────────────────────────────────────────────────────────────────────────╯╰────────────────────────────────────────────────────╯
+╭ Library · FM ────────────────────────────────────────────────────────╮╭ Patch ─────────────────────────────────────────────────╮
+│/ filter by name, tag, category or bank                               ││SNAP TEST                                               │
+│17 of 17                                                       ◀ all ▶││from unit · not in the library                          │
+│                                                                      ││                                                        │
+│  name       from         alg  pc                                     ││  ┌─┐  ┌─┐  ┌─┐↺                                        │
+│★ BASS 1     cart_17        1                                         ││  │2│  │4│  │6│                                         │
+│· BRASS 1    cart_17       15                                         ││  └┬┘  └┬┘  └┬┘                                         │
+│· E.ORGAN 1  cart_17       27                                         ││  ┌┴┐  ┌┴┐  ┌┴┐                                         │
+│· E.PIANO 1  cart_17        9                                         ││  │1│  │3│  │5│                                         │
+│· FLUTE 1    cart_17       21                                         ││  └┬┘  └┬┘  └┬┘                                         │
+│· INIT VOICE cart_17        1                                         ││   └────┴────┘                                          │
+│· KOTO       cart_17       19                                         ││algorithm 5 · three 2-op stacks                         │
+│· RHODES MK1 cart_17       11                                         ││feedback 6 on op 6                                      │
+│· SLAP BASS  cart_17        5                                         ││                                                        │
+│· STRINGS 1  cart_17       13                                         ││macros · adjust without overwriting the patch           │
+│· SUB BASS 2 cart_17        7                                         ││  Bright    ░░░░░░░░░░░░░░ 0     modulator levels       │
+│★ SYN-BAS 4  cart_17        5  1                                      ││  Attack    ░░░░░░░░░░░░░░ 0     all envelope attacks   │
+│· SYN-LEAD 1 cart_17       25                                         ││  Release   ░░░░░░░░░░░░░░ 0     all envelope releases  │
+│· TAKE OFF   cart_17       31                                         ││  Feedback  ░░░░░░░░░░░░░░ 0     the patch feedback     │
+│· TUB BELLS  cart_17       17                                         ││  Detune    ░░░░░░░░░░░░░░ 0     spread between ops     │
+│· VOICE 1    cart_17       23                                         ││  Velocity  ░░░░░░░░░░░░░░ 0     touch on carriers      │
+│· WARM PAD   cart_17       29                                         ││                                                        │
+│                                                                      ││  Polyphony   8                                         │
+│                                                                      ││  Bend range  2                                         │
+│                                                                      ││  Mono        off                                       │
+│                                                                      ││                                                        │
+│                                                                      ││○ as stored · a save as · e export                      │
+│                                                                      ││                                                        │
+│                                                                      ││                                                        │
+│                                                                      ││                                                        │
+│                                                                      ││                                                        │
+│moving loads the patch · preview on move ○ off (Settings)             ││                                                        │
+╰──────────────────────────────────────────────────────────────────────╯╰────────────────────────────────────────────────────────╯
  midi MIDI off  ·  last: nothing yet
- ↑↓  Patch   PgUp/Dn  Jump 8   Tab  Params   Spc  Audition   Esc  Back
+ ↑↓  Browse   /  Filter   ←→  View   *  Fav   t  Tag   ⏎  Audition   Tab  Macros   +  Program   a  Save as   e  Export

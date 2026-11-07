@@ -16,6 +16,7 @@
 #include "audio/pipewire_out.h"
 #include "core/version.h"
 #include "engine/module.h"
+#include "library/fm_library.h"
 #include "library/syx.h"
 #include "midi/alsa_seq_in.h"
 #include "project/config.h"
@@ -32,6 +33,7 @@ struct Args {
   bool listMidi = false;
   std::string project;
   std::string syxPath;
+  std::string importPath;
   int voice = 1;          // 1-based
   std::string midiMatch;  // overrides the settings for this run
   bool midiAll = false;
@@ -46,8 +48,9 @@ void printUsage() {
       "usage: ion [options]\n"
       "\n"
       "  --project NAME    open (or create) ~/ion/projects/NAME\n"
-      "  --syx FILE        load a DX7 .syx bank to browse (Instrument screen)\n"
-      "  --voice N         with --syx on an empty project: put voice N on track 1\n"
+      "  --syx FILE        add a DX7 .syx bank to the library; on an empty project, play it on track 1\n"
+      "  --voice N         with --syx: which voice of the bank goes on track 1 (default 1)\n"
+      "  --import PATH     add every .syx/.snd under PATH to the FM library, print a summary, exit\n"
       "  --midi NAME       connect MIDI inputs whose name contains NAME (default: from Settings)\n"
       "  --midi-all        connect every hardware MIDI input\n"
       "  --latency FRAMES  requested audio buffer at 48 kHz (default: from Settings)\n"
@@ -75,6 +78,7 @@ bool parseArgs(int argc, char** argv, Args& a) {
     else if (arg == "--midi-all") a.midiAll = true;
     else if (arg == "--project") { const char* v = value("--project"); if (!v) return false; a.project = v; }
     else if (arg == "--syx") { const char* v = value("--syx"); if (!v) return false; a.syxPath = v; }
+    else if (arg == "--import") { const char* v = value("--import"); if (!v) return false; a.importPath = v; }
     else if (arg == "--voice") { const char* v = value("--voice"); if (!v) return false; a.voice = std::atoi(v); }
     else if (arg == "--midi") { const char* v = value("--midi"); if (!v) return false; a.midiMatch = v; }
     else if (arg == "--screen") { const char* v = value("--screen"); if (!v) return false; a.snapshotScreen = v; }
@@ -161,12 +165,30 @@ int main(int argc, char** argv) {
   for (const auto& w : warnings) std::fprintf(stderr, "ion: %s\n", w.c_str());
   if (args.latency) config.latencyFrames = args.latency;
 
+  if (!args.importPath.empty()) {
+    const ion::ImportReport r = ion::FmLibrary::import(paths.libraryFile(), args.importPath, paths.importLog());
+    if (!r.error.empty()) {
+      std::fprintf(stderr, "ion: import: %s\n", r.error.c_str());
+      return 1;
+    }
+    std::printf("%d files · %d banks · %d voices · %d new to the library\n", r.files, r.banks, r.voices, r.added);
+    if (r.corrupt || r.unreadable)
+      std::printf("%d corrupt dumps skipped, %d files without voice data: see %s\n", r.corrupt, r.unreadable,
+                  paths.importLog().c_str());
+    return 0;
+  }
+
   std::vector<ion::syx::Voice> bank;
-  if (!args.syxPath.empty() && !loadBank(args.syxPath, bank)) return 1;
+  if (!args.syxPath.empty()) {
+    if (!loadBank(args.syxPath, bank)) return 1;
+    const ion::ImportReport r = ion::FmLibrary::import(paths.libraryFile(), args.syxPath, paths.importLog());
+    if (!r.error.empty()) std::fprintf(stderr, "ion: library: %s\n", r.error.c_str());
+  }
 
   auto module = std::make_unique<ion::Module>();
   ion::Session session(*module, paths, config);
-  if (!bank.empty()) session.setBank(bank, baseName(args.syxPath));
+  std::string libraryError;
+  if (!session.openLibrary(libraryError)) std::fprintf(stderr, "ion: FM library: %s (browsing disabled)\n", libraryError.c_str());
 
   // ---- project: --project, else the last one, else a new sketch ----
   std::string name = args.project;
@@ -202,7 +224,7 @@ int main(int argc, char** argv) {
   if (!bank.empty() && emptyProject) {
     session.setEngine(0, ion::EngineType::Fm);
     const int v = std::clamp(args.voice - 1, 0, static_cast<int>(bank.size()) - 1);
-    session.setVoice(0, bank[static_cast<std::size_t>(v)], session.bankName(), v);
+    session.setVoice(0, bank[static_cast<std::size_t>(v)], baseName(args.syxPath));
   }
 
   // ---- snapshot (debug aid, no audio) ----

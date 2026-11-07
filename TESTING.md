@@ -1,97 +1,105 @@
-# Testing ion 0.1.0 — Phase 1: tracks, mixer, projects
+# Testing ion 0.2.0 — Phase 2: FM library and macros
 
 This checkpoint should show:
-- the OXI's tracks route to ion's tracks;
-- the mixer and EQ work;
-- projects save and come back;
-- you can play everything from the laptop keyboard with the OXI unplugged.
+- your DX7 collection is in one searchable list, with no banks and no duplicates;
+- scrolling loads each patch while the OXI plays, **without cutting notes or clicking**;
+- the six macros shape a patch without overwriting it;
+- an edited patch can be saved as a new one and exported as a `.syx` that loads in Dexed.
 
 Allow about 30 minutes. **Wired headphones or speakers please**: Bluetooth adds 150–250 ms of delay.
 
 ## 0. Before you start
-1. If you haven't logged out and back in since joining the `pipewire` group, do that now.
-2. Run `ion --version`. It should print `ion 0.1.0 (…)`.
-3. The demo project was installed with this release. Open it:
+1. Run `ion --version`. It should print `ion 0.2.0 (…)`.
+2. Open the demo project, which was installed with this release:
    ```
-   ion --project "demo v0.1.0"
+   ion --project "demo v0.2.0"
    ```
-   - In the header, `no RT` must **not** appear. If it does, real-time priority isn't active; tell me.
+   - In the header, `no RT` must **not** appear. If it does, tell me; it's still unconfirmed from 0.0.1.
 
-## 1. The demo, from the OXI (5 min)
-The demo has four FM tracks: E.PIANO 1 on channel 1, BASS 1 on 2, BRASS 1 on 3, and STRINGS 1 on track 4, **also on channel 1**.
-1. Set OXI track 1 to MIDI channel 1 and play.
-   - You should hear piano with strings underneath (the layer).
-   - Tracks 1 and 4 both light up in the track list.
-2. Set OXI track 2 to channel 2 and play: bass. Set OXI track 3 to channel 3: brass.
-3. Start the OXI's transport.
-   - The header should show `▶ 124.0 ext clock` (or whatever tempo you're at), steady to the decimal.
-   - Stop the transport: the ▶ changes to ■.
-4. Two CC mappings are already in the demo:
-   - an OXI CC lane or knob sending **CC 74 on channel 1** sweeps the piano's presence EQ (watch Mixer → track 1 → bell 1);
-   - **CC 7 on channel 2** rides the bass fader.
+## 1. Import the collection (3 min)
+Your library starts empty. The DX7 banks I downloaded are in `~/ion/downloads/dx7/x`:
+- the Yamaha factory ROMs (ROM1A has E.PIANO 1);
+- the big public archives;
+- the 33 banks that ship with Dexed.
 
-## 2. Mixer and EQ (8 min)
-1. Press `M`. Use ← → to pick a channel and ↑ ↓ to move its fader; Shift moves it faster. `[` `]` pan.
-2. `m` mutes the selected track, and `s` solos it: everything else goes quiet, solo-in-place. Press again to undo.
-3. Press Tab to reach the EQ:
-   - ↑ ↓ picks a band, ⏎ moves between on/freq/gain/Q, and ← → changes the value.
-   - Sweep bell 1's gain and frequency while playing. It should be smooth, with **no clicks or zipper noise**.
-4. Press `b` to bypass the EQ and compare. Switching should also be click-free.
-5. Turn on the 24 dB high-pass and drag it up to about 500 Hz on the bass.
+1. Press `L` (Library), then `i`. Type `~/ion/downloads/dx7/x` and press ⏎.
+2. It takes about a second. The status line should say `1040 files · 1039 banks · 33248 voices · 12876 new · 1 skipped`.
+   - The one skipped bank has a bad checksum. It's listed in `~/.local/share/ion/import.log`.
+3. Press `i` again with the same folder. This time it should report **0 new**: duplicates are merged.
+4. Later you can import anything else the same way: your own `.syx` files, or folders full of them. Sub-folders are searched.
 
-## 3. MIDI learn (3 min)
-1. On the Mixer, select track 3's fader and press `l`. The bottom line asks you to move a control on the OXI.
-2. Move any OXI CC lane or knob. The status line confirms the mapping, and the fader now follows the OXI.
-3. Press `,` (Settings) → Tab to **CC map**. Your mapping is listed.
-   - ← → changes the top of its range, ⏎ inverts it, and `x` removes it.
+## 2. Browse while the OXI plays (8 min)
+1. Press `1` for track 1 (E.PIANO 1), then `I`. This is the FM browser: one list of every unique patch.
+2. Start a sequence on OXI track 1 (channel 1) and press ↓ repeatedly. Each move **loads the patch straight away**.
+   - Notes already sounding finish with the old patch. Listen for **cut-off notes and clicks**; there should be none, even when you hold ↓ to scroll fast.
+   - Track 4 (strings) is layered on channel 1. Turn it down in the Mixer if it's in the way.
+3. Press `/` and type `bass`. The list filters as you type. ⏎ finishes typing; Esc clears the filter.
+   - The filter matches names, tags, categories and bank names: try `rom1a`, `dexed`, `piano`, `gar`.
+4. ← → change the view: `all`, `★ favourites`, `recent`, `program list`, then the rough categories (`bass`, `keys`, `brass`…).
+   - Categories come from patch names and are rough by design; tags are better.
+5. On a patch you like:
+   - press `*` to make it a favourite (★);
+   - press `t` and type a few tags, e.g. `garage bass dark`;
+   - check that the favourites view and the filter find it.
+6. ⏎ (or Space) plays a short C3 of the current patch.
+   - To hear a preview every time the cursor moves: Settings (`,`) → Keyboard + project → **FM preview**.
+7. On the right: the algorithm drawn as on the DX7 chart, which banks the patch came from (`from rom1a · +8 more`), and its tags.
 
-## 4. Projects (4 min)
-1. Press `W` and save as "test one". The header shows the name; the ● (unsaved) dot disappears.
-2. Change something (a fader), then quit with `q`. ion asks what to do; choose `q` (quit anyway).
-3. Run `ion` again.
-   - It reopens "test one" and **offers to recover** the change.
-   - Press `r`: the fader is back where you left it. `w` saves it.
-4. Press `L` (Library) and open the demo again with ⏎.
-   - It warns about unsaved changes first; press ⏎ again to go ahead.
+## 3. Macros (7 min)
+1. In the browser press Tab to reach the macros. ↑ ↓ picks one; ← → adjusts it (Shift = bigger steps).
+2. Hold a long note or chord on the OXI and move each macro:
+   - **Bright**: modulator levels. More bite and harmonics.
+   - **Attack**: + is slower, − is snappier.
+   - **Release**: + is longer tails. It applies to the next notes you release.
+   - **Feedback**: the patch's feedback (grit on most patches).
+   - **Detune**: + spreads the operators for a chorus-like width; − pulls them together.
+   - **Velocity**: how much your touch changes the level.
+   - Changes should be heard **at once, smoothly, with no clicks**. On held notes nothing should jump or restart.
+3. The patch pane says `● edited: bright +12, …`. The stored patch is untouched: `u` puts every macro back to 0.
+4. Browse to other patches with macros set. They stay where they are, so you can audition the library "brighter". Is that what you want, or should they reset per patch?
+5. MIDI-learn a macro: in the macros pane, press `l`, then move an OXI knob or CC lane. The demo already has **CC 74 on channel 1 → piano Bright** and **CC 71 → Release**. Try those first.
+6. The Tracks screen (`T`) also shows the macros for the selected track, under the patch. ◀ ▶ on the patch row steps through the browser's list.
 
-## 5. Without the OXI: laptop keyboard (5 min)
-1. Unplug the OXI. On the Tracks screen select track 1 (`1`) and press `` ` `` (backtick).
-   - The status line reads `♪ PIANO · oct 3 · vel 100 · gate 300 ms` and the pane borders change colour.
-2. Play: the Z-row is C3 upwards, and the Q-row is an octave higher.
-   - `[` `]` change octave, `\` changes velocity.
-   - ← → still change the focused value, so you can tweak while playing.
-3. Each note plays for 300 ms. Settings → Keyboard changes that.
-4. Esc leaves piano mode. Select track 2 (bass) and play again.
+## 4. Save as, export (5 min)
+1. With some macros set, press `a` and name the result, e.g. `DARK EP` (10 characters).
+   - The macros go back to 0, and the patch sounds **exactly** the same: the edits are baked in.
+   - It's in the library now with `from saved`. Filter for it.
+2. Make a filter or view you'd like as a bank, e.g. `★ favourites`, then press `e` and give it a name.
+   - The files land in `~/ion/exports/` (`name.syx`, or `name 1.syx`, `name 2.syx` … for more than 32).
+3. If you have Dexed (or a DX7), load the exported `.syx`. The patches, including `DARK EP`, should sound the same as in ion.
 
-## 6. MIDI monitor and panic (2 min)
-1. Plug the OXI back in; it reconnects by itself.
-2. Press `~`: the last 20 messages scroll by, with the clock tempo on top. Esc closes it.
-3. Play a big chord and press `p`: everything stops at once.
+## 5. Program change (3 min)
+The demo has an 8-entry program list: E.PIANO 1, BASS 1, BRASS 1, STRINGS 1, PIANO 1, VIBE 1, HARPSICH 1, TUB BELLS.
+1. From the OXI, send program change 3 on channel 2. The bass track becomes BRASS 1, and the status line says so. Program change 2 brings BASS 1 back.
+2. Program changes on channel 1 change **both** tracks 1 and 4 (they share the channel).
+3. In the browser, `+` adds or removes the current patch; the `pc` column shows its number. In the `program list` view, Shift+↑ ↓ reorders.
+4. Settings → MIDI + clock → **program change** turns it off.
 
-## 7. Small screen (2 min)
-Make the terminal narrow, under 80 columns (or try `ion --ui-snapshot 60x35`).
-- The tabs shorten to `Trk Ins Mix…` and one pane shows at a time; Tab swaps.
-- It should stay readable. This is the Comet layout.
+## 6. Library screen and small screen (2 min)
+1. `L`: Projects lists each project's tracks. FM patches shows counts per view and the last import (`… banks → … voices → … new`).
+2. Narrow the terminal below 80 columns (or `ion --ui-snapshot 60x35 --screen instrument`). The browser becomes the Comet layout: list with the macros in one line, Tab for the macros pane.
 
 ## What to send back
-- Did the four tracks route correctly, and did the layer on channel 1 work?
-- Is the tempo display steady with your OXI? How did timing feel compared with 0.0.1?
-- Any clicks when moving faders or the EQ.
-- Did recovery bring your change back?
-- Anything confusing about the keys. The `?` overlay lists them all.
+- Did any note get cut off, or any click happen, while scrolling or moving macros?
+- The macro ranges: too much, too little, which feel useless? (I'll tune them by ear with you.)
+- Should macros stay put when you change patch (now), or reset?
+- Do the categories help at all, or is the filter plus tags enough?
+- Did the exported bank load in Dexed and sound right?
+- From earlier: is `no RT` gone, how does the latency feel, and what does `ion --list-midi` print with the OXI connected?
 
 ## Known issues
-- FM is the only engine.
-- Changing patch while notes are held cuts them off (Phase 2).
-- Holding a key in piano mode plays the note once more after about half a second (key repeat; see CHANGELOG).
-- The demo needs `~/ion/downloads/dx7/x/sysex/rom1a.syx`. If the release didn't install "demo v0.1.0", that file was missing.
+- FM is the only engine (Drum is Phase 3).
+- Near-identical patches stay separate: six different "E.PIANO 1" edits are six entries, because only exact duplicates are merged.
+- A patch's "from" names the first bank it was found in by path order, not necessarily the factory one.
+- A program change on a channel shared by two tracks loads on both; the status line names only the last one.
+- Holding a key in piano mode plays the note once more after about half a second (key repeat).
 
 ## Rolling back
 ```
-~/projects/ion/scripts/use-version.sh 0.0.1   # back to the Phase 0 build
+~/projects/ion/scripts/use-version.sh 0.1.0   # back to Phase 1
 ~/projects/ion/scripts/use-version.sh         # list installed versions
 ```
-0.1.0 projects don't affect 0.0.1, which doesn't read projects.
+Projects saved by 0.2.0 are format 2, and **0.1.0 won't open them** ("saved by a newer ion"). It refuses rather than silently dropping the macros and program list. Projects from 0.1.0 open fine in 0.2.0. The library (`~/.local/share/ion/library.db`) is only used by 0.2.0 and later.
 
 ## Extra tools in this release folder
-`ion-render` (project + .mid → .wav), `ion-bench`, `fake-oxi` (a pretend OXI for testing without the hardware), `make-demo`.
+`ion-render` (project + .mid → .wav), `ion-bench`, `fake-oxi` (a pretend OXI; `--programs N` sends program changes), `make-demo`.

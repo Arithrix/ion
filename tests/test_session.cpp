@@ -265,3 +265,172 @@ TEST_CASE("config: round-trip and bad values") {
   CHECK_FALSE(warnings.empty());
   CHECK(broken.latencyFrames == 128);
 }
+
+// ---- FM library, macros, program list (Phase 2) ----
+
+#include <fstream>
+
+#include "library/fm_library.h"
+
+namespace {
+
+// Writes a generated bank into the rig's root and imports it, as a user would.
+void importBank(Rig& r, const std::vector<syx::Voice>& voices) {
+  const auto bank = syx::makeBanks(voices).at(0);
+  const fs::path file = r.root.path / "syx" / "test_bank.syx";
+  fs::create_directories(file.parent_path());
+  std::ofstream(file, std::ios::binary).write(reinterpret_cast<const char*>(bank.data()), static_cast<std::streamsize>(bank.size()));
+  const Paths paths = Paths::under(r.root.path);
+  REQUIRE(FmLibrary::import(paths.libraryFile(), file.parent_path(), paths.importLog()).error.empty());
+  std::string error;
+  REQUIRE(r.session.openLibrary(error));
+}
+
+ParamRef fmParam(int track, int p) { return {static_cast<uint8_t>(track), static_cast<uint8_t>(kEngineParamBase + p)}; }
+
+}  // namespace
+
+TEST_CASE("session: loading a library patch links it; macros and the program list survive save/load") {
+  Rig r;
+  r.session.newProject("fm");
+  // testVoice() only sets the name, so BETA gets a different feedback to be a different voice.
+  syx::Voice beta = testVoice("BETA");
+  beta[135] = 5;
+  importBank(r, {testVoice("ALPHA"), beta});
+  FmLibrary& lib = *r.session.library();
+  REQUIRE(lib.patches().size() == 3);  // + the INIT VOICE padding the bank
+
+  r.session.setEngine(0, EngineType::Fm);
+  const FmPatch* b = nullptr;
+  for (const FmPatch& p : lib.patches())
+    if (p.name == "BETA") b = &p;
+  REQUIRE(b);
+  const int64_t betaId = b->id;
+  r.session.loadPatch(0, *b);
+  CHECK(r.session.track(0).libraryId == betaId);
+  r.session.setParam(fmParam(0, FmEngine::kBright), 10.0f);
+  r.session.setParam(fmParam(0, FmEngine::kFeedback), -2.0f);
+  CHECK(r.session.macros(0) == dx7::Macros{.bright = 10, .feedback = -2});
+  CHECK(r.session.toggleProgram(r.session.track(0).voice, "test_bank"));
+  CHECK(r.session.programIndex(beta) == 0);
+  std::string error;
+  REQUIRE(r.session.save(error));
+
+  // A second run of ion on the same "home".
+  auto module2 = std::make_unique<Module>();
+  Config config2;
+  Session s2(*module2, Paths::under(r.root.path), config2);
+  REQUIRE(s2.openLibrary(error));
+  REQUIRE(s2.load("fm", error));
+  CHECK(s2.track(0).libraryId == betaId);  // found again by its parameters
+  CHECK(s2.macros(0) == dx7::Macros{.bright = 10, .feedback = -2});
+  REQUIRE(s2.programs().size() == 1);
+  CHECK(s2.programs()[0].voice == syx::normalize(beta));
+}
+
+TEST_CASE("session: save as bakes the macros into a new library voice that sounds the same") {
+  Rig r;
+  r.session.newProject("bake");
+  importBank(r, {testVoice("PAD")});
+  r.session.setEngine(0, EngineType::Fm);
+  const FmPatch* pad = nullptr;
+  for (const FmPatch& p : r.session.library()->patches())
+    if (p.name == "PAD") pad = &p;
+  REQUIRE(pad);
+  r.session.loadPatch(0, *pad);
+  r.session.setParam(fmParam(0, FmEngine::kRelease), 20.0f);
+  r.session.setParam(fmParam(0, FmEngine::kFeedback), 3.0f);
+  const syx::Voice expected = dx7::applyMacros(r.session.track(0).voice, r.session.macros(0));
+
+  std::string error;
+  const int64_t id = r.session.savePatchAs(0, "MY PAD", error);
+  REQUIRE(id > 0);
+  CHECK_FALSE(r.session.macros(0).any());      // baked: the macros are back at 0…
+  const syx::Voice now = r.session.track(0).voice;
+  CHECK(std::equal(now.begin(), now.begin() + 145, expected.begin()));  // …and the voice carries them
+  CHECK(syx::name(now) == "MY PAD");
+  CHECK(r.session.track(0).libraryId == id);
+  const FmPatch* p = r.session.library()->find(id);
+  REQUIRE(p);
+  CHECK(p->user);
+  CHECK(r.session.library()->patches().size() == 3);  // PAD, INIT VOICE (bank padding), MY PAD
+
+}
+
+TEST_CASE("session: export writes valid 32-voice banks and never overwrites") {
+  Rig r;
+  r.session.newProject("x");
+  std::vector<syx::Voice> voices;
+  for (int i = 0; i < 40; ++i) {
+    syx::Voice v = testVoice(("V" + std::to_string(i)).c_str());
+    v[135] = static_cast<uint8_t>(i % 8);
+    v[137] = static_cast<uint8_t>(i);
+    voices.push_back(v);
+  }
+  std::vector<fs::path> written;
+  std::string error;
+  REQUIRE(r.session.exportVoices(voices, "my set", written, error));
+  REQUIRE(written.size() == 2);
+  CHECK(written[0].filename() == "my set 1.syx");
+  for (const fs::path& f : written) CHECK(fs::file_size(f) == syx::kBulkDumpSize);
+  // Importing the export gives back the same voices.
+  const Paths paths = Paths::under(r.root.path);
+  const ImportReport rep = FmLibrary::import(paths.libraryFile(), paths.exportsDir, paths.importLog());
+  CHECK(rep.corrupt == 0);
+  CHECK(rep.voices == 64);
+  CHECK(rep.added == 41);  // 40 + one INIT VOICE padding the second bank
+  written.clear();
+  CHECK_FALSE(r.session.exportVoices(voices, "my set", written, error));
+  CHECK(error.find("already exists") != std::string::npos);
+}
+
+TEST_CASE("session: program change on a track's channel loads from the program list") {
+  Rig r;
+  r.session.newProject("pc");
+  r.session.setEngine(0, EngineType::Fm);
+  r.session.setEngine(1, EngineType::Fm);  // channel 2: not addressed
+  syx::Voice a = testVoice("PROG ONE"), b = testVoice("PROG TWO");
+  b[135] = 6;
+  r.session.toggleProgram(a, "x");
+  r.session.toggleProgram(b, "x");
+  r.run();
+  r.session.sendMidi({0xC0, 1, 0});  // program 2 on channel 1
+  r.run();
+  CHECK(syx::name(r.session.track(0).voice) == "PROG TWO");
+  CHECK_FALSE(r.session.track(1).hasVoice);
+  CHECK(r.session.takeMessage().find("program 2") != std::string::npos);
+
+  r.session.sendMidi({0xC0, 7, 0});  // beyond the list: ignored
+  r.run();
+  CHECK(syx::name(r.session.track(0).voice) == "PROG TWO");
+
+  r.session.setProgramChange(false);
+  r.run();
+  r.session.sendMidi({0xC0, 0, 0});
+  r.run();
+  CHECK(syx::name(r.session.track(0).voice) == "PROG TWO");  // off: ignored
+}
+
+TEST_CASE("session: a format 1 project (v0.1.0) still opens") {
+  Rig r;
+  const std::string v1 = R"({
+  "format": 1,
+  "saved_by": "ion 0.1.0",
+  "tracks": [ { "track": 1, "engine": "fm", "channel": 1, "mixer": { "fader": -3.0 },
+                "fm": { "params": { "poly": 6, "bend": 2, "mono": 0 }, "name": "OLD" } } ],
+  "master": { "fader": 0.0 },
+  "cc": []
+})";
+  std::string error;
+  REQUIRE(writeFileAtomic(Paths::under(r.root.path).projectFile("old"), v1, error));
+  REQUIRE(r.session.load("old", error));
+  CHECK(r.session.track(0).engine == EngineType::Fm);
+  CHECK(r.session.param(fmParam(0, FmEngine::kPoly)) == doctest::Approx(6.0f));
+  CHECK_FALSE(r.session.macros(0).any());
+  CHECK(r.session.programs().empty());
+  // Saved again, it's format 2.
+  REQUIRE(r.session.save(error));
+  std::string text;
+  REQUIRE(readFile(Paths::under(r.root.path).projectFile("old"), text));
+  CHECK(text.find("\"format\": 2") != std::string::npos);
+}
