@@ -1,32 +1,26 @@
 # Status
 
-**Phase:** pre-0 — plan written, waiting for Michael's go-ahead.
+**Phase:** 0 · prototype gate — built; release 0.0.1 is the checkpoint build.
+**Branch:** `phase/0-prototype`, merged to `main` for the release.
 **Updated:** 2026-11-06
 
-## Done
-- Read HANDOFF.md and all 12 mockups.
-- Inspected the laptop (DECISIONS.md V-05).
-- Verified Plaits 1.2 source, Synth_Dexed, and dependency licenses (V-01 to V-04).
-- Wrote PLAN.md and DECISIONS.md.
-- Michael's answers: the keyboard is gate-only and low priority (D-04, D-05); audio goes out through native PipeWire (D-02).
-- Downloaded DX7 banks and deep house drums to `~/ion/downloads` (V-06).
+## Done (Phase 0)
+- CMake build, generated version header, `ion --version`; release and rollback scripts.
+- Vendored and pinned: Synth_Dexed, FTXUI 7.0.3, miniaudio, dr_libs, doctest (`third_party/README.md`).
+- Synth_Dexed building on Linux via `arm_math.h` shim. Fixed the post-load envelope bug that silenced most decaying patches (V-07).
+- syx parsing/packing, tolerant of the damage seen in the real archive.
+- PipeWire playback: 128 frames, follows the default device, 0 errors (V-08).
+- ALSA MIDI input with hot-plug, verified with the `fake-oxi` tool (unplug/replug, clock).
+- Tracks screen at 130×36 / 80×24 / 60×35, meters, patch stepping, audition, panic. `--ui-snapshot WxH` prints a frame as text.
+- `ion-bench`: 4–6 µs per FM voice per 128-frame buffer (V-09).
+- 20 test cases (syx round-trip and damage, FM render, module routing, callback-size independence, ceiling, SPSC).
+- 10-minute soak with continuous MIDI and clock: see the checkpoint note.
 
-## Next (Phase 0, once approved)
-1. `git init`, CMake skeleton, version header, `ion --version`.
-2. Vendor miniaudio, Synth_Dexed, FTXUI, doctest, dr_libs at pinned commits.
-3. PipeWire audio out, OXI in, one Dexed voice from a .syx, bare FTXUI shell.
+## Waiting on Michael
+- Try 0.0.1 with the OXI (`TESTING.md`): go/no-go on the stack.
+- Log out and back in so ion gets real-time priority (it shows `no RT` until then).
+- GitHub: `sudo apt install gh`, then `gh auth login`. After that I create the private repo and push.
+- `ion --list-midi` output with the OXI plugged in.
 
-## Blockers: Michael to run
-Build prerequisites:
-```
-sudo apt install cmake ninja-build pkg-config libasound2-dev libpipewire-0.3-dev \
-                 ccache g++-aarch64-linux-gnu qemu-user
-```
-Real-time permission. This reuses PipeWire's own limits file, `/etc/security/limits.d/25-pw-rlimits.conf`. Log out and back in afterwards.
-```
-sudo usermod -aG pipewire arithrix
-```
-
-## Open
-- Keymap fixes (D-06) and the import/dedupe policy (D-07, D-08): waiting on Michael.
-- Git remote / CI: waiting on Michael.
+## Next (Phase 1, after go)
+Engine interface `setParam`/serialize, sample-accurate MIDI, clock follower, channel map, mixer + EQ, project save/load/autosave, CC learn, piano mode, MIDI monitor, help overlay, Settings, narrow layout, `ion-render` + golden tests.

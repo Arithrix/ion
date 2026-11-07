@@ -39,9 +39,43 @@ Checked `src/ftxui/component/terminal_input_parser.cpp` at v7.0.3. There's no `C
 - No free UK garage pack was available without a login; Michael will bring those from Splice.
 - Repo test fixtures will be generated (synthetic valid DX7 banks, synthetic WAVs), so redistribution never comes up.
 
+### V-07 · verified 2026-11-06 · Synth_Dexed quirks found while integrating
+1. **Pitch-mod sensitivity decoded with 2 bits.** `Dexed::decodeVoice` masks byte 116 with `0x30`; the DX7 field is bits 4–6. Dexed's own `Cartridge::unpackProgram` reads 3 bits. Patches with PMS 4–7 would get the wrong vibrato depth. → We never use `decodeVoice`; `syx::unpack` matches Dexed, and a test covers PMS = 7.
+2. **Post-load refresh breaks new notes.** `loadVoiceParameters()` flags a refresh. The next render calls `Env::update()` on live notes, and that jumps the envelope to stage 3 (upstream comment: "for now we simply reset ourselves at level 3"). Any note starting in the same block as a load lost its attack and decay. Most of ROM1A (pianos, clav, marimba…) went silent. → `FmEngine::loadVoice` clears the flag; the load has already stopped every voice. There's a regression test.
+   - **Phase 2 consequence:** the same `Env::update` path runs whenever we refresh held notes, so live macro moves would snap held notes to their sustain stage. Macros will apply to new notes, or we patch `Env::update`. Decide in Phase 2 with listening tests.
+3. `loadVoiceParameters()` calls `panic()`: held notes stop dead on patch change. Phase 2 (live browsing) needs a handover, e.g. two Dexed instances per FM track that crossfade.
+4. `getSamples()` must be called with a multiple of 64 frames, and voices are only retired when `getNumNotesPlaying()` is called. `FmEngine` does both every block.
+5. `getSamples()` is protected (it's meant to be subclassed, as MiniDexed does). → a small `DexedCore` subclass.
+6. Synth_Dexed's own voice stealing uses `millis()`. → driven from the sample counter, so offline renders are deterministic.
+7. Dexed's `PluginFx` adds a DC blocker after the voices, so after panic there's a −66 dB tail that decays in about 30 ms. Harmless; the tests allow for it.
+
+### V-08 · verified 2026-11-06 · PipeWire behaviour, measured
+Headless ion, PipeWire 1.4.5:
+- The node appears as "ion sound module" (role Music) and linked itself to the default sink, which was the BT headphones (`bluez_output…`).
+- The graph ran at our requested 128 frames with 0 errors in `pw-top`. The global `clock.quantum` setting stayed at 1024 (requested, not forced).
+- Idle DSP load 0.4%. The data thread was `SCHED_OTHER` because Michael hadn't logged in again since joining the `pipewire` group; ion shows `no RT` until he does.
+
+### V-09 · verified 2026-11-06 · FM cost on the laptop
+`ion-bench`, Release, i7-1270P. E.PIANO 1 (six operators, algorithm 5), notes retriggered every 250 ms: **4–6 µs per voice per 128-frame buffer**, which is about 0.2% of the 2.67 ms period per voice. Eight FM tracks × 8 voices ≈ 12% of one core.
+INIT VOICE (one operator) costs about 1 µs per voice. Expect the Comet's A53 to be several times slower; measure in Phase 8.
+
+## Decided during Phase 0
+
+### D-14 · decided · FM engine mode: Mark I
+Synth_Dexed offers MSFA ("Modern"), Mark I and OPL. Mark I models the original DX7's quirks most closely, and patch accuracy is the stated priority. Confirm by ear against Dexed or hardware at the checkpoint.
+
+### D-15 · decided · Fixed 64-frame engine blocks with a FIFO to the device
+Engines always render 64 frames, which is Synth_Dexed's native block. `Module::process` takes any callback size; when it's a multiple of 64 (as at 128), no latency is added. MIDI is applied at block starts in Phase 0 (1.3 ms grid); Phase 1 schedules events at sample offsets.
+
+### D-16 · decided · Release binaries link libstdc++ statically
+`-static-libstdc++ -static-libgcc` in Release, so a build runs on the Comet's distro without matching compiler runtimes. glibc, PipeWire and ALSA stay dynamic as system libraries.
+
+### D-17 · decided · Version: `ION_PRERELEASE` next to `project(VERSION)`
+CMake's `VERSION` can't hold `-dev.N`, so `CMakeLists.txt` has a second line, `set(ION_PRERELEASE "")`. Both live in the one file, and `scripts/release.sh` edits both. A build counts as dirty if anything is uncommitted, untracked files included.
+
 ## Proposed (waiting for Michael)
 
-### D-01 · proposed · Direct ALSA sequencer instead of RtMidi
+### D-01 · implemented in Phase 0 · Direct ALSA sequencer instead of RtMidi
 Hot-plug needs the `System:Announce` port (client/port start and exit events), and RtMidi doesn't expose it, so we'd end up polling. Direct ALSA seq is ~500 lines and also gives us event timestamps, clean virtual ports for tests, and no extra dependency. ALSA is a runtime system library either way.
 
 ### D-02 · decided 2026-11-06 · Native PipeWire output on the laptop; miniaudio for ALSA
@@ -87,7 +121,7 @@ Use a windowed-sinc SRC (libsamplerate BSD-2 or r8brain MIT, to evaluate). Playb
 ### D-11 · proposed · UI is in-process for v1; the protocol is serialisable
 Headless mode doesn't start the UI. Commands and snapshots are plain structs that could go over a Unix socket later, so a UI can attach to a headless engine started as a Comet service (Phase 8) without a rewrite.
 
-### D-12 · proposed · doctest over Catch2
+### D-12 · implemented in Phase 0 · doctest over Catch2
 Faster compiles; same features for our needs.
 
 ### D-13 · decided 2026-11-06 · Private GitHub repo; arm64 deferred
