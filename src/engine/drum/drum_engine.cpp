@@ -37,8 +37,8 @@ const std::array<ParamInfo, DrumEngine::kPadParamCount> kPad = {{
     {"cutoff", "Cutoff", 20, 20000, 5000, Curve::Log, Unit::Hz, kLogFine, kLogCoarse},
     {"reso", "Resonance", 0, 1, 0, Curve::Linear, Unit::Percent, 0.01f, 0.1f},
     {"drive", "Drive", 0, 1, 0, Curve::Linear, Unit::Percent, 0.01f, 0.1f},
-    {"vel.level", "Vel → level", 0, 1, 0.5f, Curve::Linear, Unit::Percent, 0.05f, 0.25f},
-    {"vel.filter", "Vel → filter", 0, 1, 0, Curve::Linear, Unit::Percent, 0.05f, 0.25f},
+    {"vel.level", "Vel→level", 0, 1, 0.5f, Curve::Linear, Unit::Percent, 0.05f, 0.25f},
+    {"vel.filter", "Vel→filter", 0, 1, 0, Curve::Linear, Unit::Percent, 0.05f, 0.25f},
     {"choke", "Choke", 0, 4, 0, Curve::Choice, Unit::None, 1, 1, kChokes},
 }};
 
@@ -52,7 +52,7 @@ struct Table {
         ParamInfo pi = kPad[static_cast<std::size_t>(p)];
         keys[i] = "pad" + std::to_string(pad + 1) + "." + pi.key;
         std::string label = pi.label;
-        if (p != DrumEngine::kVelLevel && p != DrumEngine::kVelFilter) label[0] = static_cast<char>(std::tolower(label[0]));
+        label[0] = static_cast<char>(std::tolower(label[0]));
         labels[i] = "Pad " + std::to_string(pad + 1) + " " + label;
         pi.key = keys[i].c_str();
         pi.label = labels[i].c_str();

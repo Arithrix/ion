@@ -1,11 +1,14 @@
-// Library (L): projects and the FM library (mockups/Library). Samples, kits
-// and recordings join in later phases.
+// Library (L): projects, the FM library and drum kits (mockups/Library).
+// Recordings join in Phase 6.
 
 #include <cstdio>
 #include <ctime>
+#include <filesystem>
 #include <map>
 
+#include "engine/drum/drum_engine.h"
 #include "library/fm_library.h"
+#include "project/paths.h"
 #include "project/session.h"
 #include "ui/fm_browse.h"
 #include "ui/screens.h"
@@ -34,8 +37,12 @@ class LibraryScreen final : public Screen {
   Element render(Context& ctx) override {
     Session& s = ctx.session;
     projects_ = s.listProjects();
+    kits_ = s.listKits();
     sel_ = std::clamp(sel_, 0, std::max(0, rowCount(ctx) - 1));
-    if (++frames_ % 30 == 0) summaries_.clear();  // pick up saves about once a second
+    if (++frames_ % 30 == 0) {  // pick up saves about once a second
+      summaries_.clear();
+      kitSummaries_.clear();
+    }
     if (ctx.narrow()) return (pane_ == 0 ? sections(ctx) : middle(ctx)) | flex;
     const int detailWidth = std::max(34, ctx.width * 36 / 100);
     return hbox({sections(ctx) | size(WIDTH, EQUAL, 24), middle(ctx) | flex, detail(ctx) | size(WIDTH, EQUAL, detailWidth)});
@@ -57,8 +64,8 @@ class LibraryScreen final : public Screen {
       return true;
     }
     if (pane_ == 0) {
-      if (e == Event::ArrowUp) { section_ = (section_ + 1) % 2; sel_ = 0; return true; }
-      if (e == Event::ArrowDown) { section_ = (section_ + 1) % 2; sel_ = 0; return true; }
+      if (e == Event::ArrowUp) { section_ = (section_ + kSections - 1) % kSections; sel_ = 0; return true; }
+      if (e == Event::ArrowDown) { section_ = (section_ + 1) % kSections; sel_ = 0; return true; }
       if (e == Event::Return || e == Event::ArrowRight) { pane_ = 1; return true; }
       return false;
     }
@@ -76,6 +83,24 @@ class LibraryScreen final : public Screen {
           return true;
         }
         ctx.request = Context::Request::ShowInstrument;
+        return true;
+      }
+      return false;
+    }
+    if (section_ == kKits) {
+      if (e == Event::Return && !kits_.empty()) {
+        const std::string& name = kits_[static_cast<std::size_t>(sel_)];
+        if (s.track(ctx.track).engine != EngineType::Drum) {
+          ctx.flash = "track " + std::to_string(ctx.track + 1) + " isn't a drum track: pick one (1–8), or ⏎ an empty one on Tracks";
+          return true;
+        }
+        std::string error;
+        if (s.loadKit(ctx.track, s.paths().kitFile(name), error)) {
+          ctx.flash = "kit " + name + " loaded onto track " + std::to_string(ctx.track + 1);
+          ctx.request = Context::Request::ShowInstrument;
+        } else {
+          ctx.flash = "kit not loaded: " + error;
+        }
         return true;
       }
       return false;
@@ -108,14 +133,16 @@ class LibraryScreen final : public Screen {
   Hints hints(Context&) override {
     if (pane_ == 0) return {{"↑↓", "Section"}, {"⏎", "Open"}, {"Tab", "Pane"}, {"i", "Import FM"}, {"Esc", "Back"}};
     if (section_ == kFm) return {{"↑↓", "Move"}, {"⏎", "Browse"}, {"Tab", "Pane"}, {"i", "Import"}, {"Esc", "Back"}};
+    if (section_ == kKits) return {{"↑↓", "Move"}, {"⏎", "Load onto track"}, {"Tab", "Pane"}, {"Esc", "Back"}};
     return {{"↑↓", "Move"}, {"⏎", "Load"}, {"n", "New"}, {"w", "Save"}, {"W", "Save as"}, {"i", "Import FM"}, {"Esc", "Back"}};
   }
 
  private:
-  enum Section { kProjects = 0, kFm = 1 };
+  enum Section { kProjects = 0, kFm = 1, kKits = 2, kSections = 3 };
   enum class Action { None, Load, New };
 
   int rowCount(Context&) const {
+    if (section_ == kKits) return static_cast<int>(kits_.size());
     return section_ == kProjects ? static_cast<int>(projects_.size()) : static_cast<int>(FmBrowse::views().size());
   }
 
@@ -133,8 +160,9 @@ class LibraryScreen final : public Screen {
     Elements rows = {row(kProjects, "Projects", std::to_string(projects_.size())),
                      row(kFm, "FM patches", lib ? thousands(lib->patches().size()) : "—")};
     rows.push_back(hbox({text("  ★ favourites") | flex, text(thousands(favourites) + " ")}) | color(palette::dim));
+    rows.push_back(row(kKits, "Drum kits", std::to_string(kits_.size())));
     rows.push_back(text(""));
-    for (const char* later : {"Samples · Phase 3", "Drum kits · Phase 3", "Plaits · Phase 7", "Recordings · Phase 6"})
+    for (const char* later : {"Plaits · Phase 7", "Recordings · Phase 6"})
       rows.push_back(text(" " + std::string(later)) | color(palette::faint));
     rows.push_back(filler());
     return pane("Browse", vbox(rows), pane_ == 0);
@@ -168,6 +196,25 @@ class LibraryScreen final : public Screen {
       rows.push_back(filler());
       rows.push_back(text(" categories come from patch names and are rough: tags (t) are better") | color(palette::faint));
       return pane("FM library", vbox(rows), focused);
+    }
+
+    if (section_ == kKits) {
+      rows.push_back(hbox({text("   name") | flex, text("pads  ")}) | color(palette::dim));
+      for (int i = 0; i < static_cast<int>(kits_.size()); ++i) {
+        const std::string& name = kits_[static_cast<std::size_t>(i)];
+        const bool on = i == sel_;
+        int pads = 0;
+        if (on || i < 40)
+          for (const std::string& smp : kitFor(s, name).samples) pads += !smp.empty();
+        const bool current = s.track(ctx.track).engine == EngineType::Drum && s.track(ctx.track).kit == name;
+        Element row = hbox({text(current ? " ● " : "   ") | color(on ? palette::bg : palette::accent), text(name) | flex,
+                            text(std::to_string(pads) + "     ") | color(on ? palette::bg : palette::dim)});
+        rows.push_back(on ? row | color(palette::bg) | bgcolor(focused ? palette::accent : palette::raised) : row);
+      }
+      if (kits_.empty()) rows.push_back(text("   no kits yet: k on a drum track saves one") | color(palette::faint));
+      rows.push_back(filler());
+      rows.push_back(text(" " + abbreviateHome(s.paths().kitsDir.string())) | color(palette::faint));
+      return pane("Drum kits", vbox(rows), focused);
     }
 
     rows.push_back(hbox({text("   name") | flex, text("tracks  ")}) | color(palette::dim));
@@ -227,6 +274,32 @@ class LibraryScreen final : public Screen {
       return pane("Import", vbox(info), false);
     }
 
+    if (section_ == kKits) {
+      if (kits_.empty()) {
+        info.push_back(paragraph("A kit is 16 pads: each sample (where it is on disk) and every pad setting. "
+                                 "k on a drum track's Instrument screen saves one.") |
+                       color(palette::dim));
+        return pane("Kit", vbox(info), false);
+      }
+      const std::string& name = kits_[static_cast<std::size_t>(sel_)];
+      const auto& kit = kitFor(s, name);
+      info.push_back(text(name) | bold | color(palette::lilac));
+      info.push_back(text(""));
+      for (int p = 0; p < DrumEngine::kPads; ++p) {
+        const std::string& smp = kit.samples[static_cast<std::size_t>(p)];
+        std::error_code ec;
+        const bool missing = !smp.empty() && !std::filesystem::exists(expandHome(smp), ec);
+        char num[8];
+        std::snprintf(num, sizeof num, " %2d  ", p + 1);
+        info.push_back(hbox({text(num) | color(palette::dim),
+                             text(smp.empty() ? "—" : std::filesystem::path(smp).stem().string() + (missing ? "  missing" : "")) |
+                                 color(smp.empty() ? palette::faint : missing ? palette::record : palette::text)}));
+      }
+      info.push_back(text(""));
+      info.push_back(paragraph("⏎ loads it onto the selected drum track (all 16 pads)") | color(palette::dim));
+      return pane("Kit", vbox(info), false);
+    }
+
     const std::string name = projects_.empty() ? s.name() : projects_[static_cast<std::size_t>(sel_)];
     info.push_back(text(name) | bold | color(palette::value));
     if (name == s.name())
@@ -261,8 +334,15 @@ class LibraryScreen final : public Screen {
     return it->second;
   }
 
-  std::vector<std::string> projects_;
+  const Session::KitSummary& kitFor(Session& s, const std::string& name) {
+    auto it = kitSummaries_.find(name);
+    if (it == kitSummaries_.end()) it = kitSummaries_.emplace(name, s.kitSummary(name)).first;
+    return it->second;
+  }
+
+  std::vector<std::string> projects_, kits_;
   std::map<std::string, Session::ProjectSummary> summaries_;
+  std::map<std::string, Session::KitSummary> kitSummaries_;
   unsigned frames_ = 0;
   std::vector<std::size_t> counts_;
   uint64_t countsFor_ = ~0ull;

@@ -1,0 +1,36 @@
+ ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
+╭ Samples ───────────────────────────────────╮╭ Track 4 · Garage 02 ─────────────────────────────────────────────────────────────╮
+│sample roots                                ││01 C1               02 C#1              03 D1               04 D#1                │
+│/ filter                                    ││kick_tight_03       kick_sub_01         clap_room           snare_rim             │
+│/tmp/ion-ui-snapshot/samples/               ││▯▯▯▯▯▯▯             ▯▯▯▯▯▯▯             ▯▯▯▯▯▯▯             ▯▯▯▯▯▯▯               │
+│drum kits                                   ││                                                                                  │
+│~/ (home)                                   ││05 E1         grp A 06 F1         grp A 07 F#1              08 G1                 │
+│                                            ││hat_closed          hat_open            shaker              rim                   │
+│                                            ││▯▯▯▯▯▯▯             ▯▯▯▯▯▯▯             ▯▯▯▯▯▯▯             ▯▯▯▯▯▯▯               │
+│                                            ││                                                                                  │
+│                                            ││09 G#1              10 A1               11 A#1              12 B1                 │
+│                                            ││tom_low             perc_wood           missing cowbell     —                     │
+│                                            ││▯▯▯▯▯▯▯             ▯▯▯▯▯▯▯             ▯▯▯▯▯▯▯             ▯▯▯▯▯▯▯               │
+│                                            ││                                                                                  │
+│                                            ││13 C2               14 C#2              15 D2               16 D#2                │
+│                                            ││—                   —                   —                   —                     │
+│                                            ││▯▯▯▯▯▯▯             ▯▯▯▯▯▯▯             ▯▯▯▯▯▯▯             ▯▯▯▯▯▯▯               │
+│                                            │╰──────────────────────────────────────────────────────────────────────────────────╯
+│                                            │╭ Pad 1 · kick_tight_03 ───────────────────────────────────────────────────────────╮
+│                                            ││0.42 s · 44.1k→48k · mono · /tmp/ion-ui-snapshot/samples/garage/kicks/kick_ti…    │
+│                                            ││█▇▇▇▇▇▇▇▇▇▆▆▆▆▆▆▆▆▆▆▅▅▅▅▅▅▅▅▅▄▄▄▄▄▄▄▄▄▃▃▃▃▃▃▃▃▃▃▂▂▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁  │
+│                                            ││  Tune         ░░░░░░░░░░░░░ 0 st          Filter                     LP          │
+│                                            ││  Fine         ░░░░░░░░░░░░░ 0 ct          Cutoff       ███████████▍░ 8.20 kHz    │
+│                                            ││  Level        ███████▊░░░░░ -3.0 dB       Resonance    █▌░░░░░░░░░░░ 12%         │
+│                                            ││  Pan          ░░░░░░░░░░░░░ C             Drive        ██░░░░░░░░░░░ 15%         │
+│                                            ││  Start        ░░░░░░░░░░░░░ 0.0 ms        Vel→level    ██████████▍░░ 80%         │
+│                                            ││  Reverse                    off           Vel→filter   ░░░░░░░░░░░░░ 0%          │
+│                                            ││  Mode                       one-shot      Choke                      none        │
+│                                            ││  Hold         █████████████ full          Note                       C1          │
+├────────────────────────────────────────────┤│  Decay        ███████▋░░░░░ 420 ms                                               │
+│sample roots: Settings (,)                  ││                                                                                  │
+│preview on move ● on                        ││                                                                                  │
+│⏎ opens · ← goes up                         ││cc 71 → decay                                                                     │
+╰────────────────────────────────────────────╯╰──────────────────────────────────────────────────────────────────────────────────╯
+ ♪ PIANO · oct 1 · vel 100 · gate 300 ms · track 4
+ Z…/ Q…P  Play   [ ]  Octave   \  Velocity   ←→  Value   Esc  Leave piano

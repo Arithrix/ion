@@ -3,11 +3,11 @@
 │ Projects           0 ││   name                                           tracks  ││snapshot                                    │
 │ FM patches        17 ││   no saved projects yet: w saves this one                ││● open · unsaved changes                    │
 │  ★ favourites      2 ││                                                          ││                                            │
-│                      ││                                                          ││⏎ loads it · n starts a new one · w saves · │
-│ Samples · Phase 3    ││                                                          ││W saves under a new name                    │
-│ Drum kits · Phase 3  ││                                                          ││                                            │
+│ Drum kits          1 ││                                                          ││⏎ loads it · n starts a new one · w saves · │
+│                      ││                                                          ││W saves under a new name                    │
 │ Plaits · Phase 7     ││                                                          ││                                            │
 │ Recordings · Phase 6 ││                                                          ││                                            │
+│                      ││                                                          ││                                            │
 │                      ││                                                          ││                                            │
 │                      ││                                                          ││                                            │
 │                      ││                                                          ││                                            │

@@ -178,6 +178,12 @@ class Session {
   bool saveKit(int t, const std::string& name, std::string& error);
   bool loadKit(int t, const std::filesystem::path& file, std::string& error);
   std::vector<std::string> listKits() const;
+  struct KitSummary {
+    std::array<std::string, DrumEngine::kPads> samples{};  // as saved; empty = no sample
+    std::string savedAt;
+    bool ok = false;
+  };
+  KitSummary kitSummary(const std::string& name) const;
 
   // The sample browser's preview. Loads the file and, if `play`, plays it once
   // into the master. previewed() returns it once loaded (for the waveform).
@@ -187,7 +193,7 @@ class Session {
   std::string previewError(const std::filesystem::path& path) const;
   // Loads queued or waiting for tick().
   int samplesLoading() const;
-  // Ticks until every pad sample is loaded and handed to the engine (ion-render, tests).
+  // Waits until every pad sample (and preview) is loaded and handed to the engine (ion-render, tests).
   bool waitForSamples(int timeoutMs = 10000);
   int pinnedSamples() const { return static_cast<int>(pinned_.size()); }  // for tests
 
@@ -197,6 +203,7 @@ class Session {
 
   const Paths& paths() const { return paths_; }
   Config& config() { return config_; }
+  const Config& config() const { return config_; }
 
  private:
   void send(const Command& c);

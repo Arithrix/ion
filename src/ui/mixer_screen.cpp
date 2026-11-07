@@ -171,10 +171,7 @@ class MixerScreen final : public Screen {
 
     const std::string id = master ? "M" : std::to_string(index + 1);
     const std::string label = master ? "OUT" : engineLabel(type);
-    const std::string name = master ? "master" : (type == EngineType::None ? "empty" : [&] {
-      const TrackState& tr = s.track(index);
-      return tr.engine == EngineType::Fm && tr.hasVoice ? syx::name(tr.voice) : std::string(engineLabel(tr.engine));
-    }());
+    const std::string name = master ? "master" : (type == EngineType::None ? "empty" : trackSoundName(s, index));
     const bool muted = !master && s.param({scope, kMute}) >= 0.5f;
     const bool solo = !master && s.param({scope, kSolo}) >= 0.5f;
     const bool eqBypassed = !master && s.param({scope, kEqBypass}) >= 0.5f;
@@ -298,7 +295,7 @@ class MixerScreen final : public Screen {
     const Session& s = ctx.session;
     const TrackState& tr = s.track(t);
     std::string title = "EQ · track " + std::to_string(t + 1);
-    if (tr.engine == EngineType::Fm && tr.hasVoice) title += " · " + syx::name(tr.voice);
+    if (tr.engine != EngineType::None) title += " · " + trackSoundName(s, t);
     const int tableWidth = 44;
     const int curveCols = ctx.narrow() ? std::max(10, ctx.width - 4) : std::max(10, ctx.width - tableWidth - 8);
     const int curveRows = std::clamp(ctx.height - (ctx.narrow() ? 24 : 27), 3, 12);

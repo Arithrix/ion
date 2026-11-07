@@ -624,11 +624,13 @@ int Session::samplesLoading() const {
 
 bool Session::waitForSamples(int timeoutMs) {
   const auto until = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
-  while (samplesLoading() > 0) {
+  // Pad loads and any preview in flight.
+  while (samplesLoading() > 0 || loader_->pending() > 0) {
     if (std::chrono::steady_clock::now() > until) return false;
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
     handleLoads();
   }
+  handleLoads();
   return true;
 }
 
@@ -790,6 +792,24 @@ std::vector<std::string> Session::listKits() const {
   for (const auto& e : fs::directory_iterator(paths_.kitsDir, ec))
     if (e.is_regular_file(ec) && e.path().extension() == ".json") out.push_back(e.path().stem().string());
   std::sort(out.begin(), out.end());
+  return out;
+}
+
+Session::KitSummary Session::kitSummary(const std::string& name) const {
+  KitSummary out;
+  std::string text;
+  if (!readFile(paths_.kitFile(name), text)) return out;
+  const json j = json::parse(text, nullptr, false);
+  if (j.is_discarded() || !j.is_object() || !j.contains("pads") || !j["pads"].is_array()) return out;
+  try {
+    out.savedAt = j.value("saved_at", std::string());
+    for (const json& jp : j["pads"]) {
+      const int pad = jp.value("pad", 0) - 1;
+      if (pad >= 0 && pad < DrumEngine::kPads) out.samples[static_cast<std::size_t>(pad)] = jp.value("sample", std::string());
+    }
+    out.ok = true;
+  } catch (const json::exception&) {
+  }
   return out;
 }
 

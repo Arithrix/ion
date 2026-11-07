@@ -79,11 +79,13 @@ target_link_libraries(ion_engine
 add_library(ion_ui STATIC
   src/ui/algorithm_diagram.cpp
   src/ui/app.cpp
+  src/ui/drum_screen.cpp
   src/ui/fm_browse.cpp
   src/ui/instrument_screen.cpp
   src/ui/library_screen.cpp
   src/ui/mixer_screen.cpp
   src/ui/piano.cpp
+  src/ui/sample_browse.cpp
   src/ui/settings_screen.cpp
   src/ui/theme.cpp
   src/ui/tracks_screen.cpp

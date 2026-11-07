@@ -12,6 +12,7 @@
 #include <cctype>
 #include <cstdlib>
 #include <deque>
+#include <map>
 #include <filesystem>
 #include <future>
 #include <thread>
@@ -24,10 +25,12 @@
 #include "audio/pipewire_out.h"
 #include "core/version.h"
 #include "engine/module.h"
+#include "engine/drum/drum_engine.h"
 #include "library/fm_library.h"
 #include "midi/alsa_seq_in.h"
 #include "project/session.h"
 #include "ui/fm_browse.h"
+#include "ui/sample_browse.h"
 #include "ui/piano.h"
 #include "ui/screens.h"
 #include "ui/theme.h"
@@ -74,6 +77,7 @@ class App {
       : ctx_(session, module, audio, midi),
         piano_(session.config().lowerRow, session.config().upperRow, session.config().gateMs) {
     ctx_.fm = &fm_;
+    ctx_.samples = &samples_;
     screens_[static_cast<int>(ScreenId::Tracks)] = makeTracksScreen();
     screens_[static_cast<int>(ScreenId::Instrument)] = makeInstrumentScreen();
     screens_[static_cast<int>(ScreenId::Mixer)] = makeMixerScreen();
@@ -96,7 +100,8 @@ class App {
   void selectTrack(int t) { ctx_.track = std::clamp(t, 0, kTrackCount - 1); }
   void setPiano(bool on) {
     if (!on) releasePiano();
-    piano_.setOctave(3);
+    // Drum tracks start at octave 1, so the Z row plays pads 1-16 (C1-D#2).
+    piano_.setOctave(ctx_.session.track(ctx_.track).engine == EngineType::Drum ? 1 : 3);
     pianoOn_ = on;
   }
   void showHelp() { overlay_ = Overlay::Help; }
@@ -223,7 +228,7 @@ class App {
     for (uint8_t n : piano_.expired(now)) s.sendMidi({static_cast<uint8_t>(0x80 | pianoChannel_[n]), n, 0});
     std::erase_if(auditionOffs_, [&](const Audition& a) {
       if (a.off > now) return false;
-      s.sendMidi({static_cast<uint8_t>(0x80 | a.channel), kAuditionNote, 0});
+      s.sendMidi({static_cast<uint8_t>(0x80 | a.channel), a.note, 0});
       return true;
     });
     if (ctx_.midi) {
@@ -404,8 +409,14 @@ class App {
       return;
     }
     const auto ch = static_cast<uint8_t>(s.track(ctx_.track).channel);
-    s.sendMidi({static_cast<uint8_t>(0x90 | ch), kAuditionNote, 100});
-    auditionOffs_.push_back({Clock::now() + std::chrono::milliseconds(s.config().gateMs), ch});
+    // A drum track plays its selected pad; anything else plays C3.
+    uint8_t note = kAuditionNote;
+    if (s.track(ctx_.track).engine == EngineType::Drum) {
+      const int pad = ctx_.pad[static_cast<std::size_t>(ctx_.track)];
+      note = static_cast<uint8_t>(std::lround(s.param(engineParamRef(ctx_.track, DrumEngine::param(pad, DrumEngine::kNote)))));
+    }
+    s.sendMidi({static_cast<uint8_t>(0x90 | ch), note, 100});
+    auditionOffs_.push_back({Clock::now() + std::chrono::milliseconds(s.config().gateMs), ch, note});
   }
 
   void releasePiano() {
@@ -431,12 +442,12 @@ class App {
         else if (e == Event::ArrowDown) picker_ = (picker_ + 1) % 5;
         else if (e == Event::Return) {
           const EngineType t = options[picker_];
-          if (t == EngineType::Fm || t == EngineType::None) {
+          if (t == EngineType::Fm || t == EngineType::Drum || t == EngineType::None) {
             s.setEngine(ctx_.track, t);
             overlay_ = Overlay::None;
-            if (t == EngineType::Fm) show(ScreenId::Instrument);  // straight to the library
+            if (t != EngineType::None) show(ScreenId::Instrument);  // straight to the library / the pads
             flash(t == EngineType::None ? "track " + std::to_string(ctx_.track + 1) + " cleared"
-                                        : "track " + std::to_string(ctx_.track + 1) + " is now FM");
+                                        : "track " + std::to_string(ctx_.track + 1) + " is now " + engineLabel(t));
           }
         }
         return true;
@@ -493,12 +504,12 @@ class App {
       case Overlay::Help: return helpOverlay();
       case Overlay::Monitor: return monitorOverlay();
       case Overlay::EnginePicker: {
-        static const char* labels[] = {"FM      DX7-compatible 6-operator", "DRUM    16-pad drum sampler  · Phase 3",
+        static const char* labels[] = {"FM      DX7-compatible 6-operator", "DRUM    16-pad drum sampler",
                                        "SMPL    keymapped sampler    · Phase 5", "PLTS    Plaits macro-oscillator · Phase 7",
                                        "empty   clear the track"};
         Elements rows;
         for (int i = 0; i < 5; ++i) {
-          const bool available = i == 0 || i == 4;
+          const bool available = i == 0 || i == 1 || i == 4;
           Element row = text(" " + std::string(labels[i]) + " ");
           if (i == picker_) row = row | color(palette::bg) | bgcolor(available ? palette::accent : palette::faint);
           else row = row | color(available ? palette::text : palette::faint);
@@ -553,7 +564,7 @@ class App {
                                             {"Tab", "switch pane"},
                                             {"⏎", "edit / open"},
                                             {"Esc", "back · cancel"},
-                                            {"Space", "audition the selected track"},
+                                            {"Space", "audition the selected track (or pad)"},
                                             {"m  s", "mute · solo the selected track"},
                                             {"l", "MIDI-learn the focused value"},
                                             {"p", "panic: all notes off"},
@@ -565,6 +576,7 @@ class App {
                                                {"Q 2 W 3 E…", "upper octave"},
                                                {"[  ]", "octave down / up"},
                                                {"\\", "velocity 64 / 100 / 127"},
+                                               {"drum track", "starts at octave 1: Z row = pads 1–16"},
                                                {"Esc", "leave piano mode"}});
     Elements screenKeys = {text("This screen") | bold | color(palette::accent)};
     for (const Hint& h : screen().hints(ctx_))
@@ -684,6 +696,7 @@ class App {
   struct Audition {
     Clock::time_point off;
     uint8_t channel;
+    uint8_t note;
   };
   struct MonitorLine {
     double seconds;
@@ -707,6 +720,7 @@ class App {
   std::function<void(Context&, const std::string&)> promptDone_;
   std::deque<MonitorLine> monitor_;
   FmBrowse fm_;
+  SampleBrowse samples_;
   bool promptPath_ = false;
   std::string importing_;
   ImportProgress importProgress_;
@@ -747,12 +761,23 @@ int run(Session& session, Module& module, const RunOptions& options) {
   return 0;
 }
 
-std::string snapshot(Session& session, Module& module, ScreenId id, int width, int height, bool piano, bool help, int track) {
+std::string snapshot(Session& session, Module& module, ScreenId id, int width, int height, bool piano, bool help, int track,
+                     const std::vector<std::string>& keys) {
   App app(session, module, nullptr, nullptr);
   app.selectTrack(track);
   app.show(id);
   if (piano) app.setPiano(true);
   if (help) app.showHelp();
+  static const std::map<std::string, Event> named = {
+      {"Up", Event::ArrowUp},   {"Down", Event::ArrowDown}, {"Left", Event::ArrowLeft},       {"Right", Event::ArrowRight},
+      {"Return", Event::Return}, {"Tab", Event::Tab},        {"TabReverse", Event::TabReverse}, {"Escape", Event::Escape},
+      {"Backspace", Event::Backspace}};
+  for (const std::string& k : keys) {
+    app.render(width, height);  // screens size their lists from the last frame
+    const auto it = named.find(k);
+    app.onEvent(it != named.end() ? it->second : Event::Character(k));
+  }
+  if (!keys.empty()) session.waitForSamples(5000);
   auto screen = ftxui::Screen::Create(Dimension::Fixed(width), Dimension::Fixed(height));
   Render(screen, app.render(width, height));
   std::string out;
