@@ -19,6 +19,7 @@
 #include "core/version.h"
 #include "engine/drum/drum_engine.h"
 #include "engine/fm/fm_engine.h"
+#include "engine/sampler/sampler_engine.h"
 
 namespace ion {
 namespace fs = std::filesystem;
@@ -96,6 +97,7 @@ std::unique_ptr<Engine> createEngine(EngineType type) {
   switch (type) {
     case EngineType::Fm: return std::make_unique<FmEngine>();
     case EngineType::Drum: return std::make_unique<DrumEngine>();
+    case EngineType::Sampler: return std::make_unique<SamplerEngine>();
     default: return nullptr;  // other engines arrive in later phases
   }
 }
@@ -237,6 +239,11 @@ void Session::setEngine(int t, EngineType type) {
   padLoads_[static_cast<std::size_t>(t)] = {};
   if (type == EngineType::Drum) {
     for (int pad = 0; pad < DrumEngine::kPads; ++pad) requestPad(t, pad);
+  } else if (type == EngineType::Sampler) {
+    // A sampler has one sample (pad 0 here).
+    for (int pad = 1; pad < DrumEngine::kPads; ++pad) tr.pads[static_cast<std::size_t>(pad)] = {};
+    tr.kit.clear();
+    requestPad(t, 0);
   } else {
     tr.pads = {};
     tr.kit.clear();
@@ -606,7 +613,7 @@ fs::path Session::resolveSample(const std::string& stored) const {
 void Session::setPadSample(int t, int pad, const std::string& path) {
   if (t < 0 || t >= kTrackCount || pad < 0 || pad >= DrumEngine::kPads) return;
   TrackState& tr = tracks_[static_cast<std::size_t>(t)];
-  if (tr.engine != EngineType::Drum) return;
+  if (tr.engine != EngineType::Drum && !(tr.engine == EngineType::Sampler && pad == 0)) return;
   tr.pads[static_cast<std::size_t>(pad)].sample = path;
   requestPad(t, pad);
   markDirty();
@@ -629,7 +636,8 @@ void Session::requestPad(int t, int pad) {
 }
 
 void Session::sendSample(int t, int pad, const SampleLoader::Ptr& sample) {
-  if (tracks_[static_cast<std::size_t>(t)].engine != EngineType::Drum) return;
+  const EngineType type = tracks_[static_cast<std::size_t>(t)].engine;
+  if (type != EngineType::Drum && type != EngineType::Sampler) return;
   pin(sample);
   Command c;
   c.type = Command::Type::SetSample;
@@ -766,7 +774,7 @@ int Session::collectSamples(std::string& error) {
   int count = 0, missing = 0;
   std::error_code ec;
   for (TrackState& tr : tracks_) {
-    if (tr.engine != EngineType::Drum) continue;
+    if (tr.engine != EngineType::Drum && tr.engine != EngineType::Sampler) continue;
     for (PadState& pad : tr.pads) {
       if (pad.sample.empty() || !expandHome(pad.sample).is_absolute()) continue;  // empty, or already in the project
       const fs::path src = resolveSample(pad.sample);
@@ -908,8 +916,11 @@ void Session::tick() {
   while (auto n = module_.popNotification()) {
     switch (n->type) {
       case Notification::Type::EngineRetired:
-        if (n->engine && n->engine->type() == EngineType::Drum)
-          static_cast<const DrumEngine*>(n->engine)->forEachSample([&](const Sample* smp) { unpin(smp); });
+        if (n->engine) {
+          std::vector<const Sample*> held;
+          n->engine->heldSamples(held);
+          for (const Sample* smp : held) unpin(smp);
+        }
         delete n->engine;
         break;
       case Notification::Type::SampleReleased:
@@ -1132,6 +1143,10 @@ std::string Session::toJson() const {
         je["name"] = !tr.kit.empty() ? tr.kit : std::to_string(pads.size()) + (pads.size() == 1 ? " pad" : " pads");
         je["pads"] = pads;
       }
+      if (tr.engine == EngineType::Sampler) {
+        je["sample"] = tr.pads[0].sample;
+        je["name"] = tr.pads[0].sample.empty() ? std::string() : fs::path(tr.pads[0].sample).stem().string();
+      }
       jt[engineKey(tr.engine)] = je;
     }
     tracks.push_back(jt);
@@ -1196,6 +1211,7 @@ bool Session::fromJson(const std::string& text, std::string& error) {
               if (pad >= 0 && pad < DrumEngine::kPads) tr.pads[static_cast<std::size_t>(pad)].sample = jp.value("sample", std::string());
             }
         }
+        if (type == EngineType::Sampler) tr.pads[0].sample = je.value("sample", std::string());
         setEngine(t, type);
         if (je.contains("params") && je["params"].is_object()) {
           // The new engine is already at its defaults: send only what differs

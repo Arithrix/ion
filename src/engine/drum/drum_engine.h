@@ -6,6 +6,7 @@
 
 #include "engine/engine.h"
 #include "engine/sample.h"
+#include "engine/sample_retirement.h"
 
 namespace ion {
 
@@ -58,10 +59,13 @@ class DrumEngine final : public Engine {
   // ---- samples (audio thread) ----
   // Puts `s` (may be null) on a pad. The pad's previous sample goes on the
   // release list once no voice is playing it any more.
-  void setSample(int pad, const Sample* s);
+  void setSample(int pad, const Sample* s) override;
   // A sample this engine has finished with; the module hands each back to the
   // control thread (Notification::SampleReleased). False when there's none.
-  bool popReleased(const Sample*& s);
+  bool popReleased(const Sample*& s) override { return retirement_.pop(s); }
+  void heldSamples(std::vector<const Sample*>& out) const override {
+    forEachSample([&](const Sample* s) { out.push_back(s); });
+  }
   // Bit p set if pad p plays on `note`.
   uint16_t padsForNote(uint8_t note) const { return noteMap_[note]; }
 
@@ -72,8 +76,7 @@ class DrumEngine final : public Engine {
   void forEachSample(F&& f) const {
     for (const Pad& p : pads_)
       if (p.sample) f(p.sample);
-    for (int i = 0; i < retiring_; ++i) f(retired_[static_cast<std::size_t>(i)]);
-    for (int i = 0; i < released_; ++i) f(releasedList_[static_cast<std::size_t>(i)]);
+    retirement_.forEach(f);
   }
 
   // For tests.
@@ -110,7 +113,7 @@ class DrumEngine final : public Engine {
   void start(int pad, uint8_t note, float velocity);
   void fade(Voice& v);
   void renderVoice(Voice& v, float* left, float* right, std::size_t frames);
-  void releaseUnused();
+  bool inUse(const Sample* s) const;
   void rebuildNoteMap();
 
   std::array<Pad, kPads> pads_{};
@@ -120,12 +123,7 @@ class DrumEngine final : public Engine {
   int voices_ = 0;
 
   // Samples taken off pads, still maybe in use by voices.
-  static constexpr int kRetiring = 64;
-  std::array<const Sample*, kRetiring> retired_{};
-  int retiring_ = 0;
-  // …and ones no voice uses any more, for the module to hand back.
-  std::array<const Sample*, kRetiring + kPads> releasedList_{};
-  int released_ = 0;
+  SampleRetirement<64> retirement_;
 };
 
 }  // namespace ion

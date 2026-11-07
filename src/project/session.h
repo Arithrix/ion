@@ -41,7 +41,8 @@ struct TrackState {
   syx::Voice voice{};       // as stored, without macros
   std::string voiceSource;  // bank it came from, e.g. "rom1a", or "saved"
   int64_t libraryId = 0;    // in this machine's library, or 0
-  // Drum. Pad parameters are engine parameters, like FM's macros.
+  // Drum: 16 pads; Sampler: its one sample is pads[0]. Their settings are
+  // engine parameters, like FM's macros.
   std::array<PadState, DrumEngine::kPads> pads{};
   std::string kit;  // the kit's name, if it was loaded from or saved as one
 };

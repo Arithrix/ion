@@ -11,6 +11,7 @@ add_executable(ion-tests
   test_midi_alsa.cpp
   test_module.cpp
   test_params_eq.cpp
+  test_sampler.cpp
   test_session.cpp
   test_render.cpp
   test_ui.cpp

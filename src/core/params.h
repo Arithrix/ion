@@ -52,6 +52,7 @@ struct ParamInfo {
   float coarseStep;  // with Shift
   const char* const* choices = nullptr;  // labels for Choice
   const char* maxLabel = nullptr;        // shown instead of the value at max ("full")
+  const char* minLabel = nullptr;        // …and at min ("off")
 };
 
 // ---- mixer parameters (every scope has the strip; sends are used by tracks, and

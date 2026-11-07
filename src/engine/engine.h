@@ -3,10 +3,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <vector>
 
 #include "core/params.h"
 
 namespace ion {
+
+struct Sample;
 
 inline constexpr int kSampleRate = 48000;
 
@@ -50,6 +53,18 @@ class Engine {
   virtual void render(float* left, float* right, std::size_t frames) = 0;
 
   virtual int voiceCount() const = 0;
+
+  // Tempo in BPM, every block (for tempo-synced LFOs).
+  virtual void setTempo(double) {}
+
+  // ---- engines that play samples (Drum, Sampler; DECISIONS D-36) ----
+  // Puts `s` (may be null) in a slot: a drum pad, or the sampler's one zone.
+  virtual void setSample(int /*slot*/, const Sample* /*s*/) {}
+  // A sample the engine has finished with, for the module to hand back.
+  virtual bool popReleased(const Sample*& /*s*/) { return false; }
+  // Every sample reference still held. Only for an engine the audio thread has
+  // handed back (it allocates).
+  virtual void heldSamples(std::vector<const Sample*>& /*out*/) const {}
 };
 
 }  // namespace ion

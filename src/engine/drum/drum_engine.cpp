@@ -194,41 +194,25 @@ void DrumEngine::controlChange(uint8_t controller, uint8_t) {
 void DrumEngine::allNotesOff() {
   for (Voice& v : voice_) v.stage = Voice::Stage::Off;
   voices_ = 0;
-  releaseUnused();
+  retirement_.update([&](const Sample* x) { return inUse(x); });
 }
 
 void DrumEngine::setSample(int pad, const Sample* s) {
   if (pad < 0 || pad >= kPads) return;
   const Sample* old = std::exchange(pads_[static_cast<std::size_t>(pad)].sample, s);
-  if (!old) return;
-  if (retiring_ == kRetiring) {
-    // Out of room (64 loads while long tails still ring): the oldest one
-    // stops now so its slot can be reused.
-    for (Voice& v : voice_)
-      if (v.sample == retired_[0]) v.stage = Voice::Stage::Off;
-    releaseUnused();
-  }
-  if (retiring_ < kRetiring) retired_[static_cast<std::size_t>(retiring_++)] = old;
-  releaseUnused();
+  retirement_.retire(
+      old,
+      [&](const Sample* x) {
+        for (Voice& v : voice_)
+          if (v.sample == x) v.stage = Voice::Stage::Off;
+      },
+      [&](const Sample* x) { return inUse(x); });
 }
 
-void DrumEngine::releaseUnused() {
-  int keep = 0;
-  for (int i = 0; i < retiring_; ++i) {
-    const Sample* s = retired_[static_cast<std::size_t>(i)];
-    bool used = false;
-    for (const Voice& v : voice_) used |= v.active() && v.sample == s;
-    if (used) retired_[static_cast<std::size_t>(keep++)] = s;
-    else if (released_ < static_cast<int>(releasedList_.size())) releasedList_[static_cast<std::size_t>(released_++)] = s;
-    else retired_[static_cast<std::size_t>(keep++)] = s;  // the module hasn't collected yet; try next time
-  }
-  retiring_ = keep;
-}
-
-bool DrumEngine::popReleased(const Sample*& s) {
-  if (released_ == 0) return false;
-  s = releasedList_[static_cast<std::size_t>(--released_)];
-  return true;
+bool DrumEngine::inUse(const Sample* s) const {
+  for (const Voice& v : voice_)
+    if (v.active() && v.sample == s) return true;
+  return false;
 }
 
 void DrumEngine::render(float* left, float* right, std::size_t frames) {
@@ -239,7 +223,7 @@ void DrumEngine::render(float* left, float* right, std::size_t frames) {
     n += v.active();
   }
   voices_ = n;
-  if (retiring_ > 0) releaseUnused();
+  if (retirement_.pending()) retirement_.update([&](const Sample* x) { return inUse(x); });
 }
 
 void DrumEngine::renderVoice(Voice& v, float* left, float* right, std::size_t frames) {

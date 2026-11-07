@@ -60,6 +60,7 @@ add_library(ion_engine STATIC
   src/engine/drum/drum_engine.cpp
   src/engine/fm/fm_engine.cpp
   src/engine/fx/effects.cpp
+  src/engine/sampler/sampler_engine.cpp
   src/engine/module.cpp
   src/audio/pipewire_out.cpp
   src/audio/wav.cpp
