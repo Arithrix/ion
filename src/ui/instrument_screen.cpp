@@ -15,6 +15,7 @@
 #include "engine/fm/fm_engine.h"
 #include "engine/module.h"
 #include "library/fm_library.h"
+#include "project/paths.h"
 #include "project/session.h"
 #include "ui/algorithm_diagram.h"
 #include "ui/fm_browse.h"
@@ -46,14 +47,6 @@ Element signedBar(float v, int width, bool focused) {
   for (int i = 0; i < width - half; ++i) right += (v > 0 && i < n) ? "█" : "░";
   const Color on = focused ? palette::accent : palette::value;
   return hbox({text(left) | color(v < 0 ? on : palette::borderSubtle), text(right) | color(v > 0 ? on : palette::borderSubtle)});
-}
-
-std::filesystem::path expandHome(const std::string& p) {
-  if (p.rfind("~/", 0) == 0 || p == "~") {
-    const char* home = std::getenv("HOME");
-    return std::filesystem::path(home ? home : "") / p.substr(p.size() > 1 ? 2 : 1);
-  }
-  return p;
 }
 
 std::vector<std::string> splitWords(const std::string& s) {
@@ -524,13 +517,6 @@ class InstrumentScreen final : public Screen {
 }  // namespace
 
 namespace {
-
-// "~/ion/downloads" for a path under $HOME, so prompts stay short.
-std::string abbreviateHome(const std::string& p) {
-  const char* home = std::getenv("HOME");
-  if (home && *home && p.rfind(home, 0) == 0) return "~" + p.substr(std::strlen(home));
-  return p;
-}
 
 std::string trimmed(std::string s) {
   while (!s.empty() && std::isspace(static_cast<unsigned char>(s.back()))) s.pop_back();

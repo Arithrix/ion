@@ -13,6 +13,7 @@
 #include "engine/clock.h"
 #include "engine/engine.h"
 #include "engine/midi_types.h"
+#include "engine/sample.h"
 #include "library/syx.h"
 
 namespace ion {
@@ -60,6 +61,8 @@ struct Command {
     CancelLearn,
     SetTiming,     // `value`: MidiTiming
     SetPrograms,   // `programs` (may be null: program change off); the old table comes back as a Notification
+    SetSample,     // `sample` (may be null) onto pad `slot` of drum `track`; the old one comes back as SampleReleased
+    Preview,       // play `sample` once at gain `value`, straight to the master (null stops); comes back as SampleReleased
   };
   Type type = Type::Panic;
   uint8_t track = 0;
@@ -71,6 +74,7 @@ struct Command {
   CcMapping mapping{};
   syx::Voice voice{};
   ProgramTable* programs = nullptr;
+  const Sample* sample = nullptr;
 };
 
 // Audio thread → control thread.
@@ -80,6 +84,7 @@ struct Notification {
     CcLearned,        // `channel`/`cc` moved while learning `param`
     ProgramsRetired,  // delete `programs`
     ProgramChanged,   // program `program` was loaded onto `track`
+    SampleReleased,   // the audio thread no longer uses `sample` (one per SetSample/Preview that sent it)
   };
   Type type = Type::EngineRetired;
   Engine* engine = nullptr;
@@ -89,6 +94,7 @@ struct Notification {
   ProgramTable* programs = nullptr;
   uint8_t track = 0;
   uint8_t program = 0;
+  const Sample* sample = nullptr;
 };
 
 struct MeterStatus {
@@ -112,6 +118,8 @@ struct ModuleStatus {
   std::array<std::atomic<uint32_t>, kTrackCount> trackNotes{};  // note-on counter, for activity lights
   std::array<std::atomic<int>, kTrackCount> trackVoices{};
   std::array<std::atomic<uint8_t>, kTrackCount> trackEngine{};  // EngineType
+  std::array<std::array<std::atomic<uint32_t>, 16>, kTrackCount> padHits{};  // drum pad trigger counters
+  std::atomic<bool> previewing{false};
   std::atomic<float> bpm{0};
   std::atomic<bool> clockPresent{false};
   std::atomic<bool> running{false};
@@ -158,6 +166,8 @@ class Module {
   void applyParam(ParamRef ref, float value) noexcept;
   const ParamInfo* info(ParamRef ref) const noexcept;
   void notify(const Notification& n) noexcept;
+  void releaseSample(const Sample* s) noexcept;
+  void renderPreview() noexcept;
 
   // ---- audio-thread state ----
   std::array<Engine*, kTrackCount> engines_{};
@@ -167,6 +177,17 @@ class Module {
   std::optional<ParamRef> learn_;
   MidiTiming timing_ = MidiTiming::Tight;
   ProgramTable* programs_ = nullptr;
+
+  // The sample browser's preview: plays once into the master. A new preview
+  // fades the previous one out over 5 ms instead of cutting it.
+  struct PreviewVoice {
+    const Sample* sample = nullptr;
+    int64_t pos = 0;
+    float gain = 0;
+    float fade = 1;      // 1 = full; falls to 0 when fading
+    bool fading = false;
+  };
+  std::array<PreviewVoice, 2> preview_{};
 
   std::array<ChannelEq, kTrackCount> eq_;
   struct StripState {

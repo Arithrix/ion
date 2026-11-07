@@ -41,3 +41,13 @@ target_include_directories(sqlite3 SYSTEM PUBLIC sqlite)
 target_compile_definitions(sqlite3 PRIVATE SQLITE_OMIT_LOAD_EXTENSION SQLITE_DQS=0 SQLITE_DEFAULT_MEMSTATUS=0
   SQLITE_DEFAULT_WAL_SYNCHRONOUS=1 SQLITE_THREADSAFE=2)
 target_compile_options(sqlite3 PRIVATE -w)
+
+# ---- libsamplerate (BSD-2) — converts samples to 48 kHz at load -------------------
+# The fast and medium sinc converters only: the best-quality table is 9 MB of
+# source and isn't copied (third_party/README.md).
+add_library(samplerate STATIC libsamplerate/src/samplerate.c libsamplerate/src/src_sinc.c
+  libsamplerate/src/src_linear.c libsamplerate/src/src_zoh.c)
+target_include_directories(samplerate SYSTEM PUBLIC libsamplerate/include)
+target_compile_definitions(samplerate PRIVATE HAVE_STDBOOL_H=1 ENABLE_SINC_FAST_CONVERTER ENABLE_SINC_MEDIUM_CONVERTER
+  CPU_CLIPS_POSITIVE=0 CPU_CLIPS_NEGATIVE=0 PACKAGE="libsamplerate" VERSION="0.2.2")
+target_compile_options(samplerate PRIVATE -w)

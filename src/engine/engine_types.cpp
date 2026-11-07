@@ -1,6 +1,7 @@
 #include <cstring>
 
 #include "engine/engine.h"
+#include "engine/drum/drum_engine.h"
 #include "engine/fm/fm_engine.h"
 
 namespace ion {
@@ -36,6 +37,7 @@ EngineType engineFromKey(const char* key) {
 std::span<const ParamInfo> engineParams(EngineType type) {
   switch (type) {
     case EngineType::Fm: return FmEngine::paramTable();
+    case EngineType::Drum: return DrumEngine::paramTable();
     default: return {};
   }
 }

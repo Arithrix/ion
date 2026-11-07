@@ -24,6 +24,10 @@ struct Config {
   bool programChange = true;   // program change on a track's channel picks from the project's program list
   bool previewOnMove = false;  // play a short C3 each time the browser loads a patch
   std::string importFolder;    // the last folder imported, offered next time
+  // [samples]
+  std::vector<std::string> sampleRoots = {"~/ion/samples"};  // where the sample browser starts; "~/" allowed
+  bool samplePreview = true;   // moving onto a file in the sample browser plays it
+  int previewLevelDb = -6;     // the preview's level into the master
   // [project]
   int autosaveMinutes = 2;
   bool openLastProject = true;

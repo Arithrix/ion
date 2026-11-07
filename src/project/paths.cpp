@@ -26,6 +26,7 @@ Paths Paths::defaults() {
   p.dataDir = envPath("XDG_DATA_HOME", home / ".local" / "share") / "ion";
   p.projectsDir = home / "ion" / "projects";
   p.exportsDir = home / "ion" / "exports";
+  p.kitsDir = home / "ion" / "kits";
   return p;
 }
 
@@ -35,6 +36,24 @@ Paths Paths::under(const fs::path& root) {
   p.dataDir = root / "data";
   p.projectsDir = root / "projects";
   p.exportsDir = root / "exports";
+  p.kitsDir = root / "kits";
+  return p;
+}
+
+fs::path expandHome(const std::string& p) {
+  if (p == "~" || p.rfind("~/", 0) == 0) {
+    const char* home = std::getenv("HOME");
+    return fs::path(home ? home : "") / p.substr(p.size() > 1 ? 2 : 1);
+  }
+  return p;
+}
+
+std::string abbreviateHome(const std::string& p) {
+  const char* home = std::getenv("HOME");
+  if (!home || !*home) return p;
+  const std::string h = home;
+  if (p == h) return "~";
+  if (p.size() > h.size() && p.rfind(h, 0) == 0 && p[h.size()] == '/') return "~" + p.substr(h.size());
   return p;
 }
 

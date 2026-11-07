@@ -3,6 +3,7 @@ add_executable(ion-tests
   test_spsc.cpp
   test_syx.cpp
   test_dx7.cpp
+  test_drum.cpp
   test_library.cpp
   test_fm.cpp
   test_fm_handover.cpp

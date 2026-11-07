@@ -428,9 +428,9 @@ TEST_CASE("session: a format 1 project (v0.1.0) still opens") {
   CHECK(r.session.param(fmParam(0, FmEngine::kPoly)) == doctest::Approx(6.0f));
   CHECK_FALSE(r.session.macros(0).any());
   CHECK(r.session.programs().empty());
-  // Saved again, it's format 2.
+  // Saved again, it's the current format.
   REQUIRE(r.session.save(error));
   std::string text;
   REQUIRE(readFile(Paths::under(r.root.path).projectFile("old"), text));
-  CHECK(text.find("\"format\": 2") != std::string::npos);
+  CHECK(text.find("\"format\": " + std::to_string(kProjectFormat)) != std::string::npos);
 }

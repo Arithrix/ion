@@ -123,6 +123,12 @@ std::string formatValue(const ParamInfo& info, float v) {
       return v >= 0.5f ? "on" : "off";
     case Curve::Choice:
       if (info.choices) return info.choices[static_cast<int>(std::lround(v))];
+      if (info.unit == Unit::Semitones && info.min < 0) {
+        const long n = std::lround(v);
+        if (n == 0) return "0 st";
+        std::snprintf(buf, sizeof buf, "%s%ld st", n > 0 ? "+" : "−", std::labs(n));
+        return buf;
+      }
       if (info.unit == Unit::Offset) {
         const long n = std::lround(v);
         if (n == 0) return "0";

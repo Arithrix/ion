@@ -4,6 +4,9 @@
 #include <cmath>
 #include <cstdio>
 #include <ctime>
+#include <fstream>
+#include <iterator>
+#include <map>
 #include <sstream>
 #include <thread>
 #include <utility>
@@ -14,6 +17,7 @@
 #include <toml.hpp>
 
 #include "core/version.h"
+#include "engine/drum/drum_engine.h"
 #include "engine/fm/fm_engine.h"
 
 namespace ion {
@@ -64,6 +68,7 @@ ParamRef engineRef(int track, int index) {
 // Brings an older project file up to kProjectFormat. Each bump adds a step.
 //   1 → 2: FM macros and the program list were added. Both are optional
 //          fields with defaults, so a format-1 file reads as it is.
+//   2 → 3: drum tracks (pads, kit name). Older files have none: nothing to do.
 bool migrate(json& j, std::string& error) {
   if (!j.contains("format") || !j["format"].is_number_integer()) {
     error = "not an ion project (no \"format\")";
@@ -87,12 +92,13 @@ bool migrate(json& j, std::string& error) {
 std::unique_ptr<Engine> createEngine(EngineType type) {
   switch (type) {
     case EngineType::Fm: return std::make_unique<FmEngine>();
+    case EngineType::Drum: return std::make_unique<DrumEngine>();
     default: return nullptr;  // other engines arrive in later phases
   }
 }
 
 Session::Session(Module& module, Paths paths, Config& config)
-    : module_(module), paths_(std::move(paths)), config_(config) {
+    : module_(module), paths_(std::move(paths)), config_(config), loader_(std::make_unique<SampleLoader>()) {
   for (int t = 0; t < kTrackCount; ++t) tracks_[static_cast<std::size_t>(t)].channel = t;
   defaultValues();
   lastStore_ = values_;
@@ -121,6 +127,8 @@ void Session::send(const Command& c) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
   if (c.type == Command::Type::SetEngine) delete c.engine;
+  if (c.type == Command::Type::SetPrograms) delete c.programs;
+  if (c.type == Command::Type::SetSample || c.type == Command::Type::Preview) unpin(c.sample);
   message_ = "audio engine not responding: an edit was lost";
 }
 
@@ -161,6 +169,15 @@ void Session::setEngine(int t, EngineType type) {
     tr.hasVoice = false;
     tr.voiceSource.clear();
     tr.libraryId = 0;
+  }
+  // The new engine has empty pads: load the track's samples onto it (or, for
+  // another engine, forget them).
+  padLoads_[static_cast<std::size_t>(t)] = {};
+  if (type == EngineType::Drum) {
+    for (int pad = 0; pad < DrumEngine::kPads; ++pad) requestPad(t, pad);
+  } else {
+    tr.pads = {};
+    tr.kit.clear();
   }
   markDirty();
 }
@@ -490,13 +507,304 @@ void Session::sendPrograms() {
   send(c);
 }
 
+// ---- drum kits -------------------------------------------------------------------------
+
+fs::path Session::resolveSample(const std::string& stored) const {
+  if (stored.empty()) return {};
+  const fs::path p = expandHome(stored);
+  return p.is_absolute() || name_.empty() ? p : paths_.projectDir(name_) / p;
+}
+
+void Session::setPadSample(int t, int pad, const std::string& path) {
+  if (t < 0 || t >= kTrackCount || pad < 0 || pad >= DrumEngine::kPads) return;
+  TrackState& tr = tracks_[static_cast<std::size_t>(t)];
+  if (tr.engine != EngineType::Drum) return;
+  tr.pads[static_cast<std::size_t>(pad)].sample = path;
+  requestPad(t, pad);
+  markDirty();
+}
+
+void Session::requestPad(int t, int pad) {
+  const TrackState& tr = tracks_[static_cast<std::size_t>(t)];
+  PadLoad& pl = padLoads_[static_cast<std::size_t>(t)][static_cast<std::size_t>(pad)];
+  pl.tag = nextTag_++;
+  pl.error.clear();
+  const std::string& stored = tr.pads[static_cast<std::size_t>(pad)].sample;
+  if (stored.empty()) {
+    pl.loading = false;
+    if (pl.sample) sendSample(t, pad, nullptr);
+    pl.sample = nullptr;
+    return;
+  }
+  pl.loading = true;
+  loader_->request(resolveSample(stored), pl.tag);
+}
+
+void Session::sendSample(int t, int pad, const SampleLoader::Ptr& sample) {
+  if (tracks_[static_cast<std::size_t>(t)].engine != EngineType::Drum) return;
+  pin(sample);
+  Command c;
+  c.type = Command::Type::SetSample;
+  c.track = static_cast<uint8_t>(t);
+  c.slot = pad;
+  c.sample = sample.get();
+  send(c);
+}
+
+void Session::pin(const SampleLoader::Ptr& sample) {
+  if (sample) pinned_.push_back(sample);
+}
+
+void Session::unpin(const Sample* sample) {
+  if (!sample) return;
+  const auto it = std::find_if(pinned_.begin(), pinned_.end(), [&](const SampleLoader::Ptr& p) { return p.get() == sample; });
+  if (it != pinned_.end()) pinned_.erase(it);
+}
+
+void Session::handleLoads() {
+  for (SampleLoader::Result& r : loader_->poll()) {
+    if (r.preview) {
+      if (r.tag != previewTag_) continue;  // the cursor has moved on
+      if (!r.sample) {
+        previewError_ = r.error;
+        continue;
+      }
+      recentPreviews_.push_front(r.sample);
+      if (recentPreviews_.size() > 8) recentPreviews_.pop_back();
+      if (previewPlay_) {
+        pin(r.sample);
+        Command c;
+        c.type = Command::Type::Preview;
+        c.sample = r.sample.get();
+        c.value = faderGain(static_cast<float>(config_.previewLevelDb));
+        send(c);
+      }
+      continue;
+    }
+    for (int t = 0; t < kTrackCount; ++t)
+      for (int pad = 0; pad < DrumEngine::kPads; ++pad) {
+        PadLoad& pl = padLoads_[static_cast<std::size_t>(t)][static_cast<std::size_t>(pad)];
+        if (pl.tag != r.tag || !pl.loading) continue;
+        pl.loading = false;
+        pl.error = r.error;
+        // A failed load silences the pad rather than leaving the old sample
+        // playing under a name it no longer has.
+        if (r.sample || pl.sample) sendSample(t, pad, r.sample);
+        pl.sample = r.sample;
+      }
+  }
+}
+
+Session::PadStatus Session::padStatus(int t, int pad) const {
+  const PadLoad& pl = padLoads_[static_cast<std::size_t>(t)][static_cast<std::size_t>(pad)];
+  if (tracks_[static_cast<std::size_t>(t)].pads[static_cast<std::size_t>(pad)].sample.empty()) return PadStatus::Empty;
+  if (pl.loading) return PadStatus::Loading;
+  return pl.sample ? PadStatus::Ready : PadStatus::Failed;
+}
+
+const std::string& Session::padError(int t, int pad) const {
+  return padLoads_[static_cast<std::size_t>(t)][static_cast<std::size_t>(pad)].error;
+}
+
+SampleLoader::Ptr Session::padSample(int t, int pad) const {
+  return padLoads_[static_cast<std::size_t>(t)][static_cast<std::size_t>(pad)].sample;
+}
+
+std::string Session::padName(int t, int pad) const {
+  const std::string& stored = tracks_[static_cast<std::size_t>(t)].pads[static_cast<std::size_t>(pad)].sample;
+  return stored.empty() ? std::string() : fs::path(stored).stem().string();
+}
+
+int Session::samplesLoading() const {
+  int n = 0;
+  for (const auto& track : padLoads_)
+    for (const PadLoad& pl : track) n += pl.loading;
+  return n;
+}
+
+bool Session::waitForSamples(int timeoutMs) {
+  const auto until = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
+  while (samplesLoading() > 0) {
+    if (std::chrono::steady_clock::now() > until) return false;
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    handleLoads();
+  }
+  return true;
+}
+
+void Session::preview(const fs::path& path, bool play) {
+  previewTag_ = nextTag_++;
+  previewPlay_ = play;
+  previewPath_ = path;
+  previewError_.clear();
+  loader_->request(path, previewTag_, true);
+}
+
+void Session::stopPreview() {
+  previewTag_ = 0;
+  Command c;
+  c.type = Command::Type::Preview;
+  send(c);
+}
+
+SampleLoader::Ptr Session::previewed(const fs::path& path) const {
+  for (const SampleLoader::Ptr& p : recentPreviews_)
+    if (p->path == path) return p;
+  return nullptr;
+}
+
+std::string Session::previewError(const fs::path& path) const { return path == previewPath_ ? previewError_ : std::string(); }
+
+namespace {
+
+bool sameContent(const fs::path& a, const fs::path& b) {
+  std::error_code ec;
+  if (fs::file_size(a, ec) != fs::file_size(b, ec) || ec) return false;
+  std::ifstream fa(a, std::ios::binary), fb(b, std::ios::binary);
+  return std::equal(std::istreambuf_iterator<char>(fa), std::istreambuf_iterator<char>(), std::istreambuf_iterator<char>(fb));
+}
+
+}  // namespace
+
+int Session::collectSamples(std::string& error) {
+  if (name_.empty()) {
+    error = "the project has no name";
+    return -1;
+  }
+  const fs::path dir = paths_.projectDir(name_) / "samples";
+  std::map<fs::path, std::string> copied;  // source → new stored path
+  int count = 0, missing = 0;
+  std::error_code ec;
+  for (TrackState& tr : tracks_) {
+    if (tr.engine != EngineType::Drum) continue;
+    for (PadState& pad : tr.pads) {
+      if (pad.sample.empty() || !expandHome(pad.sample).is_absolute()) continue;  // empty, or already in the project
+      const fs::path src = resolveSample(pad.sample);
+      if (auto it = copied.find(src); it != copied.end()) {
+        pad.sample = it->second;
+        continue;
+      }
+      if (!fs::is_regular_file(src, ec)) {
+        ++missing;
+        continue;
+      }
+      fs::create_directories(dir, ec);
+      // Same name, different file: "kick 2.wav". Same file already there: reuse it.
+      fs::path dest = dir / src.filename();
+      for (int n = 2; fs::exists(dest, ec) && !sameContent(src, dest); ++n)
+        dest = dir / (src.stem().string() + " " + std::to_string(n) + src.extension().string());
+      if (!fs::exists(dest, ec)) {
+        if (!fs::copy_file(src, dest, ec)) {
+          error = "can't copy " + src.string() + ": " + ec.message();
+          return -1;
+        }
+        ++count;
+      }
+      const std::string stored = (fs::path("samples") / dest.filename()).string();
+      copied[src] = stored;
+      pad.sample = stored;
+    }
+  }
+  if (!copied.empty()) markDirty();
+  if (missing) error = std::to_string(missing) + " sample" + (missing == 1 ? " is" : "s are") + " missing and stayed as they were";
+  return count;
+}
+
+bool Session::saveKit(int t, const std::string& name, std::string& error) {
+  TrackState& tr = tracks_[static_cast<std::size_t>(t)];
+  if (tr.engine != EngineType::Drum) {
+    error = "not a drum track";
+    return false;
+  }
+  if (!validProjectName(name)) {
+    error = "names can use letters, digits, spaces, - _ and .";
+    return false;
+  }
+  json pads = json::array();
+  const auto table = DrumEngine::padParamTable();
+  for (int pad = 0; pad < DrumEngine::kPads; ++pad) {
+    json jp;
+    jp["pad"] = pad + 1;
+    const std::string& stored = tr.pads[static_cast<std::size_t>(pad)].sample;
+    jp["sample"] = stored.empty() ? std::string() : resolveSample(stored).string();
+    json params;
+    for (int p = 0; p < DrumEngine::kPadParamCount; ++p)
+      params[table[static_cast<std::size_t>(p)].key] = param(engineRef(t, DrumEngine::param(pad, p)));
+    jp["params"] = params;
+    pads.push_back(jp);
+  }
+  const json j = {{"ion_kit", 1}, {"name", name}, {"saved_by", versionLine()}, {"saved_at", nowIso()}, {"pads", pads}};
+  if (!writeFileAtomic(paths_.kitFile(name), j.dump(2) + "\n", error)) return false;
+  tr.kit = name;
+  markDirty();
+  return true;
+}
+
+bool Session::loadKit(int t, const fs::path& file, std::string& error) {
+  if (tracks_[static_cast<std::size_t>(t)].engine != EngineType::Drum) {
+    error = "not a drum track";
+    return false;
+  }
+  std::string text;
+  if (!readFile(file, text)) {
+    error = "can't read " + file.string();
+    return false;
+  }
+  const json j = json::parse(text, nullptr, false);
+  if (j.is_discarded() || !j.is_object() || !j.contains("ion_kit") || !j.contains("pads") || !j["pads"].is_array()) {
+    error = "not an ion kit";
+    return false;
+  }
+  try {
+    const auto table = DrumEngine::padParamTable();
+    std::array<const json*, DrumEngine::kPads> byPad{};
+    for (const json& jp : j["pads"]) {
+      const int pad = jp.value("pad", 0) - 1;
+      if (pad >= 0 && pad < DrumEngine::kPads) byPad[static_cast<std::size_t>(pad)] = &jp;
+    }
+    // Pads the kit doesn't mention are cleared, so the kit sounds the same wherever it's loaded.
+    for (int pad = 0; pad < DrumEngine::kPads; ++pad) {
+      const json* jp = byPad[static_cast<std::size_t>(pad)];
+      for (int p = 0; p < DrumEngine::kPadParamCount; ++p) {
+        const ParamInfo& pi = DrumEngine::paramTable()[static_cast<std::size_t>(DrumEngine::param(pad, p))];
+        const char* key = table[static_cast<std::size_t>(p)].key;
+        float v = pi.def;
+        if (jp && jp->contains("params") && (*jp)["params"].contains(key) && (*jp)["params"][key].is_number())
+          v = (*jp)["params"][key].get<float>();
+        setParam(engineRef(t, DrumEngine::param(pad, p)), v);
+      }
+      setPadSample(t, pad, jp ? jp->value("sample", std::string()) : std::string());
+    }
+  } catch (const json::exception& e) {
+    error = std::string("bad kit file: ") + e.what();
+    return false;
+  }
+  tracks_[static_cast<std::size_t>(t)].kit = j.value("name", file.stem().string());
+  markDirty();
+  return true;
+}
+
+std::vector<std::string> Session::listKits() const {
+  std::vector<std::string> out;
+  std::error_code ec;
+  for (const auto& e : fs::directory_iterator(paths_.kitsDir, ec))
+    if (e.is_regular_file(ec) && e.path().extension() == ".json") out.push_back(e.path().stem().string());
+  std::sort(out.begin(), out.end());
+  return out;
+}
+
 // ---- tick ----------------------------------------------------------------------------
 
 void Session::tick() {
   while (auto n = module_.popNotification()) {
     switch (n->type) {
       case Notification::Type::EngineRetired:
+        if (n->engine && n->engine->type() == EngineType::Drum)
+          static_cast<const DrumEngine*>(n->engine)->forEachSample([&](const Sample* smp) { unpin(smp); });
         delete n->engine;
+        break;
+      case Notification::Type::SampleReleased:
+        unpin(n->sample);
         break;
       case Notification::Type::ProgramsRetired:
         delete n->programs;
@@ -526,6 +834,8 @@ void Session::tick() {
       }
     }
   }
+
+  handleLoads();
 
   // Pull in values the audio thread changed on its own (CC moves).
   const ParamStore& store = module_.params();
@@ -589,6 +899,7 @@ void Session::reset() {
     programs_.clear();
     sendPrograms();
   }
+  padLoads_ = {};
   const Values before = values_;
   defaultValues();
   for (std::size_t i = 0; i < values_.size(); ++i) {
@@ -631,6 +942,16 @@ std::string Session::toJson() const {
         je["name"] = syx::name(tr.voice);
         je["source"] = tr.voiceSource;
         je["voice"] = toHex(tr.voice.data(), tr.voice.size());
+      }
+      if (tr.engine == EngineType::Drum) {
+        json pads = json::array();
+        for (int pad = 0; pad < DrumEngine::kPads; ++pad)
+          if (!tr.pads[static_cast<std::size_t>(pad)].sample.empty())
+            pads.push_back({{"pad", pad + 1}, {"sample", tr.pads[static_cast<std::size_t>(pad)].sample}});
+        je["kit"] = tr.kit;
+        // "name" is what the Library screen shows for the track.
+        je["name"] = !tr.kit.empty() ? tr.kit : std::to_string(pads.size()) + (pads.size() == 1 ? " pad" : " pads");
+        je["pads"] = pads;
       }
       jt[engineKey(tr.engine)] = je;
     }
@@ -691,6 +1012,14 @@ bool Session::fromJson(const std::string& text, std::string& error) {
             linkLibrary(tr);
           }
         }
+        if (type == EngineType::Drum) {
+          tr.kit = je.value("kit", std::string());
+          if (je.contains("pads") && je["pads"].is_array())
+            for (const json& jp : je["pads"]) {
+              const int pad = jp.value("pad", 0) - 1;
+              if (pad >= 0 && pad < DrumEngine::kPads) tr.pads[static_cast<std::size_t>(pad)].sample = jp.value("sample", std::string());
+            }
+        }
         setEngine(t, type);
         if (je.contains("params") && je["params"].is_object()) {
           const auto table = engineParams(type);
@@ -750,8 +1079,12 @@ bool Session::load(const std::string& name, std::string& error) {
     error = "no project called \"" + name + "\"";
     return false;
   }
-  if (!fromJson(text, error)) return false;
-  name_ = name;
+  // The name first: pad samples collected into the project resolve against its folder.
+  const std::string old = std::exchange(name_, name);
+  if (!fromJson(text, error)) {
+    name_ = old;
+    return false;
+  }
   saved_ = autosaved_ = values_;
   dirty_ = autosavedDirty_ = false;
   rememberLastProject();
@@ -782,6 +1115,17 @@ bool Session::saveAs(const std::string& name, std::string& error) {
     return false;
   }
   const std::string old = name_;
+  // Collected samples live in the project folder: they go with it.
+  std::error_code ec;
+  const fs::path samples = paths_.projectDir(old) / "samples";
+  if (!old.empty() && name != old && fs::is_directory(samples, ec)) {
+    fs::create_directories(paths_.projectDir(name), ec);
+    fs::copy(samples, paths_.projectDir(name) / "samples", fs::copy_options::recursive | fs::copy_options::skip_existing, ec);
+    if (ec) {
+      error = "can't copy the project's samples: " + ec.message();
+      return false;
+    }
+  }
   name_ = name;
   if (!save(error)) {
     name_ = old;
@@ -815,8 +1159,11 @@ bool Session::recover(const std::string& name, std::string& error) {
     error = "no autosave for \"" + name + "\"";
     return false;
   }
-  if (!fromJson(text, error)) return false;
-  name_ = name;
+  const std::string old = std::exchange(name_, name);
+  if (!fromJson(text, error)) {
+    name_ = old;
+    return false;
+  }
   // Recovered changes are unsaved: keep the project marked dirty.
   saved_ = Values{};
   autosaved_ = values_;
