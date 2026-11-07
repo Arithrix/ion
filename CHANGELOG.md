@@ -5,6 +5,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-07
+
+### Fixed
+- **Importing from a folder that doesn't exist failed almost silently.** The error flashed for 3 seconds and nothing was logged, so it looked as if the import had run and found nothing. Now:
+  - the folder is checked when you press ⏎, and if it isn't there the prompt stays open, says "Not found", and keeps what you typed so you can fix it;
+  - **Tab completes** folder names in the import prompt, and the prompt lists the folders and `.syx` files at the current path;
+  - the prompt starts at `~/ion/downloads/`, or at the last folder you imported if it still exists;
+  - the result stays on screen for 15 seconds and on the Library screen's FM page. "No .syx files found" is reported as such;
+  - every import is written to `~/.local/share/ion/import.log`, failed ones included.
+
 ## [0.2.0] - 2026-11-07
 
 ### Added

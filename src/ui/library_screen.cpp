@@ -215,6 +215,9 @@ class LibraryScreen final : public Screen {
       if (ctx.importTotal > 0)
         info.push_back(text("importing… " + std::to_string(ctx.importDone) + " of " + std::to_string(ctx.importTotal)) |
                        color(palette::accent));
+      else if (!ctx.importMessage.empty())
+        info.push_back(paragraph(ctx.importMessage) |
+                       color(ctx.importMessage.rfind("imported", 0) == 0 ? palette::green : palette::record));
       info.push_back(text(""));
       info.push_back(paragraph("i imports a folder of .syx banks, sub-folders included. Importing again is safe: "
                                "duplicates are merged and only new voices are added.") |

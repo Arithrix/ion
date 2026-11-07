@@ -5,7 +5,9 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cctype>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <sstream>
 
@@ -521,19 +523,67 @@ class InstrumentScreen final : public Screen {
 
 }  // namespace
 
+namespace {
+
+// "~/ion/downloads" for a path under $HOME, so prompts stay short.
+std::string abbreviateHome(const std::string& p) {
+  const char* home = std::getenv("HOME");
+  if (home && *home && p.rfind(home, 0) == 0) return "~" + p.substr(std::strlen(home));
+  return p;
+}
+
+std::string trimmed(std::string s) {
+  while (!s.empty() && std::isspace(static_cast<unsigned char>(s.back()))) s.pop_back();
+  s.erase(0, std::min(s.size(), s.find_first_not_of(" \t")));
+  return s;
+}
+
+// Asks for the folder; on ⏎ checks it exists before anything runs, and if it
+// doesn't, asks again with the path kept so it can be fixed.
+void askImportFolder(Context& ctx, const std::string& initial, const std::string& title) {
+  ctx.promptTitle = title;
+  ctx.promptInitial = initial;
+  ctx.promptPath = true;
+  ctx.promptDone = [](Context& cx, const std::string& typed) {
+    const std::string text = trimmed(typed);
+    if (text.empty()) return;
+    const std::filesystem::path p = expandHome(text);
+    std::error_code ec;
+    if (!std::filesystem::exists(p, ec)) {
+      askImportFolder(cx, text, "Not found: " + abbreviateHome(p.string()) + " · fix the path (Tab completes)");
+      return;
+    }
+    if (std::filesystem::is_regular_file(p, ec)) {
+      std::string ext = p.extension().string();
+      for (char& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+      if (ext != ".syx" && ext != ".snd") {
+        askImportFolder(cx, text, "That's not a .syx file · give a folder or a .syx");
+        return;
+      }
+    }
+    cx.importPath = p.string();
+    cx.request = Context::Request::Import;
+  };
+  ctx.request = Context::Request::Prompt;
+}
+
+}  // namespace
+
 void requestImport(Context& ctx) {
   if (ctx.importTotal > 0) {
     ctx.flash = "an import is already running";
     return;
   }
-  const std::string last = ctx.session.config().importFolder;
-  ctx.promptTitle = "Import DX7 banks from (a folder, searched with its sub-folders, or one .syx)";
-  ctx.promptInitial = last.empty() ? "~/" : last;
-  ctx.promptDone = [](Context& cx, const std::string& path) {
-    cx.importPath = expandHome(path).string();
-    cx.request = Context::Request::Import;
-  };
-  ctx.request = Context::Request::Prompt;
+  // Start from the last folder if it still exists, else ~/ion/downloads, else ~.
+  std::error_code ec;
+  std::string initial = ctx.session.config().importFolder;
+  if (initial.empty() || !std::filesystem::exists(initial, ec)) {
+    const std::filesystem::path downloads = expandHome("~/ion/downloads");
+    initial = std::filesystem::is_directory(downloads, ec) ? downloads.string() : expandHome("~/").string();
+  }
+  initial = abbreviateHome(initial);
+  if (!initial.empty() && initial.back() != '/' && std::filesystem::is_directory(expandHome(initial), ec)) initial += '/';
+  askImportFolder(ctx, initial, "Import DX7 banks from a folder (sub-folders too) or one .syx · Tab completes");
 }
 
 std::unique_ptr<Screen> makeInstrumentScreen() { return std::make_unique<InstrumentScreen>(); }

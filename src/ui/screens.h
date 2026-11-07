@@ -52,6 +52,10 @@ struct Context {
   std::string promptTitle;
   std::string promptInitial;
   std::function<void(Context&, const std::string&)> promptDone;
+  bool promptPath = false;  // the text is a file path: Tab completes it
+
+  // The outcome of the last FM import, kept for the Library screen.
+  std::string importMessage;
 };
 
 // Shift+Arrow: FTXUI 7 has no named events for them; they arrive as raw CSI.

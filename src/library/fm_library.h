@@ -109,6 +109,8 @@ class FmLibrary {
 
  private:
   FmLibrary() = default;
+  static ImportReport importInto(const std::filesystem::path& dbPath, const std::filesystem::path& folder,
+                                 ImportProgress* progress);
   void sortPatches();
 
   sqlite3* db_ = nullptr;
