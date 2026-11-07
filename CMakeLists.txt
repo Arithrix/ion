@@ -50,6 +50,7 @@ add_library(ion_engine STATIC
   src/core/params.cpp
   src/core/version.cpp
   src/dsp/biquad.cpp
+  src/library/fm_library.cpp
   src/library/syx.cpp
   src/engine/channel_eq.cpp
   src/engine/clock.cpp
@@ -70,7 +71,7 @@ add_dependencies(ion_engine ion_version_header)
 target_include_directories(ion_engine PUBLIC src ${ION_GENERATED_DIR})
 target_link_libraries(ion_engine
   PUBLIC Threads::Threads
-  PRIVATE ion_warnings synth_dexed nlohmann_json tomlplusplus dr_libs PkgConfig::PIPEWIRE PkgConfig::ALSA)
+  PRIVATE ion_warnings synth_dexed sqlite3 nlohmann_json tomlplusplus dr_libs PkgConfig::PIPEWIRE PkgConfig::ALSA)
 
 # ---- executables -----------------------------------------------------------
 add_library(ion_ui STATIC
