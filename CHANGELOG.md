@@ -5,7 +5,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 
 ## [Unreleased]
 
-### Added
+### Added (Phase 5: sampler)
+- **Sampler tracks.** Choose SMPL for any track and pick a sample (the browser opens by itself). It plays chromatically from its root note (C3: as recorded), across a key range.
+  - **Play:** start point, loop off / forward / ping-pong, loop start and end, loop crossfade, tune, glide, voices (1 = mono), level.
+  - **Amp and Filter:** ADSR envelopes. The filter is LP12, LP24, HP or BP, with resonance, key tracking, envelope amount and velocity.
+  - **Mod:** an LFO (sine, triangle, square, sample & hold), free or synced to the clock, onto pitch, cutoff, pan and level.
+  - **The waveform** shows the loop and the start point.
+    - Recordings that know their tempo get a bar ruler.
+    - `z` zooms round the point you're moving, and points snap to zero crossings so loops don't click.
+    - `n` normalizes; `o` opens another file.
+  - Every setting is MIDI-learnable.
+- Space on a sampler track plays its root note.
+
+### Changed (Phase 5)
+- Projects are now format 5 (sampler tracks); 0.4.x can't open projects saved by 0.5.0.
+
+### Added (Phase 4: effects)
 - **Effects.** Every track, the master and both send returns have **three insert slots**. The effects:
   - **Compressor:** threshold, ratio, attack, release, knee, makeup, mix. It shows how much it's turning down.
   - **Chorus:** rate, depth, mix, width.

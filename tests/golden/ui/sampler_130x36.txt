@@ -33,4 +33,4 @@
 │                              ││                              ││                              ││                              │
 ╰──────────────────────────────╯╰──────────────────────────────╯╰──────────────────────────────╯╰──────────────────────────────╯
  midi MIDI off  ·  last: nothing yet
- Tab  Section   ↑↓  Param   ←→  Adjust   l  Learn   z  Zoom   n  Normalize   o  Open file   Spc  Audition   Esc  Back
+ Tab  Section   ↑↓  Param   ←→  Adjust   l  Learn   z  Zoom   n  Normalize   o  Open file   g  Collect   Spc  Audition

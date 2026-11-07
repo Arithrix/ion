@@ -1,81 +1,74 @@
-# Testing ion 0.4.0 — Phase 4: effects
+# Testing ion 0.5.0 — Phase 5: sampler
 
 This checkpoint should show:
-- you can **dial in a mix**: compression, chorus, delay and reverb on the tracks that need them, sends to shared delay and reverb, and a glued master;
-- nothing clicks when effects are added, bypassed or tweaked while playing;
-- synced delays follow the OXI's tempo.
+- a sample plays **chromatically** from the OXI or the laptop keys, in tune, from its root note;
+- loops sustain cleanly (no click at the loop point) and the envelopes, filter and LFO shape it;
+- a loop that knows its tempo shows its bars.
 
-Allow about 30 minutes. **Wired headphones or speakers please**: Bluetooth adds 150–250 ms of delay.
+Allow about 20 minutes. **Wired headphones or speakers please.** If you haven't tried the effects yet, 0.4.0's checklist is in `~/ion/releases/v0.4.0/TESTING.md`.
 
 ## 0. Before you start
-1. Run `ion --version`. It should print `ion 0.4.0 (…)`.
-2. Start the OXI's clock. Then open the demo project, which was installed with this release:
+1. Run `ion --version`. It should print `ion 0.5.0 (…)`.
+2. Open the demo project:
    ```
-   ion --project "demo v0.4.0"
+   ion --project "demo v0.5.0"
    ```
-   - The header should show the OXI's tempo. Without a clock, synced delays use 120 BPM.
 
-## 1. The demo's mix (5 min)
-Play the OXI on channels 1, 2, 3 and 5 (piano with strings, bass, brass, the drum kit).
-1. Press `F` (FX). On the left is track 1's chain:
-   - its EQ;
-   - three insert slots (slot 1 has a **CHORUS**);
-   - its two sends (B → reverb at −10 dB);
-   - below them the two send buses (**A DELAY 1/8D**, **B REVERB hall**);
-   - then the master: EQ, a **COMP** switched out (○), the **LIMIT**.
-2. `1`–`8` switch tracks: track 2 has a compressor on the bass, track 5 one on the drums.
-3. On track 1, ↓ to the chorus and press `b` repeatedly while the piano plays. It switches in and out **without a click**.
-4. ↓ to **B REVERB** and press Tab: its settings.
-   - Change **Type** (Plate / Hall / Room), **Size** and **Decay**. The drawing underneath shows the tail. Listen for clicks or zipper noise while you sweep them; there should be none.
-   - The demo maps **CC 75 on channel 1 → reverb size** and **CC 76 → delay feedback**. Try them from the OXI.
-5. ↓ to **A DELAY**: Division 1/8D. The line below it gives its time in ms at the current tempo. Change the OXI's tempo: the echoes follow, gliding rather than jumping.
+## 1. The demo's sampler (5 min)
+1. Press `6` then `I`. Track 6 is a **SMPL** track with a 4-bar chord loop at 120 BPM.
+   - At the top is its waveform, with a **bar ruler** (1 · · · 2 …) because the loop carries its tempo.
+   - Below it are four sections: **Play**, **Amp**, **Filter**, **Mod**.
+2. Play it from the OXI on **channel 6**, or press `` ` `` and use the laptop keys:
+   - **C3 is the root**: it plays as recorded;
+   - every other key plays it higher or lower (shorter or longer).
+   - It's looped (forward), so held notes keep going; releasing fades out over the Release time.
+3. Space plays the root note.
+4. The demo maps **CC 74 on channel 6 → cutoff**, and the LFO moves the cutoff once a bar.
 
-## 2. Build a mix of your own (15 min)
-Start from your garage kit from 0.3.0, or any project.
-1. **Add an effect:** on FX, pick a track (`1`–`8`), ↓ to an empty slot, ⏎. Choose one from the list, ⏎. It's in, at its defaults, ready to adjust (Tab).
-2. **A compressor on the drums:**
-   - Threshold −20, Ratio 4:1, Attack 10–30 ms (higher keeps the kick's punch), Release 100–200 ms.
-   - The `reduction` bar shows how much it's turning down. **Makeup** brings the level back; **Mix** below 100% is parallel compression.
-3. **Sends:** in a track's chain, ↓ to **→ delay** or **→ reverb** and use ← → (Shift for bigger steps).
-   - Try the claps and the snare into the reverb, a little of the hats into the delay.
-   - **sends** (⏎) switches between post-fader (they follow the track's fader) and pre-fader.
-4. **Delay settings:**
-   - Sync on: Division picks the note value. Sync off: Time in ms.
-   - Feedback, High cut / Low cut (the repeats get darker or thinner), Ping-pong, Width.
-   - 100% feedback rings forever without blowing up; `p` (panic) stops it.
-5. **Reorder:** with two effects on a track, `[` and `]` move the selected one up or down, settings and all. `x` removes one.
-6. **The master:**
-   - ↓ to the master's **COMP** and press `b` to switch the glue compressor in. Is it a useful default (−12 dB, 2:1)?
-   - The **LIMIT** row shows when the safety limiter is turning things down. If it's often busy, turn the master or the loudest track down.
-7. **Mixer (`M`):**
-   - ← → now also reaches **D** (delay return) and **R** (reverb return) before **M** (master). Each has a fader (↑ ↓), pan (`[ ]`), mute (`m`) and its own EQ (Tab).
-   - The delay return's **→R** feeds the reverb.
-   - Each track strip shows its sends (`A−12 B−8`).
-8. **Solo** a track (`s`): the returns keep playing (they're solo-safe). **Mute** a track: its sends go quiet too.
-9. Save (`w`), quit, and open the project again: everything is as you left it.
+## 2. Your own sample (12 min)
+1. Make an empty track a sampler: `T`, pick a track, ⏎, choose **SMPL**, ⏎. The sample browser opens by itself, the same one as on drum tracks.
+2. Pick something tonal: a chord stab, a bass note, a pad. Each file previews as you reach it; ⏎ loads it.
+   - `o` opens the browser again (at that sample's folder); `o` or Esc goes back.
+3. **Root:** if it isn't a C, set **Root** (Play section) to its real note, so the keys play in tune.
+4. **Loop it** (Play):
+   - set **Loop** to forward;
+   - ↓ to **Loop start** and **Loop end** and move them with ← → (Shift for bigger steps). They snap to zero crossings (**Snap** on) to avoid clicks.
+   - `z` zooms the waveform round the point you're moving (×4, ×16, ×64); `z` again cycles back.
+   - Still a click? Raise **Crossfade** (10–50 ms).
+   - Try **ping-pong** too.
+5. **Shape it:**
+   - Tab moves between the sections; ↑ ↓ picks a row; ← → changes it.
+   - **Amp:** a slow Attack for a pad, a long Release for a tail. **Vel→amp** sets how much touch matters.
+   - **Filter:**
+     - LP24 with a lower Cutoff, then **Env amount** for a filter sweep on each note;
+     - **Key track** at 100% keeps the brightness even up the keyboard.
+   - **Mod:** LFO shape, **LFO sync** on with **LFO length** 1/4 or 1 bar, and a little **→ pitch** (10–20 ct) for vibrato, or **→ cutoff** for movement.
+   - **Glide** (Play) slides between notes; with **Voices** at 1 it's mono.
+6. `n` normalizes the sample (its peak to 0 dB, through Level).
+7. MIDI-learn anything with `l`.
+8. `g` (collect) copies the sample into the project's own folder, as on drum tracks. Then save (`w`).
 
-## 3. Feel (2 min)
-The safety limiter adds **1 ms** to everything you hear. Play the piano and the drums from the OXI and from the laptop keys (`` ` ``): does it feel any different from 0.3.0? If so, tell me; it can go lower.
+## 3. Recordings
+Phase 6 (resampling) will make recordings that carry their tempo and bars. The sampler already reads them: that's the demo's bar ruler.
 
 ## What to send back
-- **The reverb**, by ear: does it sound good? Plate, hall or room: which works and which doesn't? This is the one I most need your ears for (the handoff says "sound first").
-- Did anything click: adding, bypassing, reordering, or sweeping a setting?
-- Did the synced delay stay in time with the OXI?
-- Is the glue compressor's default useful?
-- Anything you reached for that wasn't there (effect presets are coming)?
-- From earlier: `no RT`, latency feel, `ion --list-midi` with the OXI, macro ranges; and your 0.3.0 notes if you haven't sent them.
+- Was it in tune across the keyboard, and did the root note play as recorded?
+- Any click at a loop point, even with Snap on? Did Crossfade fix it?
+- Did the envelopes and filter feel right (ranges, speeds)? The LFO?
+- How was moving loop points with the keys? Is the zoom enough?
+- From before: your notes on 0.3.0 (drums) and 0.4.0 (effects), `no RT`, latency, `ion --list-midi`.
 
 ## Known issues
-- No effect presets yet.
-- A big hall can't decay faster than about a second, whatever Decay says (the room is too big).
-- At 80×24 the Tracks screen cuts the last rows of its detail pane.
+- One sample per track (multi-zone and SFZ come later).
+- Stretch mode is reserved: "stretch: later".
+- One LFO per track, free-running (not restarted by each note).
 
 ## Rolling back
 ```
-~/projects/ion/scripts/use-version.sh 0.3.0   # back to Phase 3
+~/projects/ion/scripts/use-version.sh 0.4.0   # back to Phase 4
 ~/projects/ion/scripts/use-version.sh         # list installed versions
 ```
-Projects saved by 0.4.0 are format 4, and **0.3.0 won't open them** ("saved by a newer ion"). It refuses rather than silently dropping the effects. Projects from 0.3.0 and earlier open fine in 0.4.0.
+Projects saved by 0.5.0 are format 5, and **0.4.0 won't open them** ("saved by a newer ion"), rather than turning sampler tracks into empty ones.
 
 ## Extra tools in this release folder
-`ion-render` (project + .mid → .wav), `ion-bench` (now with every effect), `fake-oxi` (a pretend OXI), `make-demo`.
+`ion-render`, `ion-bench`, `fake-oxi`, `make-demo`.

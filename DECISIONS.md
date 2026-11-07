@@ -253,6 +253,32 @@ Format 4 adds:
 
 Older formats open with no inserts, sends off and the glue compressor out, and keep their master fader. 0.3.x refuses format 4 with "saved by a newer ion".
 
+## Decided during Phase 5
+
+### D-47 · decided · The sampler
+- **What it is:** one sample per track, played chromatically from a **root** note (default C3, so a loop recorded "at pitch" plays back as recorded) across a key range. Mode is **Repitch**. The mode field exists in the parameters and in project files with Stretch reserved (HANDOFF §6.2); Stretch isn't selectable yet, and the screen says "stretch: later".
+- **Points:** start, loop start and loop end are fractions of the sample's length, so they survive collecting or a re-render at another tempo. On screen they're seconds.
+  - ← → moves a point by one column of the waveform at the current zoom (`z`: ×1, ×4, ×16, ×64 round the point being edited); Shift moves ten.
+  - With **Snap** on (the default), a point lands on the nearest rising zero crossing within that column.
+  - The loop is kept at least 16 frames long and the right way round.
+- **Loop:** off, forward or ping-pong. Forward can crossfade (0–500 ms) the end of the loop into what comes before its start, so a loop that isn't cut at a zero crossing doesn't click (tested).
+- **Envelopes:** amp and filter ADSR. Attack is linear; decay and release fall exponentially, reaching −60 dB in the time set. Sustain follows the knob smoothly while held.
+- **Filter:** SVF LP12, LP24 (two stages), HP, BP. Its cutoff is moved in octaves:
+  - by the filter envelope (±5 octaves at ±100%);
+  - by key tracking (100% = one octave per octave);
+  - by velocity (soft notes up to 4 octaves darker);
+  - by the LFO (±4 octaves).
+- **LFO:** one per track, not per voice: sine, triangle, square or sample & hold. Free (0.05–20 Hz) or synced (4 bars … 1/32, dotted and triplet). It goes to pitch (up to ±1200 cents), cutoff, pan and level.
+- **Glide:** from the last note played, in poly too. With Voices = 1 the sampler is mono.
+- **Voices:** up to 16, default 8; the oldest goes, released ones first, faded over 5 ms. The sustain pedal holds notes. Bend range defaults to ±2 semitones.
+- **Sections:** Tab moves between them, as Tab moves between panes everywhere else. The mockup's ←→ for sections would clash with ← → changing values.
+
+### D-48 · decided · Engines that play samples share one mechanism
+`SampleRetirement` holds samples taken off a pad or zone until no voice plays them (D-36). The Engine interface has `setSample`, `popReleased`, `heldSamples` and `setTempo`, so the Module and Session treat Drum and Sampler alike. A sampler's sample is kept as pad 1 in the track's state, so loading, missing-file handling and collect work the same. Sampler tracks bring **project format 5**: 0.4.x would otherwise open one as an empty track and lose it on save; instead it refuses with "saved by a newer ion".
+
+### D-49 · decided · Recording sidecars
+A recording `name.wav` carries `name.json`: `{"ion_recording": 1, "tempo": 124.0, "bars": 4, "beats_per_bar": 4, "sources": "tracks 3 + 6", "recorded_at": "…"}`. The Rec screen will write them (Phase 6). The sampler already reads them: it shows bars, tempo and sources, and draws a bar ruler.
+
 ## Proposed (waiting for Michael)
 
 ### D-01 · implemented in Phase 0 · Direct ALSA sequencer instead of RtMidi

@@ -149,6 +149,14 @@ class SamplerScreen final : public Screen {
       zoom_ = (zoom_ + 1) % 4;
       return true;
     }
+    if (e == Event::Character('g')) {
+      std::string error;
+      const int copied = s.collectSamples(error);
+      if (copied < 0) ctx.flash = "not collected: " + error;
+      else ctx.flash = copied == 0 ? "nothing to collect: every sample is already in the project"
+                                   : "copied " + std::to_string(copied) + " sample" + (copied == 1 ? "" : "s") + " into the project's samples/ · w saves";
+      return true;
+    }
     if (e == Event::Character('n')) {
       const SampleLoader::Ptr smp = s.padSample(ctx.track, 0);
       if (smp && smp->peak > 0) {
@@ -178,7 +186,7 @@ class SamplerScreen final : public Screen {
       return h;
     }
     Hints h = {{"Tab", "Section"}, {"↑↓", "Param"}, {"←→", "Adjust"}, {"l", "Learn"}, {"z", "Zoom"}, {"n", "Normalize"}, {"o", "Open file"},
-               {"Spc", "Audition"}, {"Esc", "Back"}};
+               {"g", "Collect"}, {"Spc", "Audition"}, {"Esc", "Back"}};
     return h;
   }
 

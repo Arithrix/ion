@@ -73,6 +73,8 @@ ParamRef engineRef(int track, int index) {
 //   3 → 4: inserts, sends, returns; the master's whole strip. Older files keep
 //          the defaults (no inserts, sends off, the glue compressor out), and
 //          the master's "fader" is still read.
+//   4 → 5: sampler tracks. Older files have none: nothing to do. (0.4 would
+//          otherwise open a sampler track as an empty one and lose it.)
 bool migrate(json& j, std::string& error) {
   if (!j.contains("format") || !j["format"].is_number_integer()) {
     error = "not an ion project (no \"format\")";

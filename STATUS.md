@@ -1,8 +1,31 @@
 # Status
 
-**Phase:** 4 · Effects. Built and tested on `phase/4-effects`; not released yet, so 0.3.0 stays installed for Michael's test tonight.
-**Branch:** `phase/4-effects`
+**Phase:** 5 · Sampler. Built and tested on `phase/5-sampler` (on top of `phase/4-effects`). Neither phase is released yet, so 0.3.0 stays installed for Michael's test tonight; 0.4.0 and 0.5.0 follow once he's tried it.
+**Branch:** `phase/5-sampler`
 **Updated:** 2026-11-07
+
+## Done (Phase 5)
+- **Sampler engine** (D-47):
+  - one sample played chromatically from a root note across a key range;
+  - loop off, forward (with crossfade) or ping-pong;
+  - amp and filter ADSR;
+  - SVF LP12/LP24/HP/BP with key tracking, envelope and velocity;
+  - LFO (sine, triangle, square, S&H; free or synced) onto pitch, cutoff, pan and level;
+  - glide, 1–16 voices, sustain pedal, bend;
+  - Repitch mode, with Stretch reserved.
+- **Shared sample handling** for Drum and Sampler (D-48). Sampler tracks load, save, go missing and collect like pads.
+- **Sampler screen:**
+  - waveform with loop region, start/loop markers and zoom round the point being edited;
+  - a bar ruler for recordings that know their tempo (D-49), otherwise seconds;
+  - Play, Amp, Filter and Mod sections with envelope and LFO shapes and the CCs mapped;
+  - points snap to zero crossings; `n` normalizes;
+  - `o` opens the browser at the sample's folder, and an empty sampler starts in it.
+  - Four sections side by side when wide, two at 80 columns, one at a time on narrow screens.
+- **Elsewhere:** Space plays the root note; the engine picker offers SMPL; Tracks shows the sample and its main settings.
+- **Tests:** 128 cases.
+  - Pitch by note and key range; loops; crossfade against a click; ADSR timing; filter, key tracking and velocity.
+  - Synced LFO, glide, voice limit, sample hand-back, extremes.
+  - Session round trip; snapshots at 130×36, 80×24 and 60×35.
 
 ## Done (Phase 4)
 - **Effects** (D-42), written for ion from published designs:
@@ -66,8 +89,8 @@
 - Tune by ear: velocity → level default (50%), drive amount, decay range, 4 voices per pad.
 - Still open from earlier: real-time priority (`no RT` in the header; dropouts without it, see V-10), latency feel, `ion --list-midi` with the OXI, macro ranges.
 
-## Next (Phase 5: sampler)
-Keymapped sampler: one sample per track, root note and key range, loop (forward, ping-pong, crossfade, zero-crossing snap), amp and filter envelopes, SVF with key tracking, LFO, glide; the playback mode field with Stretch reserved.
+## Next (Phase 6: resampling)
+Clock-synced recording of a track, tracks or the master (1–16 bars, from the next downbeat, sample-accurate, D-09). WAV + sidecar (D-49). Send to the library, a sampler track (loop set, root C3), or drum pads as slices (equal, per chord change, transients) with markers to nudge. Optional mute of the sources; undo the last take.
 
 ## Known gaps carried forward
 - Global default CC mappings (D-26).

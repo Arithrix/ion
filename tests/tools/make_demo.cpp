@@ -15,6 +15,7 @@
 #include "engine/drum/drum_engine.h"
 #include "engine/fm/fm_engine.h"
 #include "engine/fx/effects.h"
+#include "engine/sampler/sampler_engine.h"
 #include "engine/module.h"
 #include "library/syx.h"
 #include "project/config.h"
@@ -218,6 +219,46 @@ int main(int argc, char** argv) {
   s.setParam({kReverbScope, kFader}, -3.0f);
   s.setParam({kDelayScope, kFader}, -4.0f);
   s.setParam({kDelayScope, kSendB}, -12.0f);  // echoes into the reverb, a little
+  // Track 6 (ch 6): a sampler with a 4-bar chord loop at 120 BPM, synthesised
+  // and written with its sidecar, so it shows its bars. Looped, root C3.
+  {
+    wav::Audio loop;
+    loop.channels = 2;
+    const int frames = 4 * 4 * 24000;  // 4 bars of 4 beats at 120 BPM
+    loop.samples.assign(2 * static_cast<std::size_t>(frames), 0.0f);
+    const double chords[4][3] = {{220.0, 261.63, 329.63}, {174.61, 220.0, 261.63}, {196.0, 246.94, 293.66}, {164.81, 207.65, 246.94}};
+    for (int i = 0; i < frames; ++i) {
+      const double t = i / 48000.0;
+      const int bar = std::min(3, i / (4 * 24000));
+      const double inBar = std::fmod(t, 2.0);
+      const double env = std::min(1.0, inBar / 0.02) * (0.55 + 0.45 * std::exp(-inBar * 1.5));
+      double v = 0;
+      for (int k = 0; k < 3; ++k) v += std::sin(2 * 3.14159265358979 * chords[bar][k] * t) + 0.3 * std::sin(4 * 3.14159265358979 * chords[bar][k] * t);
+      const float x = static_cast<float>(0.16 * env * v);
+      loop.samples[2 * static_cast<std::size_t>(i)] = x;
+      loop.samples[2 * static_cast<std::size_t>(i) + 1] = x;
+    }
+    const auto dir = paths.projectDir(name) / "samples";
+    if (!wav::write(dir / "chords 120bpm 4 bars.wav", loop, error) ||
+        !writeFileAtomic(dir / "chords 120bpm 4 bars.json",
+                         R"({"ion_recording": 1, "tempo": 120.0, "bars": 4, "beats_per_bar": 4})" "\n", error)) {
+      std::fprintf(stderr, "make-demo: %s\n", error.c_str());
+      return 1;
+    }
+    s.setEngine(5, EngineType::Sampler);
+    s.setPadSample(5, 0, "samples/chords 120bpm 4 bars.wav");
+    s.setParam(engineParamRef(5, SamplerEngine::kLoop), SamplerEngine::kLoopForward);
+    s.setParam(engineParamRef(5, SamplerEngine::kAttack), 5);
+    s.setParam(engineParamRef(5, SamplerEngine::kRelease), 400);
+    s.setParam(engineParamRef(5, SamplerEngine::kFilter), SamplerEngine::kLp24);
+    s.setParam(engineParamRef(5, SamplerEngine::kCutoff), 5000);
+    s.setParam(engineParamRef(5, SamplerEngine::kLfoSync), 1);
+    s.setParam(engineParamRef(5, SamplerEngine::kLfoDivision), 2);  // a bar
+    s.setParam(engineParamRef(5, SamplerEngine::kLfoCutoff), 0.25f);
+    s.setParam({5, kSendB}, -12.0f);
+    s.addMapping(5, 74, engineParamRef(5, SamplerEngine::kCutoff));
+  }
+
   // cc 75 on channel 1: the reverb's size; cc 76: the delay's feedback.
   s.addMapping(0, 75, insertParamRef(kReverbScope, 0, Reverb::kSize));
   s.addMapping(0, 76, insertParamRef(kDelayScope, 0, Delay::kFeedback));
