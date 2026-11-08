@@ -5,6 +5,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-07
+
 ### Added (Phase 5: sampler)
 - **Sampler tracks.** Choose SMPL for any track and pick a sample (the browser opens by itself). It plays chromatically from its root note (C3: as recorded), across a key range.
   - **Play:** start point, loop off / forward / ping-pong, loop start and end, loop crossfade, tune, glide, voices (1 = mono), level.
