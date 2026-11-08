@@ -1,7 +1,7 @@
 # Status
 
-**Phase:** 5 · Sampler, plus the uniform envelope (D-50). 0.4.0 (effects) is released; 0.5.0 is the Phase 5 checkpoint build.
-**Branch:** `phase/5-sampler`
+**Phase:** 5 done · 0.4.0 (effects) and 0.5.0 (sampler + uniform envelope, D-50) are released and pushed. Next: Phase 6, not started.
+**Branch:** `main` (Phase 6 will be `phase/6-resampling`)
 **Updated:** 2026-11-07
 
 ## Done (Phase 5)
@@ -88,6 +88,7 @@
   - Clean under AddressSanitizer and UBSan, apart from Synth_Dexed's own upstream warnings.
 
 ## Waiting on Michael
+- Say whether FM without its old Attack/Release macros is OK, or bring them back (D-50; revert is possible).
 - Try 0.4.0 (effects: "dials in a mix") and 0.5.0 (sampler: "plays a sample chromatically"; the uniform envelope).
 - Choose the reverb by ear (D-42); the 1 ms limiter latency (D-45).
 - Tune by ear: velocity → level default (50%), drive amount, decay range, 4 voices per pad.
