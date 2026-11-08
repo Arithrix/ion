@@ -58,6 +58,7 @@ class RecScreen final : public Screen {
       lastState_ = st;
       if (st == Session::RecState::Review) slice_ = 0;
     }
+    if (const Session::SliceReview* rv = ctx.session.review()) slice_ = std::clamp(slice_, 0, static_cast<int>(rv->slices.size()) - 1);
     if (ctx.narrow()) return pane_ == 0 ? setupPane(ctx, ctx.width, true) | flex : recordingPane(ctx, ctx.width, body) | flex;
     const int setupWidth = ctx.wide() ? 40 : 34;
     return hbox({setupPane(ctx, setupWidth, true) | size(WIDTH, EQUAL, setupWidth),

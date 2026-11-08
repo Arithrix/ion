@@ -299,7 +299,10 @@ void Session::finishTake(Take* done) {
       mono[static_cast<std::size_t>(i)] = 0.5f * (take->left[static_cast<std::size_t>(i)] + take->right[static_cast<std::size_t>(i)]);
     switch (rec_.slice) {
       case SliceMode::Equal: r.slices = equalSlices(frames, std::min(rec_.sliceCount, r.maxSlices())); break;
-      case SliceMode::Chords: r.slices = chordSlices(mono, tempo > 0 ? 60.0 * kSampleRate / tempo : 0, r.maxSlices()); break;
+      // Beats are a grid only when the take started on a downbeat; a take started by hand finds its own.
+      case SliceMode::Chords:
+        r.slices = chordSlices(mono, take->synced && tempo > 0 ? 60.0 * kSampleRate / tempo : 0, r.maxSlices());
+        break;
       case SliceMode::Transients: r.slices = transientSlices(mono, r.maxSlices()); break;
     }
     const int n = static_cast<int>(r.slices.size());

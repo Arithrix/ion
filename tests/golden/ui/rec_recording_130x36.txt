@@ -1,4 +1,4 @@
- ion  Tracks Instr Mixer Fx Rec Library                              resample ● ● REC 3/4   ▶ 120.0 ext clock   cpu 0%   no audio
+ ion  Tracks Instr Mixer Fx Rec Library  resample ● ● REC 3/4  ▶ 120.0 ext clock  cpu 0%  no audio
 ╭ Setup ───────────────────────────────╮╭ Recording ─────────────────────────────────────────────────────────────────────────────╮
 │source   tracks                       ││● RECORDING · bar 3 of 4                        started on bar 1 · stops on the downbeat│
 │tracks    1  2  3  4  5  6  7  8      ││                                                                                        │

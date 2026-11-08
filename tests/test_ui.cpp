@@ -433,6 +433,17 @@ TEST_CASE("mixer: m and s act on the selected strip; returns mute but don't solo
 
 // ---- the Rec screen with a take running, and its slices ----
 
+// This test runs real audio first, so the DSP load in the header can reach two
+// digits (sanitizer builds): mask it and squeeze the header's spacing.
+std::string steadyHeader(std::string frame) {
+  frame = mask(frame);
+  const std::size_t nl = frame.find('\n');
+  std::string head = std::regex_replace(frame.substr(0, nl), std::regex("cpu [0-9]+%"), "cpu 0%");
+  head = std::regex_replace(head, std::regex(" [0-9]+% no audio"), " 0% no audio");
+  head = std::regex_replace(head, std::regex("  +"), "  ");
+  return head + frame.substr(nl);
+}
+
 TEST_CASE("ui snapshots: a take recording, then its slices waiting for review") {
   const fs::path root = fs::temp_directory_path() / ("ion-ui-rec-" + std::to_string(std::random_device{}()));
   fs::create_directories(root);
@@ -480,11 +491,11 @@ TEST_CASE("ui snapshots: a take recording, then its slices waiting for review") 
     module->pushMidi({{0xFA}, MidiEvent::Timing::Frame, tick});
     module->pushMidi({{0x90, 60, 127}, MidiEvent::Timing::Frame, tick});
     run(2 * 96000 + 48000);  // two and a half bars in
-    checkSnapshot("rec_recording_130x36", mask(ui::snapshot(session, *module, ui::ScreenId::Rec, 130, 36)));
+    checkSnapshot("rec_recording_130x36", steadyHeader(ui::snapshot(session, *module, ui::ScreenId::Rec, 130, 36)));
     run(2 * 96000);
     REQUIRE(session.recState() == Session::RecState::Review);
-    checkSnapshot("rec_review_130x36", mask(ui::snapshot(session, *module, ui::ScreenId::Rec, 130, 36, false, false, 0, {"Down", "Down"})));
-    checkSnapshot("rec_review_60x35", mask(ui::snapshot(session, *module, ui::ScreenId::Rec, 60, 35)));
+    checkSnapshot("rec_review_130x36", steadyHeader(ui::snapshot(session, *module, ui::ScreenId::Rec, 130, 36, false, false, 0, {"Down", "Down"})));
+    checkSnapshot("rec_review_60x35", steadyHeader(ui::snapshot(session, *module, ui::ScreenId::Rec, 60, 35)));
   }
   fs::remove_all(root);
 }
