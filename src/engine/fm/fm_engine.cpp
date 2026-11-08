@@ -7,6 +7,8 @@
 
 #include <dexed.h>
 
+#include "engine/envelope_params.h"
+
 uint32_t g_ion_dexed_millis = 0;
 
 namespace ion {
@@ -14,7 +16,10 @@ namespace ion {
 // Synth_Dexed renders through a protected method; it expects to be subclassed.
 class DexedCore : public Dexed {
  public:
-  using Dexed::Dexed;
+  // Synth_Dexed leaves monoMode uninitialised, and setMonoMode() compares
+  // against it before setting it, so the first call can return early and
+  // leave a random value (UBSan: "load of value 190 … bool"). Set it here.
+  DexedCore(uint8_t maxNotes, uint32_t rate) : Dexed(maxNotes, rate) { monoMode = false; }
   using Dexed::getSamples;
 
   // loadVoiceParameters() stops every voice, then flags a "refresh" for live
@@ -54,16 +59,19 @@ constexpr uint8_t kCcSustain = 64;
 constexpr uint8_t kCcAllSoundOff = 120;
 constexpr uint8_t kCcAllNotesOff = 123;
 
+// Wide open: the patch's own envelopes decide, until this is used to shape them.
+constexpr EnvDefaults kAmp{0.1f, 1, 500, 1, kEnvOff};
+
 const std::array<ParamInfo, FmEngine::kParamCount> kParams = {{
     {"poly", "Polyphony", 1, FmEngine::kMaxPolyphony, 8, Curve::Choice, Unit::None, 1, 4},
     {"bend", "Bend range", 0, 12, 2, Curve::Choice, Unit::Semitones, 1, 2},
     {"mono", "Mono", 0, 1, 0, Curve::Toggle, Unit::None, 1, 1},
     {"bright", "Bright", -50, 50, 0, Curve::Choice, Unit::Offset, 1, 5},
-    {"attack", "Attack", -50, 50, 0, Curve::Choice, Unit::Offset, 1, 5},
-    {"release", "Release", -50, 50, 0, Curve::Choice, Unit::Offset, 1, 5},
     {"feedback", "Feedback", -7, 7, 0, Curve::Choice, Unit::Offset, 1, 2},
     {"detune", "Detune", -7, 7, 0, Curve::Choice, Unit::Offset, 1, 2},
     {"velocity", "Velocity", -7, 7, 0, Curve::Choice, Unit::Offset, 1, 2},
+    envelopeParam(false, kEnvAttack, kAmp), envelopeParam(false, kEnvHold, kAmp), envelopeParam(false, kEnvDecay, kAmp),
+    envelopeParam(false, kEnvSustain, kAmp), envelopeParam(false, kEnvRelease, kAmp), velAmpParam(0),
 }};
 
 }  // namespace
@@ -196,6 +204,14 @@ void FmEngine::allNotesOff() {
   sustain_ = false;
 }
 
+void FmEngine::applyAmp() {
+  const dsp::Ahdsr::Coeffs c = envelopeCoeffs(amp_.data());
+  each([&](DexedCore& d) {
+    d.ionAmp = c;
+    d.ionVelAmp = amp_[kVelAmp - kFirstAmp];
+  });
+}
+
 void FmEngine::setParam(int index, float value) {
   const int v = static_cast<int>(std::lround(value));
   int* macro = nullptr;
@@ -204,12 +220,15 @@ void FmEngine::setParam(int index, float value) {
     case kBendRange: each([&](DexedCore& d) { d.setPitchbendRange(static_cast<uint8_t>(v)); }); return;
     case kMono: mono_ = v != 0; each([&](DexedCore& d) { d.setMonoMode(mono_); }); return;
     case kBright: macro = &macros_.bright; break;
-    case kAttack: macro = &macros_.attack; break;
-    case kRelease: macro = &macros_.release; break;
     case kFeedback: macro = &macros_.feedback; break;
     case kDetune: macro = &macros_.detune; break;
     case kVelocity: macro = &macros_.velocity; break;
-    default: return;
+    default:
+      if (index >= kFirstAmp && index < kParamCount) {
+        amp_[static_cast<std::size_t>(index - kFirstAmp)] = value;
+        applyAmp();
+      }
+      return;
   }
   if (*macro == v) return;
   *macro = v;

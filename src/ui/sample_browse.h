@@ -36,6 +36,8 @@ class SampleBrowse {
   // Into a folder (Root/Folder), or up (Parent). Returns false for files.
   bool open(const Session& s, const Entry& e);
   void up(const Session& s);
+  // Straight to `folder` (if it exists), with the cursor on `file` if given.
+  void show(const Session& s, const std::filesystem::path& folder, const std::filesystem::path& file = {});
   bool atTop() const { return top_; }
   // "~/samples/garage/kicks/", or "sample roots".
   std::string location() const;

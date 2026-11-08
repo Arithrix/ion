@@ -1,0 +1,24 @@
+ ion  Tracks Instr Mixer Fx Rec Library            no clock   cpu 0%   no audio
+╭ Track 6 · chords_124bpm_4bar · /tmp/ion-ui-snapshot/recordings/chords_124… ──╮
+│1   ·   ·   ·   2    ·   ·   ·  3    ·   ·   ·   4    ·   ·   ·               │
+│▇▆▆▆▆▆▆▆▅▅▅▅▅▄▄▄▄▃▃▇▆▆▆▆▆▆▆▅▅▅▅▅▄▄▄▄▃▃▃▇▆▆▆▆▆▆▆▅▅▅▅▅▄▄▄▄▃▃▇▆▆▆▆▆▆▆▅▅▅▅▅▄▄▄▄▃▃▃│
+│██████████████████████████████████████████████████████████████████████████████│
+│▲                                                                            ]│
+│4 bars · 124.0 bpm · 7.742 s · 48k stereo · resampled from tracks 3 + 6       │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭ Play ────────────────────────────────╮╭ Amp ─────────────────────────────────╮
+│C-2–G8 · root C3 · stretch: later     ││█▇▇▇▇▇▇▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▃▂▁▁         │
+│▸Mode        repitch                  ││ Attack      4.0 ms                   │
+│ Loop        forward                  ││ Hold        0                        │
+│ Start       0.000 s                  ││ Decay       300 ms                   │
+│ Loop start  0.000 s                  ││ Sustain     80%                      │
+│ Loop end    7.742 s                  ││ Release     220 ms                   │
+│ Crossfade   off                      ││ Vel→amp     60%                      │
+│ Snap        on                       ││                                      │
+│ Root        C3                       ││                                      │
+│ Low key     C-2                      ││                                      │
+│ High key    G8                       ││                                      │
+╰──────────────────────────────────────╯╰──────────────────────────────────────╯
+ midi MIDI off  ·  last: nothing yet
+ Tab  Section   ↑↓  Param   ←→  Adjust   l  Learn   z  Zoom   n  Normalize

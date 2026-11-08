@@ -6,6 +6,7 @@
 #include <string>
 #include <utility>
 
+#include "engine/envelope_params.h"
 #include "engine/voice_alloc.h"
 
 namespace ion {
@@ -13,13 +14,13 @@ namespace {
 
 constexpr float kLogFine = 1.0f / 120.0f;
 constexpr float kLogCoarse = 1.0f / 20.0f;
-constexpr float kTimeFine = 1.0f / 60.0f;  // hold/decay: ~12% per press
-constexpr float kTimeCoarse = 1.0f / 12.0f;
-constexpr float kEnvFloor = 1e-4f;         // −80 dB: a decaying voice is done
 
 const char* const kModes[] = {"one-shot", "gate"};
 const char* const kFilters[] = {"off", "LP", "HP", "BP"};
 const char* const kChokes[] = {"none", "A", "B", "C", "D"};
+
+// A drum hit: no attack, held to the end of the sample, no sustain; release for gate mode.
+constexpr EnvDefaults kEnv{0.1f, kEnvFull, 500, 0, 200};
 
 // Order must match DrumEngine::PadParam.
 const std::array<ParamInfo, DrumEngine::kPadParamCount> kPad = {{
@@ -31,13 +32,13 @@ const std::array<ParamInfo, DrumEngine::kPadParamCount> kPad = {{
     {"start", "Start", 0, 1000, 0, Curve::Linear, Unit::Ms, 1, 10},
     {"reverse", "Reverse", 0, 1, 0, Curve::Toggle, Unit::None, 1, 1},
     {"mode", "Mode", 0, 1, 0, Curve::Choice, Unit::None, 1, 1, kModes},
-    {"hold", "Hold", 5, 5000, 5000, Curve::Log, Unit::Ms, kTimeFine, kTimeCoarse, nullptr, "full"},
-    {"decay", "Decay", 5, 10000, 500, Curve::Log, Unit::Ms, kTimeFine, kTimeCoarse},
+    envelopeParam(false, kEnvAttack, kEnv), envelopeParam(false, kEnvHold, kEnv), envelopeParam(false, kEnvDecay, kEnv),
+    envelopeParam(false, kEnvSustain, kEnv), envelopeParam(false, kEnvRelease, kEnv),
     {"filter", "Filter", 0, 3, 0, Curve::Choice, Unit::None, 1, 1, kFilters},
     {"cutoff", "Cutoff", 20, 20000, 5000, Curve::Log, Unit::Hz, kLogFine, kLogCoarse},
     {"reso", "Resonance", 0, 1, 0, Curve::Linear, Unit::Percent, 0.01f, 0.1f},
     {"drive", "Drive", 0, 1, 0, Curve::Linear, Unit::Percent, 0.01f, 0.1f},
-    {"vel.level", "Vel→level", 0, 1, 0.5f, Curve::Linear, Unit::Percent, 0.05f, 0.25f},
+    velAmpParam(0.5f),
     {"vel.filter", "Vel→filter", 0, 1, 0, Curve::Linear, Unit::Percent, 0.05f, 0.25f},
     {"choke", "Choke", 0, 4, 0, Curve::Choice, Unit::None, 1, 1, kChokes},
 }};
@@ -129,14 +130,14 @@ void DrumEngine::start(int pad, uint8_t note, float velocity) {
   const int group = static_cast<int>(std::lround(p.v[kChoke]));
   if (group > 0)
     for (Voice& v : voice_)
-      if (v.active() && v.stage != Voice::Stage::Fade &&
+      if (v.active() && !v.fading &&
           std::lround(pads_[static_cast<std::size_t>(v.pad)].v[kChoke]) == group)
         fade(v);
   // At most kPadVoices per pad: the oldest one goes.
   int count = 0, oldest = -1;
   for (int i = 0; i < kVoices; ++i) {
     const Voice& v = voice_[static_cast<std::size_t>(i)];
-    if (!v.active() || v.pad != pad || v.stage == Voice::Stage::Fade) continue;
+    if (!v.active() || v.pad != pad || v.fading) continue;
     ++count;
     if (oldest < 0 || static_cast<int32_t>(v.age - voice_[static_cast<std::size_t>(oldest)].age) < 0) oldest = i;
   }
@@ -155,16 +156,12 @@ void DrumEngine::start(int pad, uint8_t note, float velocity) {
   if (start >= static_cast<double>(p.sample->frames)) return;  // starts past the end: silent
   v.pos = v.direction > 0 ? start : static_cast<double>(p.sample->frames - 1) - start;
   v.declick = start > 0 ? kDeclickFrames : 0;
-  const bool gate = std::lround(p.v[kMode]) == kGate;
-  v.gate = gate;
-  const ParamInfo& hold = kPad[kHold];
-  v.holdLeft = gate || p.v[kHold] >= hold.max ? -1 : static_cast<int>(p.v[kHold] * kSampleRate / 1000.0f);
-  v.stage = Voice::Stage::Hold;
-  v.env = 1;
+  v.gate = std::lround(p.v[kMode]) == kGate;
+  v.on = true;
+  v.amp.start();
   v.cutoffScale = std::exp2(-p.v[kVelFilter] * 4.0f * (1.0f - velocity));  // soft hits: up to 4 octaves darker
   // Start at the pad's gains, so the first block doesn't ramp up from zero.
-  const float vl = p.v[kVelLevel];
-  const float gain = faderGain(p.v[kLevel]) * (1.0f - vl + vl * velocity * velocity);
+  const float gain = faderGain(p.v[kLevel]) * velocityGain(p.v[kVelAmp], velocity);
   float pl, pr;
   panGains(p.v[kPan], pl, pr);
   v.gainL = gain * pl;
@@ -172,15 +169,14 @@ void DrumEngine::start(int pad, uint8_t note, float velocity) {
 }
 
 void DrumEngine::fade(Voice& v) {
-  v.stage = Voice::Stage::Fade;
-  v.fadeStep = v.env / static_cast<float>(kFadeFrames);
+  v.fading = true;
 }
 
 void DrumEngine::noteOff(uint8_t note) {
   for (Voice& v : voice_)
     if (v.active() && v.gate && v.note == note) {
       v.gate = false;
-      if (v.stage == Voice::Stage::Hold) v.stage = Voice::Stage::Decay;
+      v.amp.release();
     }
 }
 
@@ -192,43 +188,27 @@ void DrumEngine::controlChange(uint8_t controller, uint8_t) {
 }
 
 void DrumEngine::allNotesOff() {
-  for (Voice& v : voice_) v.stage = Voice::Stage::Off;
+  for (Voice& v : voice_) v.on = false;
   voices_ = 0;
-  releaseUnused();
+  retirement_.update([&](const Sample* x) { return inUse(x); });
 }
 
 void DrumEngine::setSample(int pad, const Sample* s) {
   if (pad < 0 || pad >= kPads) return;
   const Sample* old = std::exchange(pads_[static_cast<std::size_t>(pad)].sample, s);
-  if (!old) return;
-  if (retiring_ == kRetiring) {
-    // Out of room (64 loads while long tails still ring): the oldest one
-    // stops now so its slot can be reused.
-    for (Voice& v : voice_)
-      if (v.sample == retired_[0]) v.stage = Voice::Stage::Off;
-    releaseUnused();
-  }
-  if (retiring_ < kRetiring) retired_[static_cast<std::size_t>(retiring_++)] = old;
-  releaseUnused();
+  retirement_.retire(
+      old,
+      [&](const Sample* x) {
+        for (Voice& v : voice_)
+          if (v.sample == x) v.on = false;
+      },
+      [&](const Sample* x) { return inUse(x); });
 }
 
-void DrumEngine::releaseUnused() {
-  int keep = 0;
-  for (int i = 0; i < retiring_; ++i) {
-    const Sample* s = retired_[static_cast<std::size_t>(i)];
-    bool used = false;
-    for (const Voice& v : voice_) used |= v.active() && v.sample == s;
-    if (used) retired_[static_cast<std::size_t>(keep++)] = s;
-    else if (released_ < static_cast<int>(releasedList_.size())) releasedList_[static_cast<std::size_t>(released_++)] = s;
-    else retired_[static_cast<std::size_t>(keep++)] = s;  // the module hasn't collected yet; try next time
-  }
-  retiring_ = keep;
-}
-
-bool DrumEngine::popReleased(const Sample*& s) {
-  if (released_ == 0) return false;
-  s = releasedList_[static_cast<std::size_t>(--released_)];
-  return true;
+bool DrumEngine::inUse(const Sample* s) const {
+  for (const Voice& v : voice_)
+    if (v.active() && v.sample == s) return true;
+  return false;
 }
 
 void DrumEngine::render(float* left, float* right, std::size_t frames) {
@@ -239,7 +219,7 @@ void DrumEngine::render(float* left, float* right, std::size_t frames) {
     n += v.active();
   }
   voices_ = n;
-  if (retiring_ > 0) releaseUnused();
+  if (retirement_.pending()) retirement_.update([&](const Sample* x) { return inUse(x); });
 }
 
 void DrumEngine::renderVoice(Voice& v, float* left, float* right, std::size_t frames) {
@@ -249,13 +229,12 @@ void DrumEngine::renderVoice(Voice& v, float* left, float* right, std::size_t fr
   // Pad settings are read every block, so moving one (or a CC on it) changes
   // notes already sounding; gains ramp across the block to avoid zipper noise.
   const double rate = std::exp2((static_cast<double>(p.v[kTune]) + p.v[kFine] / 100.0) / 12.0) * v.direction;
-  const float vl = p.v[kVelLevel];
-  const float gain = faderGain(p.v[kLevel]) * (1.0f - vl + vl * v.velocity * v.velocity);
+  const float gain = faderGain(p.v[kLevel]) * velocityGain(p.v[kVelAmp], v.velocity);
   float pl, pr;
   panGains(p.v[kPan], pl, pr);
   const float inv = 1.0f / static_cast<float>(frames);
   const float dl = (gain * pl - v.gainL) * inv, dr = (gain * pr - v.gainR) * inv;
-  const float decay = std::exp(std::log(1e-3f) / (std::max(p.v[kDecay], 1.0f) * kSampleRate / 1000.0f));  // −60 dB in `decay` ms
+  const dsp::Ahdsr::Coeffs env = envelopeCoeffs(&p.v[kAttack]);
 
   const int filter = static_cast<int>(std::lround(p.v[kFilter]));
   float a1 = 0, a2 = 0, a3 = 0, k = 2;
@@ -279,7 +258,7 @@ void DrumEngine::renderVoice(Voice& v, float* left, float* right, std::size_t fr
   for (std::size_t i = 0; i < frames; ++i) {
     const auto idx = static_cast<int64_t>(std::floor(v.pos));
     if (idx < 0 || idx >= s.frames) {
-      v.stage = Voice::Stage::Off;  // ran off the end (or the start, reversed)
+      v.on = false;  // ran off the end (or the start, reversed)
       break;
     }
     const auto frac = static_cast<float>(v.pos - static_cast<double>(idx));
@@ -304,27 +283,19 @@ void DrumEngine::renderVoice(Voice& v, float* left, float* right, std::size_t fr
       xr = stereo ? svf(xr, v.s1R, v.s2R) : xl;
     }
 
-    // Envelope.
-    switch (v.stage) {
-      case Voice::Stage::Hold:
-        if (v.holdLeft > 0 && --v.holdLeft == 0) v.stage = Voice::Stage::Decay;
-        break;
-      case Voice::Stage::Decay:
-        v.env *= decay;
-        break;
-      case Voice::Stage::Fade:
-        v.env -= v.fadeStep;
-        break;
-      case Voice::Stage::Off: break;
+    // Envelope, then a fade if the voice is being stopped.
+    float e = v.amp.next(env);
+    if (v.fading) {
+      v.fade -= 1.0f / static_cast<float>(kFadeFrames);
+      e *= std::max(0.0f, v.fade);
     }
-    float e = v.env;
     if (v.declick > 0) e *= 1.0f - static_cast<float>(v.declick--) / static_cast<float>(kDeclickFrames + 1);
     v.gainL += dl;
     v.gainR += dr;
     left[i] += xl * e * v.gainL;
     right[i] += xr * e * v.gainR;
-    if ((v.stage == Voice::Stage::Decay && v.env < kEnvFloor) || (v.stage == Voice::Stage::Fade && v.env <= 0)) {
-      v.stage = Voice::Stage::Off;
+    if (v.amp.idle() || (v.fading && v.fade <= 0)) {
+      v.on = false;
       break;
     }
   }

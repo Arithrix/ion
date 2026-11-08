@@ -1,8 +1,35 @@
 # Status
 
-**Phase:** 4 · Effects. Built and tested on `phase/4-effects`; not released yet, so 0.3.0 stays installed for Michael's test tonight.
-**Branch:** `phase/4-effects`
+**Phase:** 5 · Sampler, plus the uniform envelope (D-50). 0.4.0 (effects) is released; 0.5.0 is the Phase 5 checkpoint build.
+**Branch:** `phase/5-sampler`
 **Updated:** 2026-11-07
+
+## Done (Phase 5)
+- **One envelope for every instrument** (D-50, Michael's call):
+  - the same AHDSR and velocity → amp on FM, drum pads and the sampler (amp and filter);
+  - FM's Attack/Release macros replaced by it, applied per voice inside Synth_Dexed, wide open by default;
+  - 0.3/0.4 drum kits and projects convert exactly.
+- **Sampler engine** (D-47):
+  - one sample played chromatically from a root note across a key range;
+  - loop off, forward (with crossfade) or ping-pong;
+  - amp and filter ADSR;
+  - SVF LP12/LP24/HP/BP with key tracking, envelope and velocity;
+  - LFO (sine, triangle, square, S&H; free or synced) onto pitch, cutoff, pan and level;
+  - glide, 1–16 voices, sustain pedal, bend;
+  - Repitch mode, with Stretch reserved.
+- **Shared sample handling** for Drum and Sampler (D-48). Sampler tracks load, save, go missing and collect like pads.
+- **Sampler screen:**
+  - waveform with loop region, start/loop markers and zoom round the point being edited;
+  - a bar ruler for recordings that know their tempo (D-49), otherwise seconds;
+  - Play, Amp, Filter and Mod sections with envelope and LFO shapes and the CCs mapped;
+  - points snap to zero crossings; `n` normalizes;
+  - `o` opens the browser at the sample's folder, and an empty sampler starts in it.
+  - Four sections side by side when wide, two at 80 columns, one at a time on narrow screens.
+- **Elsewhere:** Space plays the root note; the engine picker offers SMPL; Tracks shows the sample and its main settings.
+- **Tests:** 132 cases.
+  - Pitch by note and key range; loops; crossfade against a click; ADSR timing; filter, key tracking and velocity.
+  - Synced LFO, glide, voice limit, sample hand-back, extremes.
+  - Session round trip; snapshots at 130×36, 80×24 and 60×35.
 
 ## Done (Phase 4)
 - **Effects** (D-42), written for ion from published designs:
@@ -61,13 +88,13 @@
   - Clean under AddressSanitizer and UBSan, apart from Synth_Dexed's own upstream warnings.
 
 ## Waiting on Michael
-- Try 0.3.0 tonight (`~/ion/releases/v0.3.0/TESTING.md`): build a garage kit and play it from the OXI. Then 0.4.0 gets released for the Phase 4 checkpoint ("dials in a mix").
+- Try 0.4.0 (effects: "dials in a mix") and 0.5.0 (sampler: "plays a sample chromatically"; the uniform envelope).
 - Choose the reverb by ear (D-42); the 1 ms limiter latency (D-45).
 - Tune by ear: velocity → level default (50%), drive amount, decay range, 4 voices per pad.
 - Still open from earlier: real-time priority (`no RT` in the header; dropouts without it, see V-10), latency feel, `ion --list-midi` with the OXI, macro ranges.
 
-## Next (Phase 5: sampler)
-Keymapped sampler: one sample per track, root note and key range, loop (forward, ping-pong, crossfade, zero-crossing snap), amp and filter envelopes, SVF with key tracking, LFO, glide; the playback mode field with Stretch reserved.
+## Next (Phase 6: resampling)
+Clock-synced recording of a track, tracks or the master (1–16 bars, from the next downbeat, sample-accurate, D-09). WAV + sidecar (D-49). Send to the library, a sampler track (loop set, root C3), or drum pads as slices (equal, per chord change, transients) with markers to nudge. Optional mute of the sources; undo the last take.
 
 ## Known gaps carried forward
 - Global default CC mappings (D-26).

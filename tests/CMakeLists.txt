@@ -3,6 +3,7 @@ add_executable(ion-tests
   test_spsc.cpp
   test_syx.cpp
   test_dx7.cpp
+  test_envelope.cpp
   test_drum.cpp
   test_library.cpp
   test_fm.cpp
@@ -11,6 +12,7 @@ add_executable(ion-tests
   test_midi_alsa.cpp
   test_module.cpp
   test_params_eq.cpp
+  test_sampler.cpp
   test_session.cpp
   test_render.cpp
   test_ui.cpp

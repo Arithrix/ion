@@ -26,6 +26,7 @@
 
 #include <stdint.h>
 #include "env.h"
+#include "dsp/ahdsr.h"  // ion
 #include "pitchenv.h"
 #include "fm_core.h"
 
@@ -37,6 +38,9 @@ struct VoiceStatus {
 
 class Dx7Note {
   public:
+    // ion: this note's amp envelope (DECISIONS D-50): starts with init(),
+    // releases with keyup(), carried across by transferState().
+    ion::dsp::Ahdsr ionAmp;
     Dx7Note();
     void init(const uint8_t patch[156], int midinote, int velocity, int srcnote, int porta, const Controllers *ctrls);
 

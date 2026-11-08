@@ -18,7 +18,9 @@
 
 #include "core/version.h"
 #include "engine/drum/drum_engine.h"
+#include "engine/envelope_params.h"
 #include "engine/fm/fm_engine.h"
+#include "engine/sampler/sampler_engine.h"
 
 namespace ion {
 namespace fs = std::filesystem;
@@ -72,6 +74,31 @@ ParamRef engineRef(int track, int index) {
 //   3 → 4: inserts, sends, returns; the master's whole strip. Older files keep
 //          the defaults (no inserts, sends off, the glue compressor out), and
 //          the master's "fader" is still read.
+//   4 → 5: sampler tracks (nothing to convert), and the uniform envelope
+//          (D-50): drum pads' "vel.level" is now "vel.amp"; hold "full" moved
+//          from 5000 to 10000; a gate pad's decay is now its release. FM's
+//          Attack and Release macros are gone (their values and CCs drop).
+// A drum pad's settings from before the uniform envelope (0.3, 0.4), in place.
+// `prefix` is "padN." in a project, "" in a kit.
+void upgradePadParams(json& params, const std::string& prefix) {
+  if (!params.is_object()) return;
+  auto rename = [&](const std::string& from, const std::string& to) {
+    if (!params.contains(prefix + from)) return;
+    params[prefix + to] = params[prefix + from];
+    params.erase(prefix + from);
+  };
+  rename("vel.level", "vel.amp");
+  rename("hold", "amp.hold");
+  rename("decay", "amp.decay");
+  const std::string hold = prefix + "amp.hold", decay = prefix + "amp.decay", mode = prefix + "mode";
+  if (params.contains(hold) && params[hold].is_number() && params[hold].get<float>() >= 5000.0f) params[hold] = kEnvFull;
+  if (params.contains(mode) && params[mode].is_number() && params[mode].get<float>() >= 0.5f) {
+    // Gate used to hold while the key was down and decay from note-off.
+    params[prefix + "amp.release"] = params.contains(decay) ? params[decay] : json(500.0);
+    params[hold] = kEnvFull;
+  }
+}
+
 bool migrate(json& j, std::string& error) {
   if (!j.contains("format") || !j["format"].is_number_integer()) {
     error = "not an ion project (no \"format\")";
@@ -87,6 +114,18 @@ bool migrate(json& j, std::string& error) {
     error = "unknown project format " + std::to_string(format);
     return false;
   }
+  if (format < 5) {
+    if (j.contains("tracks") && j["tracks"].is_array())
+      for (json& jt : j["tracks"])
+        if (jt.value("engine", std::string()) == "drum" && jt.contains("drum") && jt["drum"].contains("params"))
+          for (int pad = 1; pad <= DrumEngine::kPads; ++pad) upgradePadParams(jt["drum"]["params"], "pad" + std::to_string(pad) + ".");
+    if (j.contains("cc") && j["cc"].is_array())
+      for (json& jc : j["cc"]) {
+        std::string target = jc.value("target", std::string());
+        const auto at = target.find(".vel.level");
+        if (at != std::string::npos && target.find(".drum.pad") != std::string::npos) jc["target"] = target.replace(at, 10, ".vel.amp");
+      }
+  }
   return true;
 }
 
@@ -96,6 +135,7 @@ std::unique_ptr<Engine> createEngine(EngineType type) {
   switch (type) {
     case EngineType::Fm: return std::make_unique<FmEngine>();
     case EngineType::Drum: return std::make_unique<DrumEngine>();
+    case EngineType::Sampler: return std::make_unique<SamplerEngine>();
     default: return nullptr;  // other engines arrive in later phases
   }
 }
@@ -237,6 +277,11 @@ void Session::setEngine(int t, EngineType type) {
   padLoads_[static_cast<std::size_t>(t)] = {};
   if (type == EngineType::Drum) {
     for (int pad = 0; pad < DrumEngine::kPads; ++pad) requestPad(t, pad);
+  } else if (type == EngineType::Sampler) {
+    // A sampler has one sample (pad 0 here).
+    for (int pad = 1; pad < DrumEngine::kPads; ++pad) tr.pads[static_cast<std::size_t>(pad)] = {};
+    tr.kit.clear();
+    requestPad(t, 0);
   } else {
     tr.pads = {};
     tr.kit.clear();
@@ -488,7 +533,7 @@ void Session::loadPatch(int t, const FmPatch& patch) {
 dx7::Macros Session::macros(int t) const {
   auto v = [&](int i) { return static_cast<int>(std::lround(param(engineRef(t, FmEngine::kFirstMacro + i)))); };
   if (tracks_[static_cast<std::size_t>(t)].engine != EngineType::Fm) return {};
-  return {v(0), v(1), v(2), v(3), v(4), v(5)};
+  return {v(0), v(1), v(2), v(3)};
 }
 
 void Session::resetMacros(int t) {
@@ -606,7 +651,7 @@ fs::path Session::resolveSample(const std::string& stored) const {
 void Session::setPadSample(int t, int pad, const std::string& path) {
   if (t < 0 || t >= kTrackCount || pad < 0 || pad >= DrumEngine::kPads) return;
   TrackState& tr = tracks_[static_cast<std::size_t>(t)];
-  if (tr.engine != EngineType::Drum) return;
+  if (tr.engine != EngineType::Drum && !(tr.engine == EngineType::Sampler && pad == 0)) return;
   tr.pads[static_cast<std::size_t>(pad)].sample = path;
   requestPad(t, pad);
   markDirty();
@@ -629,7 +674,8 @@ void Session::requestPad(int t, int pad) {
 }
 
 void Session::sendSample(int t, int pad, const SampleLoader::Ptr& sample) {
-  if (tracks_[static_cast<std::size_t>(t)].engine != EngineType::Drum) return;
+  const EngineType type = tracks_[static_cast<std::size_t>(t)].engine;
+  if (type != EngineType::Drum && type != EngineType::Sampler) return;
   pin(sample);
   Command c;
   c.type = Command::Type::SetSample;
@@ -766,7 +812,7 @@ int Session::collectSamples(std::string& error) {
   int count = 0, missing = 0;
   std::error_code ec;
   for (TrackState& tr : tracks_) {
-    if (tr.engine != EngineType::Drum) continue;
+    if (tr.engine != EngineType::Drum && tr.engine != EngineType::Sampler) continue;
     for (PadState& pad : tr.pads) {
       if (pad.sample.empty() || !expandHome(pad.sample).is_absolute()) continue;  // empty, or already in the project
       const fs::path src = resolveSample(pad.sample);
@@ -824,7 +870,7 @@ bool Session::saveKit(int t, const std::string& name, std::string& error) {
     jp["params"] = params;
     pads.push_back(jp);
   }
-  const json j = {{"ion_kit", 1}, {"name", name}, {"saved_by", versionLine()}, {"saved_at", nowIso()}, {"pads", pads}};
+  const json j = {{"ion_kit", 2}, {"name", name}, {"saved_by", versionLine()}, {"saved_at", nowIso()}, {"pads", pads}};
   if (!writeFileAtomic(paths_.kitFile(name), j.dump(2) + "\n", error)) return false;
   tr.kit = name;
   markDirty();
@@ -841,11 +887,15 @@ bool Session::loadKit(int t, const fs::path& file, std::string& error) {
     error = "can't read " + file.string();
     return false;
   }
-  const json j = json::parse(text, nullptr, false);
+  json j = json::parse(text, nullptr, false);
   if (j.is_discarded() || !j.is_object() || !j.contains("ion_kit") || !j.contains("pads") || !j["pads"].is_array()) {
     error = "not an ion kit";
     return false;
   }
+  // Kits from before the uniform envelope (0.3, 0.4) are version 1.
+  if (j["ion_kit"].is_number() && j["ion_kit"].get<int>() < 2)
+    for (json& jp : j["pads"])
+      if (jp.contains("params")) upgradePadParams(jp["params"], "");
   try {
     const auto table = DrumEngine::padParamTable();
     std::array<const json*, DrumEngine::kPads> byPad{};
@@ -908,8 +958,11 @@ void Session::tick() {
   while (auto n = module_.popNotification()) {
     switch (n->type) {
       case Notification::Type::EngineRetired:
-        if (n->engine && n->engine->type() == EngineType::Drum)
-          static_cast<const DrumEngine*>(n->engine)->forEachSample([&](const Sample* smp) { unpin(smp); });
+        if (n->engine) {
+          std::vector<const Sample*> held;
+          n->engine->heldSamples(held);
+          for (const Sample* smp : held) unpin(smp);
+        }
         delete n->engine;
         break;
       case Notification::Type::SampleReleased:
@@ -1132,6 +1185,10 @@ std::string Session::toJson() const {
         je["name"] = !tr.kit.empty() ? tr.kit : std::to_string(pads.size()) + (pads.size() == 1 ? " pad" : " pads");
         je["pads"] = pads;
       }
+      if (tr.engine == EngineType::Sampler) {
+        je["sample"] = tr.pads[0].sample;
+        je["name"] = tr.pads[0].sample.empty() ? std::string() : fs::path(tr.pads[0].sample).stem().string();
+      }
       jt[engineKey(tr.engine)] = je;
     }
     tracks.push_back(jt);
@@ -1196,6 +1253,7 @@ bool Session::fromJson(const std::string& text, std::string& error) {
               if (pad >= 0 && pad < DrumEngine::kPads) tr.pads[static_cast<std::size_t>(pad)].sample = jp.value("sample", std::string());
             }
         }
+        if (type == EngineType::Sampler) tr.pads[0].sample = je.value("sample", std::string());
         setEngine(t, type);
         if (je.contains("params") && je["params"].is_object()) {
           // The new engine is already at its defaults: send only what differs

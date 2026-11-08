@@ -9,6 +9,7 @@
 #include "engine/drum/drum_engine.h"
 #include "engine/fx/effect.h"
 #include "engine/module.h"
+#include "engine/sampler/sampler_engine.h"
 #include "engine/fm/fm_engine.h"
 #include "library/fm_library.h"
 #include "project/session.h"
@@ -123,7 +124,7 @@ class TracksScreen final : public Screen {
       const Row& r = rows[static_cast<std::size_t>(row_)];
       if (const Nudge n = nudgeOf(e); n.direction) {
         if (r.param) s.nudgeParam(*r.param, n.direction, n.coarse);
-        else if (r.kind == Row::Patch) ctx.fm->move(s, ctx.track, n.direction * (n.coarse ? 8 : 1));
+        else if (r.kind == Row::Patch && s.track(ctx.track).engine == EngineType::Fm) ctx.fm->move(s, ctx.track, n.direction * (n.coarse ? 8 : 1));
         else if (r.kind == Row::Pad) {
           int& pad = ctx.pad[static_cast<std::size_t>(ctx.track)];
           pad = std::clamp(pad + n.direction * (n.coarse ? 4 : 1), 0, DrumEngine::kPads - 1);
@@ -186,7 +187,15 @@ class TracksScreen final : public Screen {
         rows.push_back({Row::Param, label, engineParamRef(t, DrumEngine::param(pad, p))});
       }
     }
-    const auto table = type == EngineType::Drum ? std::span<const ParamInfo>{} : engineParams(type);
+    if (type == EngineType::Sampler) {
+      rows.push_back({Row::Patch, "sample", std::nullopt});
+      for (int p : {SamplerEngine::kRoot, SamplerEngine::kLoop, SamplerEngine::kAmpAttack, SamplerEngine::kAmpRelease, SamplerEngine::kCutoff}) {
+        std::string label = SamplerEngine::paramTable()[static_cast<std::size_t>(p)].label;
+        label[0] = static_cast<char>(std::tolower(static_cast<unsigned char>(label[0])));
+        rows.push_back({Row::Param, label, engineParamRef(t, p)});
+      }
+    }
+    const auto table = type == EngineType::Drum || type == EngineType::Sampler ? std::span<const ParamInfo>{} : engineParams(type);
     auto engineRow = [&](std::size_t i) {
       std::string label = table[i].label;
       if (!label.empty()) label[0] = static_cast<char>(std::tolower(static_cast<unsigned char>(label[0])));
@@ -239,6 +248,10 @@ class TracksScreen final : public Screen {
         case Row::Engine: value = tr.engine == EngineType::None ? "empty" : engineLabel(tr.engine); break;
         case Row::Patch: {
           const FmLibrary* lib = s.library();
+          if (tr.engine == EngineType::Sampler) {
+            value = trackSoundName(s, t) + "  ⏎ I";
+            break;
+          }
           value = !lib || lib->patches().empty() ? "library empty: I, then i" : "◀ " + trackSoundName(s, t) + " ▶";
           break;
         }
@@ -307,6 +320,10 @@ std::string trackSoundName(const Session& s, int t) {
       if (!tr.hasVoice) return "INIT VOICE";
       const std::string n = syx::name(tr.voice);
       return n.empty() ? "(no name)" : n;
+    }
+    case EngineType::Sampler: {
+      const std::string n = s.padName(t, 0);
+      return n.empty() ? "no sample" : n;
     }
     case EngineType::Drum: {
       if (!tr.kit.empty()) return tr.kit;

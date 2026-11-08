@@ -338,7 +338,7 @@ TEST_CASE("session: save as bakes the macros into a new library voice that sound
     if (p.name == "PAD") pad = &p;
   REQUIRE(pad);
   r.session.loadPatch(0, *pad);
-  r.session.setParam(fmParam(0, FmEngine::kRelease), 20.0f);
+  r.session.setParam(fmParam(0, FmEngine::kDetune), 4.0f);
   r.session.setParam(fmParam(0, FmEngine::kFeedback), 3.0f);
   const syx::Voice expected = dx7::applyMacros(r.session.track(0).voice, r.session.macros(0));
 

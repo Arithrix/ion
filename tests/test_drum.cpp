@@ -416,7 +416,7 @@ TEST_CASE("drum: one-shot ignores note-off; gate decays from it; hold then decay
     DrumEngine e;
     e.setSample(0, s.get());
     set(e, 0, DrumEngine::kMode, DrumEngine::kGate);
-    set(e, 0, DrumEngine::kDecay, 100);
+    set(e, 0, DrumEngine::kRelease, 100);
     e.noteOn(36, 127);
     CHECK(render(e, 4800).back() > 0.45f);  // held
     e.noteOff(36);
@@ -449,7 +449,7 @@ TEST_CASE("drum: velocity, level and pan") {
   auto level = [&](float vel, float velAmount, float db) {
     DrumEngine e;
     e.setSample(0, s.get());
-    set(e, 0, DrumEngine::kVelLevel, velAmount);
+    set(e, 0, DrumEngine::kVelAmp, velAmount);
     set(e, 0, DrumEngine::kLevel, db);
     e.noteOn(36, static_cast<uint8_t>(vel));
     return render(e, 256)[128];

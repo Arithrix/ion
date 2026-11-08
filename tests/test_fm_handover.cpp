@@ -155,10 +155,10 @@ TEST_CASE("FM handover: idle instances aren't rendered") {
 TEST_CASE("macros: zero changes nothing; results stay valid DX7 values") {
   const syx::Voice v = organ();
   CHECK(dx7::applyMacros(v, {}) == v);
-  dx7::Macros extreme{50, -50, 50, 7, 7, 7};
+  dx7::Macros extreme{50, 7, 7, 7};
   const syx::Voice e = dx7::applyMacros(v, extreme);
   CHECK(syx::normalize(e) == e);
-  dx7::Macros other{-50, 50, -50, -7, -7, -7};
+  dx7::Macros other{-50, -7, -7, -7};
   const syx::Voice o = dx7::applyMacros(v, other);
   CHECK(syx::normalize(o) == o);
 }
@@ -175,12 +175,6 @@ TEST_CASE("macros: each one touches what the handoff says, and only that") {
   CHECK(b[dx7::opOffset(4) + dx7::kOpLevel] == 70);
   CHECK(b[dx7::opOffset(6) + dx7::kOpLevel] == 0);   // stays silent
   CHECK(b[dx7::opOffset(1) + dx7::kOpLevel] == 60);  // carriers untouched
-
-  const syx::Voice a = dx7::applyMacros(v, {.attack = 20, .release = -20});
-  for (int op = 1; op <= 6; ++op) {
-    CHECK(a[dx7::opOffset(op) + dx7::kOpRate1] == 79);  // slower attack: lower rate
-    CHECK(a[dx7::opOffset(op) + dx7::kOpRate4] == 90);  // shorter release: higher rate (70 + 20)
-  }
 
   CHECK(dx7::applyMacros(v, {.feedback = 4})[dx7::kFeedbackByte] == 7);  // clamped
   CHECK(dx7::applyMacros(v, {.feedback = -2})[dx7::kFeedbackByte] == 3);
@@ -210,9 +204,10 @@ TEST_CASE("macros: moving one under a held note doesn't disturb its envelope") {
     fm.loadVoice(pad);
     return run(fm, 300, [&](std::size_t b) {
       if (b == 0) fm.noteOn(60, 100);
-      // A CC sweep on the release macro, every 2 blocks: nothing about the
-      // attack or decay changes, so neither should the sound.
-      if (sweep && b >= 20 && b < 200 && b % 2 == 0) fm.setParam(FmEngine::kRelease, static_cast<float>((b / 2) % 20));
+      // A CC sweep on the detune macro, every 2 blocks: it refreshes the held
+      // note (the path that used to restart envelopes) without changing its
+      // envelopes or level, so the loudness shouldn't change.
+      if (sweep && b >= 20 && b < 200 && b % 2 == 0) fm.setParam(FmEngine::kDetune, static_cast<float>((b / 2) % 7 - 3));
     });
   };
   const auto plain = play(false), swept = play(true);

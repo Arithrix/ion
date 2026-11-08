@@ -105,7 +105,8 @@ std::unique_ptr<Screen> makeTracksScreen();
 std::unique_ptr<Screen> makeMixerScreen();
 std::unique_ptr<Screen> makeFxScreen();
 std::unique_ptr<Screen> makeInstrumentScreen();
-std::unique_ptr<Screen> makeDrumScreen();  // the Instrument screen for DRUM tracks
+std::unique_ptr<Screen> makeDrumScreen();     // the Instrument screen for DRUM tracks
+std::unique_ptr<Screen> makeSamplerScreen();  // …and for SAMPLER tracks
 std::unique_ptr<Screen> makeSettingsScreen();
 std::unique_ptr<Screen> makeLibraryScreen();
 std::unique_ptr<Screen> makePlaceholderScreen(std::string title, std::string message);

@@ -6,7 +6,7 @@
 │sample rate    48000                                                        ││track 3        ch 3   FM                          │
 │buffer         128 frames                                                   ││track 4        ch 4   DRUM                        │
 │running        no audio                                                     ││track 5        ch 5   empty                       │
-│128 frames at 48 kHz = 2.7 ms · buffer changes apply on restart             ││track 6        ch 6   empty                       │
+│128 frames at 48 kHz = 2.7 ms · buffer changes apply on restart             ││track 6        ch 6   SMPL                        │
 ╰────────────────────────────────────────────────────────────────────────────╯│track 7        ch 7   empty                       │
 ╭ MIDI + clock ──────────────────────────────────────────────────────────────╮│track 8        ch 8   empty                       │
 │input          names containing "OXI"                                       ││two tracks can share a channel to layer sounds    │
@@ -21,11 +21,11 @@
 ╰────────────────────────────────────────────────────────────────────────────╯╰──────────────────────────────────────────────────╯
 ╭ Keyboard + project ────────────────────────────────────────────────────────╮╭ CC map ──────────────────────────────────────────╮
 │piano gate     300 ms                                                       ││cc  71 ch 4 Track 4 · DRU… 0–100%                 │
-│piano rows     zsxdcvgbhnjm,l.;/ / q2w3er5t6y7ui9o0p                        ││cc  74 ch 1 Track 3 · FM … 0–100%                 │
-│FM preview     off                                                          ││learn: focus any value and press l, then move a   │
-│autosave       off                                                          ││control on the OXI                                │
-│start-up       open the last project                                        ││                                                  │
-│piano rows: edit config.toml for non-US keyboards                           ││                                                  │
+│piano rows     zsxdcvgbhnjm,l.;/ / q2w3er5t6y7ui9o0p                        ││cc  71 ch 6 Track 6 · SMP… 0–100%                 │
+│FM preview     off                                                          ││cc  74 ch 1 Track 3 · FM … 0–100%                 │
+│autosave       off                                                          ││cc  74 ch 6 Track 6 · SMP… 0–100%                 │
+│start-up       open the last project                                        ││learn: focus any value and press l, then move a   │
+│piano rows: edit config.toml for non-US keyboards                           ││control on the OXI                                │
 ╰────────────────────────────────────────────────────────────────────────────╯│                                                  │
                                                                               │                                                  │
                                                                               │                                                  │

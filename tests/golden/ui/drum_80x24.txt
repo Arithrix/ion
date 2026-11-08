@@ -10,15 +10,15 @@
 │kick_tight_02.wav     0.29 s││—           —           —           —           │
 │kick_tight_03.wav     0.42 s│╰────────────────────────────────────────────────╯
 │kick_tight_10.wav     0.33 s│╭ Pad 1 · kick_tight_03 ─────────────────────────╮
-│                            ││  Tune        0 st        Filter      LP        │
-│                            ││  Fine        0 ct        Cutoff      8.20 kHz  │
-│                            ││  Level       -3.0 dB     Resonance   12%       │
-│                            ││  Pan         C           Drive       15%       │
-│                            ││  Start       0.0 ms      Vel→level   80%       │
-├────────────────────────────┤│  Reverse     off         Vel→filter  0%        │
-│preview · kick_tight_03.w…  ││  Mode        one-shot    Choke       none      │
-│█▇▇▇▆▆▆▅▅▅▄▄▄▃▃▃▂▂▂▁▁▁▁▁▁▁  ││  Hold        full        Note        C1        │
-│0.42 s · 44.1k · mono · ⏎…  ││  Decay       420 ms                            │
+│                            ││  Tune        0 st        Attack      0         │
+│                            ││  Fine        0 ct        Hold        full      │
+│                            ││  Level       -3.0 dB     Decay       420 ms    │
+│                            ││  Pan         C           Sustain     0%        │
+│                            ││  Start       0.0 ms      Release     200 ms    │
+├────────────────────────────┤│  Reverse     off         Filter      LP        │
+│preview · kick_tight_03.w…  ││  Mode        one-shot    Cutoff      8.20 kHz  │
+│█▇▇▇▆▆▆▅▅▅▄▄▄▃▃▃▂▂▂▁▁▁▁▁▁▁  ││  Choke       none        Resonance   12%       │
+│0.42 s · 44.1k · mono · ⏎…  ││  Note        C1          Vel→filter  0%        │
 ╰────────────────────────────╯╰────────────────────────────────────────────────╯
  midi MIDI off  ·  last: nothing yet
  ↑↓  Browse   ⏎  Load   ←  Up   /  Filter   Spc  Pad   Tab  Pane   k  Save kit

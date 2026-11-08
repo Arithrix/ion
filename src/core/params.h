@@ -52,6 +52,7 @@ struct ParamInfo {
   float coarseStep;  // with Shift
   const char* const* choices = nullptr;  // labels for Choice
   const char* maxLabel = nullptr;        // shown instead of the value at max ("full")
+  const char* minLabel = nullptr;        // …and at min ("off")
 };
 
 // ---- mixer parameters (every scope has the strip; sends are used by tracks, and
@@ -74,9 +75,9 @@ enum MixerParam : uint8_t {
 inline constexpr uint16_t kInsertBase = 64;
 inline constexpr int kInsertSlots = 3;
 inline constexpr int kInsertStride = 20;
-// Engine parameters are numbered from 128. A drum kit has 16 pads × 17 parameters.
+// Engine parameters are numbered from 128. A drum kit has 16 pads × 20 parameters.
 inline constexpr uint16_t kEngineParamBase = 128;
-inline constexpr int kMaxEngineParams = 288;
+inline constexpr int kMaxEngineParams = 320;
 
 struct ParamRef {
   uint8_t scope = 0;   // track 0-7, kMasterScope, kDelayScope, kReverbScope

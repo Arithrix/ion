@@ -4,8 +4,10 @@
 #include <cstdint>
 #include <span>
 
+#include "dsp/ahdsr.h"
 #include "engine/engine.h"
 #include "engine/sample.h"
+#include "engine/sample_retirement.h"
 
 namespace ion {
 
@@ -14,6 +16,10 @@ namespace ion {
 //
 // Every pad parameter is an engine parameter, so each can be CC-mapped and is
 // saved like any other: index = pad × kPadParamCount + PadParam.
+//
+// Each pad has the uniform AHDSR envelope (D-50). In one-shot mode note-off
+// is ignored, so it runs attack, hold, decay, then sustain until the sample
+// ends; in gate mode note-off starts the release.
 //
 // Pads are polyphonic up to kPadVoices; a pad in a choke group stops every
 // voice in that group when it plays, itself included, so a pad alone in a
@@ -24,8 +30,9 @@ class DrumEngine final : public Engine {
   static constexpr int kPads = 16;
   static constexpr int kFirstNote = 36;  // C1: pads 1-16 on C1-D#2
   enum PadParam : int {
-    kNote, kTune, kFine, kLevel, kPan, kStart, kReverse, kMode, kHold, kDecay,
-    kFilter, kCutoff, kReso, kDrive, kVelLevel, kVelFilter, kChoke,
+    kNote, kTune, kFine, kLevel, kPan, kStart, kReverse, kMode,
+    kAttack, kHold, kDecay, kSustain, kRelease,  // the uniform envelope (D-50)
+    kFilter, kCutoff, kReso, kDrive, kVelAmp, kVelFilter, kChoke,
     kPadParamCount
   };
   enum Mode : int { kOneShot, kGate };
@@ -58,10 +65,13 @@ class DrumEngine final : public Engine {
   // ---- samples (audio thread) ----
   // Puts `s` (may be null) on a pad. The pad's previous sample goes on the
   // release list once no voice is playing it any more.
-  void setSample(int pad, const Sample* s);
+  void setSample(int pad, const Sample* s) override;
   // A sample this engine has finished with; the module hands each back to the
   // control thread (Notification::SampleReleased). False when there's none.
-  bool popReleased(const Sample*& s);
+  bool popReleased(const Sample*& s) override { return retirement_.pop(s); }
+  void heldSamples(std::vector<const Sample*>& out) const override {
+    forEachSample([&](const Sample* s) { out.push_back(s); });
+  }
   // Bit p set if pad p plays on `note`.
   uint16_t padsForNote(uint8_t note) const { return noteMap_[note]; }
 
@@ -72,8 +82,7 @@ class DrumEngine final : public Engine {
   void forEachSample(F&& f) const {
     for (const Pad& p : pads_)
       if (p.sample) f(p.sample);
-    for (int i = 0; i < retiring_; ++i) f(retired_[static_cast<std::size_t>(i)]);
-    for (int i = 0; i < released_; ++i) f(releasedList_[static_cast<std::size_t>(i)]);
+    retirement_.forEach(f);
   }
 
   // For tests.
@@ -86,8 +95,9 @@ class DrumEngine final : public Engine {
     std::array<float, kPadParamCount> v{};
   };
   struct Voice {
-    enum class Stage : uint8_t { Off, Hold, Decay, Fade };
-    Stage stage = Stage::Off;
+    bool on = false;
+    bool fading = false;     // choked, stolen or over the pad's limit: 5 ms to silence
+    float fade = 1;
     const Sample* sample = nullptr;
     int pad = 0;
     uint8_t note = 0;
@@ -96,21 +106,19 @@ class DrumEngine final : public Engine {
     double pos = 0;          // frame in the sample
     int direction = 1;       // −1 reversed
     float velocity = 1;      // 0…1
-    float env = 1;           // amplitude envelope
-    int holdLeft = 0;        // frames of hold left (one-shot); <0 = to the end
-    float fadeStep = 0;
+    dsp::Ahdsr amp;
     int declick = 0;         // frames of fade-in left
     float gainL = 0, gainR = 0;  // current, ramped to the pad's level and pan
     float cutoffScale = 1;   // velocity → filter
     float s1L = 0, s2L = 0, s1R = 0, s2R = 0;  // filter state
-    bool active() const { return stage != Stage::Off; }
-    bool released() const { return stage == Stage::Decay || stage == Stage::Fade; }
+    bool active() const { return on; }
+    bool released() const { return fading || amp.stage() == dsp::Ahdsr::Stage::Release || amp.stage() == dsp::Ahdsr::Stage::Decay; }
   };
 
   void start(int pad, uint8_t note, float velocity);
   void fade(Voice& v);
   void renderVoice(Voice& v, float* left, float* right, std::size_t frames);
-  void releaseUnused();
+  bool inUse(const Sample* s) const;
   void rebuildNoteMap();
 
   std::array<Pad, kPads> pads_{};
@@ -120,12 +128,7 @@ class DrumEngine final : public Engine {
   int voices_ = 0;
 
   // Samples taken off pads, still maybe in use by voices.
-  static constexpr int kRetiring = 64;
-  std::array<const Sample*, kRetiring> retired_{};
-  int retiring_ = 0;
-  // …and ones no voice uses any more, for the module to hand back.
-  std::array<const Sample*, kRetiring + kPads> releasedList_{};
-  int released_ = 0;
+  SampleRetirement<64> retirement_;
 };
 
 }  // namespace ion

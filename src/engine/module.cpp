@@ -213,8 +213,8 @@ void Module::renderBlock() noexcept {
   }
   if (pos < kBlockSize) renderEngines(pos, kBlockSize);
   for (Engine* e : engines_)
-    if (e && e->type() == EngineType::Drum)
-      for (const Sample* s; static_cast<DrumEngine*>(e)->popReleased(s);) releaseSample(s);
+    if (e)
+      for (const Sample* s; e->popReleased(s);) releaseSample(s);
 
   mix();
 
@@ -326,6 +326,8 @@ void Module::mix() noexcept {
   for (auto& scope : fx_)
     for (Effect* e : scope)
       if (e) e->setTempo(bpm);
+  for (Engine* e : engines_)
+    if (e) e->setTempo(bpm);
 
   bool anySolo = false;
   for (int t = 0; t < kTrackCount; ++t) anySolo |= values_[static_cast<std::size_t>(t)][kSolo] >= 0.5f;
@@ -626,8 +628,8 @@ void Module::handleCommand(const Command& c) noexcept {
       timing_ = c.value >= 0.5f ? MidiTiming::Immediate : MidiTiming::Tight;
       break;
     case Command::Type::SetSample:
-      if (Engine* e = engines_[track]; e && e->type() == EngineType::Drum)
-        static_cast<DrumEngine*>(e)->setSample(c.slot, c.sample);
+      if (Engine* e = engines_[track]; e && (e->type() == EngineType::Drum || e->type() == EngineType::Sampler))
+        e->setSample(c.slot, c.sample);
       else
         releaseSample(c.sample);  // the track changed engine meanwhile: never used
       break;

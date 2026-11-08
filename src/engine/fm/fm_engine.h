@@ -23,14 +23,20 @@ class DexedCore;
 // sounding at that point it fades out over 10 ms, so even fast scrolling
 // through the library doesn't click. Only instances with sounding notes are
 // rendered, so the extra instances cost memory, not CPU.
+//
+// After the patch, each voice goes through the uniform amp envelope (D-50).
+// Its defaults are wide open (no attack, sustain 100%, release off), so a
+// patch sounds as stored until the envelope is used to shape it.
 class FmEngine final : public Engine {
  public:
   enum Param : int {
     kPoly, kBendRange, kMono,
-    kBright, kAttack, kRelease, kFeedback, kDetune, kVelocity,  // the six macros, in dx7::kMacroNames order
+    kBright, kFeedback, kDetune, kVelocity,  // the macros, in dx7::kMacroNames order
+    kAmpAttack, kAmpHold, kAmpDecay, kAmpSustain, kAmpRelease, kVelAmp,  // the uniform amp envelope (D-50)
     kParamCount
   };
   static constexpr int kFirstMacro = kBright;
+  static constexpr int kFirstAmp = kAmpAttack;
   static std::span<const ParamInfo> paramTable();
   static constexpr int kMaxPolyphony = 16;
   static constexpr int kSlots = 3;
@@ -84,6 +90,8 @@ class FmEngine final : public Engine {
   int tail_ = -1;
   std::array<int8_t, 128> owner_{};  // slot that played each held note, or -1
   dx7::Macros macros_{};
+  std::array<float, 6> amp_{};  // the amp envelope's settings, then vel→amp
+  void applyAmp();
 
   // Controller state, so a newly active instance starts where the others are.
   int pitchBend_ = 0;

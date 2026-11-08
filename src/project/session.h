@@ -23,8 +23,8 @@
 namespace ion {
 
 // 1: Phase 1. 2: FM macros, the program list, library ids (v0.2.0). 3: drum kits (v0.3.0).
-// 4: inserts, sends, the returns and the master chain (v0.4.0).
-inline constexpr int kProjectFormat = 4;
+// 4: inserts, sends, the returns and the master chain (v0.4.0). 5: sampler tracks (v0.5.0).
+inline constexpr int kProjectFormat = 5;
 
 struct PadState {
   // As saved: an absolute path, or one relative to the project folder
@@ -41,7 +41,8 @@ struct TrackState {
   syx::Voice voice{};       // as stored, without macros
   std::string voiceSource;  // bank it came from, e.g. "rom1a", or "saved"
   int64_t libraryId = 0;    // in this machine's library, or 0
-  // Drum. Pad parameters are engine parameters, like FM's macros.
+  // Drum: 16 pads; Sampler: its one sample is pads[0]. Their settings are
+  // engine parameters, like FM's macros.
   std::array<PadState, DrumEngine::kPads> pads{};
   std::string kit;  // the kit's name, if it was loaded from or saved as one
 };

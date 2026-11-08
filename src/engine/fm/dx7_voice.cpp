@@ -97,8 +97,6 @@ syx::Voice applyMacros(const syx::Voice& voice, const Macros& m) {
     // Silent modulators stay silent: bringing in an unused operator would
     // change the patch rather than brighten it.
     if (!carrier && m.bright && o[kOpLevel] > 0) o[kOpLevel] = clampByte(o[kOpLevel] + m.bright, 99);
-    o[kOpRate1] = clampByte(o[kOpRate1] - m.attack, 99);
-    o[kOpRate4] = clampByte(o[kOpRate4] - m.release, 99);
     if (m.detune > 0) {
       o[kOpDetune] = clampByte(o[kOpDetune] + static_cast<int>(std::lround(static_cast<float>(m.detune) * kSpread[op])), 14);
     } else if (m.detune < 0) {

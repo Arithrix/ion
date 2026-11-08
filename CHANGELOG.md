@@ -5,6 +5,25 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 
 ## [Unreleased]
 
+### Added (Phase 5: sampler)
+- **Sampler tracks.** Choose SMPL for any track and pick a sample (the browser opens by itself). It plays chromatically from its root note (C3: as recorded), across a key range.
+  - **Play:** start point, loop off / forward / ping-pong, loop start and end, loop crossfade, tune, glide, voices (1 = mono), level.
+  - **Amp and Filter:** ADSR envelopes. The filter is LP12, LP24, HP or BP, with resonance, key tracking, envelope amount and velocity.
+  - **Mod:** an LFO (sine, triangle, square, sample & hold), free or synced to the clock, onto pitch, cutoff, pan and level.
+  - **The waveform** shows the loop and the start point.
+    - Recordings that know their tempo get a bar ruler.
+    - `z` zooms round the point you're moving, and points snap to zero crossings so loops don't click.
+    - `n` normalizes; `o` opens another file.
+  - Every setting is MIDI-learnable.
+- Space on a sampler track plays its root note.
+
+### Changed (Phase 5)
+- **Every instrument has the same envelope** (attack, hold, decay, sustain, release, plus velocity → amp): FM, drum pads, the sampler, and Plaits when it arrives. Same names, same ranges, same picture; learn it once and one OXI knob does the same on every track.
+  - **FM:** it sits after the patch and starts wide open, so patches sound exactly as before until you use it. It can make a patch shorter or softer, but not longer.
+  - **FM's Attack and Release macros are gone**, replaced by it. Bright, Feedback, Detune and Velocity stay. Any Attack/Release macro settings and their CC mappings in older projects are dropped.
+  - **Drum pads:** hold and decay are now attack, hold, decay, sustain and release. Your 0.3/0.4 kits and projects convert exactly (a gate pad's decay becomes its release).
+- Projects are now format 5 (sampler tracks, the envelope); 0.4.x can't open projects saved by 0.5.0. Kits are saved as version 2; 0.4.x won't read their new envelope settings.
+
 ## [0.4.0] - 2026-11-07
 
 ### Added

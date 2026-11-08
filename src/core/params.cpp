@@ -131,6 +131,7 @@ std::string noteName(int note) {
 std::string formatValue(const ParamInfo& info, float v) {
   char buf[32];
   if (info.maxLabel && v >= info.max) return info.maxLabel;
+  if (info.minLabel && v <= info.min) return info.minLabel;
   if (info.unit == Unit::Note) return noteName(static_cast<int>(std::lround(v)));
   if (info.unit == Unit::Cents) {
     const long n = std::lround(v);

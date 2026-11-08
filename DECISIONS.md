@@ -128,7 +128,7 @@ Upstream sends every held note's envelopes to stage 3 whenever any voice paramet
 ### D-29 · decided · Macros: ranges and what they touch
 Integer offsets in DX7 units, clamped to valid ranges, so every result is a valid voice and "save as" can bake it:
 - **Bright** ±50 on the output level of modulators. Modulators at level 0 are left alone: bringing in an unused operator would change the patch rather than brighten it.
-- **Attack** ±50 on R1, and **Release** ±50 on R4, of every operator. + means slower or longer. DX7 rates are already logarithmic in time, so an offset scales time evenly.
+- ~~**Attack** ±50 on R1, and **Release** ±50 on R4~~: removed in 0.5.0 in favour of the uniform amp envelope (D-50).
 - **Feedback** ±7.
 - **Detune** ±7. + spreads the operators apart in alternating directions, outer operators furthest; − pulls them towards centre (−7 = all centred).
 - **Velocity** ±7 on the carriers' key velocity sensitivity.
@@ -173,7 +173,7 @@ The audio thread gets a plain pointer. The Session keeps a reference ("pin") for
 - **Tune** ±24 st plus **Fine** ±50 cents. Both apply to notes already sounding, so a pitch CC bends a tail.
 - **Level** −∞…+6 dB and **Pan** (the mixer's laws). **Velocity → level** 0–100%: gain = 1 − a + a·v², default 50% (a soft hit at velocity 64 is −4 dB). **Velocity → filter** 0–100%: soft hits up to 4 octaves darker.
 - **Start** 0–1000 ms. A moved start fades in over 1 ms so it doesn't click. **Reverse** plays from the end.
-- **Mode:**
+- **Mode** (the envelope itself is now the uniform AHDSR, D-50; hold and decay below are its Hold and Decay):
   - **one-shot** ignores note-off. **Hold** is how long the sample plays at full level before **Decay** (−60 dB in that time) begins; hold "full" (the default) plays the whole sample.
   - **gate** holds while the key is down and decays from note-off; Hold is ignored and shows "gate".
 - **Filter** off / LP / HP / BP, a topology-preserving SVF (Simper); **Resonance** 0–100% gives Q 0.5…16. Band-pass is unity at its centre, so switching type doesn't drop the level. **Drive** 0–100% blends in a soft clipper (tanh-like) with make-up gain.
@@ -252,6 +252,54 @@ Format 4 adds:
 - the two returns.
 
 Older formats open with no inserts, sends off and the glue compressor out, and keep their master fader. 0.3.x refuses format 4 with "saved by a newer ion".
+
+## Decided during Phase 5
+
+### D-47 · decided · The sampler
+- **What it is:** one sample per track, played chromatically from a **root** note (default C3, so a loop recorded "at pitch" plays back as recorded) across a key range. Mode is **Repitch**. The mode field exists in the parameters and in project files with Stretch reserved (HANDOFF §6.2); Stretch isn't selectable yet, and the screen says "stretch: later".
+- **Points:** start, loop start and loop end are fractions of the sample's length, so they survive collecting or a re-render at another tempo. On screen they're seconds.
+  - ← → moves a point by one column of the waveform at the current zoom (`z`: ×1, ×4, ×16, ×64 round the point being edited); Shift moves ten.
+  - With **Snap** on (the default), a point lands on the nearest rising zero crossing within that column.
+  - The loop is kept at least 16 frames long and the right way round.
+- **Loop:** off, forward or ping-pong. Forward can crossfade (0–500 ms) the end of the loop into what comes before its start, so a loop that isn't cut at a zero crossing doesn't click (tested).
+- **Envelopes:** amp and filter ADSR. Attack is linear; decay and release fall exponentially, reaching −60 dB in the time set. Sustain follows the knob smoothly while held.
+- **Filter:** SVF LP12, LP24 (two stages), HP, BP. Its cutoff is moved in octaves:
+  - by the filter envelope (±5 octaves at ±100%);
+  - by key tracking (100% = one octave per octave);
+  - by velocity (soft notes up to 4 octaves darker);
+  - by the LFO (±4 octaves).
+- **LFO:** one per track, not per voice: sine, triangle, square or sample & hold. Free (0.05–20 Hz) or synced (4 bars … 1/32, dotted and triplet). It goes to pitch (up to ±1200 cents), cutoff, pan and level.
+- **Glide:** from the last note played, in poly too. With Voices = 1 the sampler is mono.
+- **Voices:** up to 16, default 8; the oldest goes, released ones first, faded over 5 ms. The sustain pedal holds notes. Bend range defaults to ±2 semitones.
+- **Sections:** Tab moves between them, as Tab moves between panes everywhere else. The mockup's ←→ for sections would clash with ← → changing values.
+
+### D-48 · decided · Engines that play samples share one mechanism
+`SampleRetirement` holds samples taken off a pad or zone until no voice plays them (D-36). The Engine interface has `setSample`, `popReleased`, `heldSamples` and `setTempo`, so the Module and Session treat Drum and Sampler alike. A sampler's sample is kept as pad 1 in the track's state, so loading, missing-file handling and collect work the same. Sampler tracks bring **project format 5**: 0.4.x would otherwise open one as an empty track and lose it on save; instead it refuses with "saved by a newer ion".
+
+### D-50 · decided with Michael · One envelope for every instrument
+- **The envelope:** every instrument's amp envelope, and the sampler's filter envelope, is the same AHDSR (`src/dsp/ahdsr.h`):
+  - attack 0–10 s, rising in a straight line;
+  - hold 0–10 s, or "full": until note-off, or to the end of the sample;
+  - decay 1 ms–20 s, falling exponentially to the sustain level (−60 dB of the way there in the time set);
+  - sustain 0–100%;
+  - release 1 ms–20 s, falling the same way, or "off": no fade, so the sound ends on its own.
+- **Velocity → amp** (gain = 1 − a + a·v²) sits with it everywhere.
+- **Same everywhere:** the keys (`amp.attack` … `vel.amp`; drum pads `pad5.amp.decay`), ranges, curves, labels and the drawing of its shape. A test checks they match across engines. Only the defaults differ:
+  - **FM:** wide open (no attack, sustain 100%, release off, no velocity), so a patch sounds as stored until the envelope is used.
+  - **Drums:** no attack, hold full, decay 500 ms, sustain 0. One-shot ignores note-off, so Release shows greyed; gate releases at note-off.
+  - **Sampler:** 2 ms attack, sustain 100%, 200 ms release.
+- **FM:** the envelope runs per voice inside Synth_Dexed, after the patch (a second local change, in `third_party/README.md`). It can shape a patch and shorten it. A release shorter than the patch's ends the voice and frees it. A steady envelope is applied a block at a time, so FM costs the same as before (`ion-bench`).
+- **FM's Attack and Release macros are gone** (Michael's choice: simplest for now, revert if it plays badly). They could lengthen a patch, which the outer envelope can't. Bright, Feedback, Detune and Velocity stay.
+- **Older files convert exactly** (format < 5, kit version 1):
+  - pad `vel.level` → `vel.amp`;
+  - `hold`/`decay` → `amp.hold`/`amp.decay`, with hold "full" moving from 5000 to 10000;
+  - a gate pad's decay becomes its release, with hold full;
+  - CC mappings follow the rename.
+  - FM's old Attack/Release values and their CC mappings are dropped.
+- **Plaits (Phase 7)** gets the same envelope after its own low-pass gate, open by default.
+
+### D-49 · decided · Recording sidecars
+A recording `name.wav` carries `name.json`: `{"ion_recording": 1, "tempo": 124.0, "bars": 4, "beats_per_bar": 4, "sources": "tracks 3 + 6", "recorded_at": "…"}`. The Rec screen will write them (Phase 6). The sampler already reads them: it shows bars, tempo and sources, and draws a bar ruler.
 
 ## Proposed (waiting for Michael)
 

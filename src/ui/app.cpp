@@ -26,6 +26,7 @@
 #include "core/version.h"
 #include "engine/module.h"
 #include "engine/drum/drum_engine.h"
+#include "engine/sampler/sampler_engine.h"
 #include "library/fm_library.h"
 #include "midi/alsa_seq_in.h"
 #include "project/session.h"
@@ -415,11 +416,13 @@ class App {
       return;
     }
     const auto ch = static_cast<uint8_t>(s.track(ctx_.track).channel);
-    // A drum track plays its selected pad; anything else plays C3.
+    // A drum track plays its selected pad, a sampler its root note; anything else plays C3.
     uint8_t note = kAuditionNote;
     if (s.track(ctx_.track).engine == EngineType::Drum) {
       const int pad = ctx_.pad[static_cast<std::size_t>(ctx_.track)];
       note = static_cast<uint8_t>(std::lround(s.param(engineParamRef(ctx_.track, DrumEngine::param(pad, DrumEngine::kNote)))));
+    } else if (s.track(ctx_.track).engine == EngineType::Sampler) {
+      note = static_cast<uint8_t>(std::lround(s.param(engineParamRef(ctx_.track, SamplerEngine::kRoot))));  // as recorded
     }
     s.sendMidi({static_cast<uint8_t>(0x90 | ch), note, 100});
     auditionOffs_.push_back({Clock::now() + std::chrono::milliseconds(s.config().gateMs), ch, note});
@@ -448,7 +451,7 @@ class App {
         else if (e == Event::ArrowDown) picker_ = (picker_ + 1) % 5;
         else if (e == Event::Return) {
           const EngineType t = options[picker_];
-          if (t == EngineType::Fm || t == EngineType::Drum || t == EngineType::None) {
+          if (t != EngineType::Plaits) {
             s.setEngine(ctx_.track, t);
             overlay_ = Overlay::None;
             if (t != EngineType::None) show(ScreenId::Instrument);  // straight to the library / the pads
@@ -511,11 +514,11 @@ class App {
       case Overlay::Monitor: return monitorOverlay();
       case Overlay::EnginePicker: {
         static const char* labels[] = {"FM      DX7-compatible 6-operator", "DRUM    16-pad drum sampler",
-                                       "SMPL    keymapped sampler    · Phase 5", "PLTS    Plaits macro-oscillator · Phase 7",
+                                       "SMPL    keymapped sampler", "PLTS    Plaits macro-oscillator · Phase 7",
                                        "empty   clear the track"};
         Elements rows;
         for (int i = 0; i < 5; ++i) {
-          const bool available = i == 0 || i == 1 || i == 4;
+          const bool available = i != 3;
           Element row = text(" " + std::string(labels[i]) + " ");
           if (i == picker_) row = row | color(palette::bg) | bgcolor(available ? palette::accent : palette::faint);
           else row = row | color(available ? palette::text : palette::faint);

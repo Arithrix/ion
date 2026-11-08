@@ -51,6 +51,7 @@ add_library(ion_engine STATIC
   src/core/version.cpp
   src/dsp/biquad.cpp
   src/library/fm_library.cpp
+  src/library/recording.cpp
   src/library/sample_loader.cpp
   src/library/syx.cpp
   src/engine/channel_eq.cpp
@@ -60,6 +61,7 @@ add_library(ion_engine STATIC
   src/engine/drum/drum_engine.cpp
   src/engine/fm/fm_engine.cpp
   src/engine/fx/effects.cpp
+  src/engine/sampler/sampler_engine.cpp
   src/engine/module.cpp
   src/audio/pipewire_out.cpp
   src/audio/wav.cpp
@@ -81,6 +83,7 @@ add_library(ion_ui STATIC
   src/ui/algorithm_diagram.cpp
   src/ui/app.cpp
   src/ui/drum_screen.cpp
+  src/ui/envelope_view.cpp
   src/ui/fm_browse.cpp
   src/ui/fx_screen.cpp
   src/ui/instrument_screen.cpp
@@ -88,6 +91,8 @@ add_library(ion_ui STATIC
   src/ui/mixer_screen.cpp
   src/ui/piano.cpp
   src/ui/sample_browse.cpp
+  src/ui/sample_view.cpp
+  src/ui/sampler_screen.cpp
   src/ui/settings_screen.cpp
   src/ui/theme.cpp
   src/ui/tracks_screen.cpp

@@ -149,6 +149,21 @@ void SampleBrowse::up(const Session& s) {
     if (shown_[i].path == from) cursor_ = static_cast<int>(i);
 }
 
+void SampleBrowse::show(const Session& s, const fs::path& folder, const fs::path& file) {
+  std::error_code ec;
+  if (!fs::is_directory(folder, ec)) return;
+  if (!top_) remembered_[dir_] = cursor_;
+  top_ = false;
+  dir_ = folder;
+  filter.clear();
+  typing = false;
+  stale_ = true;
+  cursor_ = 1;
+  const auto& list = entries(s);
+  for (std::size_t i = 0; i < list.size(); ++i)
+    if (!file.empty() && list[i].path == file) cursor_ = static_cast<int>(i);
+}
+
 std::string SampleBrowse::location() const {
   if (top_) return "sample roots";
   std::string p = abbreviateHome(dir_.string());

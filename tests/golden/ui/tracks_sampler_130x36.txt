@@ -1,0 +1,36 @@
+ ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
+╭ Tracks ───────────────────────────────────────────────────────────────────────╮╭ Track 6 · SMPL ───────────────────────────────╮
+│ #  ch  engine  sound                                    level       dB        ││chords_124bpm_4bar                             │
+│ 1  01  FM      SNAP TEST                                 ░░░░░░░░░░   0.0  ·  ││                                               │
+│ 2  02  —       — empty —                                 ░░░░░░░░░░        ·  ││engine     SMPL                                │
+│ 3  03  FM      SYN-BAS 4                                 ░░░░░░░░░░  -9.0  · M││sample     chords_124bpm_4bar  ⏎ I             │
+│ 4  04  DRUM    Garage 02                                 ░░░░░░░░░░   0.0  ·  ││root       C3                                  │
+│ 5  05  —       — empty —                                 ░░░░░░░░░░        ·  ││loop       forward                             │
+│ 6  06  SMPL    chords_124bpm_4bar                        ░░░░░░░░░░   0.0  ·  ││attack     4.0 ms                              │
+│ 7  07  —       — empty —                                 ░░░░░░░░░░        ·  ││release    220 ms                              │
+│ 8  08  —       — empty —                                 ░░░░░░░░░░        ·  ││cutoff     6.40 kHz                            │
+│                                                                               ││                                               │
+│                                                                               ││mixer                                          │
+│                                                                               ││fader      ███████▏░░ 0.0 dB                   │
+│                                                                               ││pan        █████░░░░░ C                        │
+│                                                                               ││eq         flat                                │
+│                                                                               ││inserts    — · — · —                           │
+│                                                                               ││send A     ░░░░░░░░░░ −∞ dB                    │
+│                                                                               ││send B     ░░░░░░░░░░ −∞ dB                    │
+│                                                                               ││midi ch    6                                   │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+│                                                                               ││                                               │
+├───────────────────────────────────────────────────────────────────────────────┤├───────────────────────────────────────────────┤
+│ 4 of 8 tracks in use · 0 voices                                               ││midi ch 06 · 0 voices                          │
+╰───────────────────────────────────────────────────────────────────────────────╯╰───────────────────────────────────────────────╯
+ midi MIDI off  ·  last: nothing yet
+ 1-8  Track   ↑↓  Move   ←→  Fader   Tab  Pane   ⏎  Edit   m  Mute   s  Solo   Spc  Audition   ?  Help   q  Quit

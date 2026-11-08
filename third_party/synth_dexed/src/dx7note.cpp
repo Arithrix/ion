@@ -157,6 +157,7 @@ Dx7Note::Dx7Note() {
 
 //void Dx7Note::init(const uint8_t patch[156], int midinote, int velocity) {
 void Dx7Note::init(const uint8_t patch[156], int midinote, int velocity, int srcnote, int porta, const Controllers *ctrls) {
+  ionAmp.start();  // ion
   int rates[4];
   int levels[4];
   for (int op = 0; op < 6; op++) {
@@ -308,6 +309,7 @@ void Dx7Note::compute(int32_t *buf, int32_t lfo_val, int32_t lfo_delay, const Co
 }
 
 void Dx7Note::keyup() {
+  ionAmp.release();  // ion
   for (int op = 0; op < 6; op++) {
     env_[op].keydown(false);
   }
@@ -373,6 +375,7 @@ void Dx7Note::peekVoiceStatus(VoiceStatus &status) {
    Used in monophonic mode to transfer voice state from different notes
 */
 void Dx7Note::transferState(Dx7Note &src) {
+  ionAmp = src.ionAmp;  // ion: a legato note keeps its envelope
   for (int i = 0; i < 6; i++) {
     env_[i].transfer(src.env_[i]);
     params_[i].gain_out = src.params_[i].gain_out;

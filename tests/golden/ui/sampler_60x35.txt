@@ -1,0 +1,35 @@
+ ion Trk Ins Mix Fx Rec Lib                     0% no audio
+╭ Track 6 · chords_124bpm_4bar · /tmp/ion-ui-snapshot/r… ──╮
+│1  ·  · ·  2   · ·  · 3   ·  · ·  4   · ·  ·              │
+│▅▅▄▄▄▃▃▂▂▁▁   ▅▅▅▄▄▃▃▃▂▁▁    ▅▅▄▄▄▃▃▂▂▁▁   ▅▅▅▄▄▃▃▃▂▁▁    │
+│████████████▇▇████████████▇▇▇████████████▇▇████████████▇▇▇│
+│██████████████████████████████████████████████████████████│
+│██████████████████████████████████████████████████████████│
+│▲                                                        ]│
+│4 bars · 124.0 bpm · 7.742 s · 48k stereo · resampled fro…│
+│                                                          │
+╰──────────────────────────────────────────────────────────╯
+╭ Play · 1/4 · Tab ────────────────────────────────────────╮
+│C-2–G8 · root C3 · stretch: later                         │
+│▸Mode        repitch                                      │
+│ Loop        forward                                      │
+│ Start       0.000 s                                      │
+│ Loop start  0.000 s                                      │
+│ Loop end    7.742 s                                      │
+│ Crossfade   off                                          │
+│ Snap        on                                           │
+│ Root        C3                                           │
+│ Low key     C-2                                          │
+│ High key    G8                                           │
+│ Tune        0 st                                         │
+│ Fine        0 ct                                         │
+│ Glide       off                                          │
+│ Voices      8                                            │
+│ Bend range  2                                            │
+│ Level       0.0 dB                                       │
+│                                                          │
+│                                                          │
+│                                                          │
+╰──────────────────────────────────────────────────────────╯
+ midi MIDI off · nothing yet
+ Tab  Section   ↑↓  Param   ←→  Adjust   l  Learn

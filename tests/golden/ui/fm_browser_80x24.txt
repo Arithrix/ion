@@ -7,18 +7,18 @@
 │· INIT VOICE cart_17        1     ││algorithm 5 · three 2-op stacks           │
 │· KOTO       cart_17       19     ││feedback 6 on op 6                        │
 │· RHODES MK1 cart_17       11     ││                                          │
-│· SLAP BASS  cart_17        5     ││macros                                    │
-│· STRINGS 1  cart_17       13     ││  Bright    ░░░░░░░██░░░░░ +12            │
-│· SUB BASS 2 cart_17        7     ││  Attack    ░░░░░░░░░░░░░░ 0              │
-│★ SYN-BAS 4  cart_17        5  1  ││  Release   ░░░░░░█░░░░░░░ −8             │
-│· SYN-LEAD 1 cart_17       25     ││  Feedback  ░░░░░░░░░░░░░░ 0              │
-│· TAKE OFF   cart_17       31     ││  Detune    ░░░░░░░░░░░░░░ 0              │
-│· TUB BELLS  cart_17       17     ││  Velocity  ░░░░░░░░░░░░░░ 0              │
-│· VOICE 1    cart_17       23     ││● edited: bright +12, release −8          │
-│· WARM PAD   cart_17       29     ││a save as · u undo · e export             │
-│                                  ││cc 74 → bright                            │
-│                                  ││                                          │
-│                                  ││                                          │
+│· SLAP BASS  cart_17        5     ││macros · over the patch                   │
+│· STRINGS 1  cart_17       13     ││  Bright   ░░░░░░░██░░░░░ +12             │
+│· SUB BASS 2 cart_17        7     ││  Feedback ░░░░░░░░░░░░░░ 0               │
+│★ SYN-BAS 4  cart_17        5  1  ││  Detune   ░░░░░░░░░░░░░░ 0               │
+│· SYN-LEAD 1 cart_17       25     ││  Velocity ░░░░░░░░░░░░░░ 0               │
+│· TAKE OFF   cart_17       31     ││                                          │
+│· TUB BELLS  cart_17       17     ││amp ██████████████████▅▄▃▂▁▁▁             │
+│· VOICE 1    cart_17       23     ││  Attack   0                              │
+│· WARM PAD   cart_17       29     ││  Hold     0                              │
+│                                  ││  Decay    500 ms                         │
+│                                  ││  Sustain  100%                           │
+│                                  ││  Release  800 ms                         │
 ╰──────────────────────────────────╯╰──────────────────────────────────────────╯
  midi MIDI off  ·  last: nothing yet
  ↑↓  Browse   /  Filter   ←→  View   *  Fav   t  Tag   ⏎  Audition
