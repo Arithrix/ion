@@ -1,7 +1,7 @@
 # Status
 
-**Phase:** 6 done, at its checkpoint (0.6.0: resampling). 0.4.0, 0.5.0 untested by Michael.
-**Branch:** `phase/6-resampling`, merged to `main` for the 0.6.0 release
+**Phase:** 6 done · 0.6.0 (resampling) released and pushed; waiting at its checkpoint. 0.4.0, 0.5.0 and 0.6.0 untested by Michael.
+**Branch:** `main` (Phase 7 will be `phase/7-plaits`)
 **Updated:** 2026-11-07
 
 ## Done (Phase 6)
