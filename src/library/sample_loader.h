@@ -32,6 +32,10 @@ struct AudioFileInfo {
 };
 AudioFileInfo probeAudioFile(const std::filesystem::path& path);
 
+// A sample from planar 48 kHz audio already in memory (a recording); `right`
+// may be null for mono. Peak and overview are filled in.
+std::shared_ptr<Sample> makeSample(const float* left, const float* right, int64_t frames, const std::filesystem::path& path);
+
 class SampleLoader {
  public:
   using Ptr = std::shared_ptr<const Sample>;

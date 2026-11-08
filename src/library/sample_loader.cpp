@@ -105,6 +105,33 @@ AudioFileInfo probeAudioFile(const fs::path& path) {
   return info;
 }
 
+std::shared_ptr<Sample> makeSample(const float* left, const float* right, int64_t frames, const fs::path& path) {
+  auto s = std::make_shared<Sample>();
+  const int keep = right ? 2 : 1;
+  s->channels = s->sourceChannels = keep;
+  s->frames = std::max<int64_t>(frames, 0);
+  s->path = path;
+  const std::size_t stride = static_cast<std::size_t>(s->frames + 2 * Sample::kGuard);
+  s->data.assign(stride * static_cast<std::size_t>(keep), 0.0f);
+  for (int c = 0; c < keep; ++c) {
+    const float* src = c == 0 ? left : right;
+    float* dst = s->data.data() + stride * static_cast<std::size_t>(c) + Sample::kGuard;
+    for (int64_t i = 0; i < s->frames; ++i) {
+      const float v = std::isfinite(src[i]) ? src[i] : 0.0f;
+      dst[i] = v;
+      s->peak = std::max(s->peak, std::fabs(v));
+    }
+  }
+  for (int b = 0; b < Sample::kOverview; ++b) {
+    const int64_t from = s->frames * b / Sample::kOverview, to = std::max(from + 1, s->frames * (b + 1) / Sample::kOverview);
+    float p = 0;
+    for (int c = 0; c < keep; ++c)
+      for (int64_t i = from; i < std::min(to, s->frames); ++i) p = std::max(p, std::fabs(s->channel(c)[i]));
+    s->overview[static_cast<std::size_t>(b)] = std::min(1.0f, p);
+  }
+  return s;
+}
+
 SampleLoader::Ptr SampleLoader::loadNow(const fs::path& path, std::string& error) {
   Decoded d;
   if (!decode(path, d, error)) return nullptr;

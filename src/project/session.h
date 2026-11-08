@@ -14,7 +14,10 @@
 #include "engine/fm/dx7_voice.h"
 #include "engine/fx/effects.h"
 #include "engine/module.h"
+#include "engine/take.h"
 #include "library/fm_library.h"
+#include "library/recording.h"
+#include "library/slicer.h"
 #include "library/sample_loader.h"
 #include "library/syx.h"
 #include "project/config.h"
@@ -45,6 +48,22 @@ struct TrackState {
   // engine parameters, like FM's macros.
   std::array<PadState, DrumEngine::kPads> pads{};
   std::string kit;  // the kit's name, if it was loaded from or saved as one
+};
+
+// How the next take is recorded and where it goes (the Rec screen's Setup).
+struct RecSetup {
+  RecSource source = RecSource::Master;
+  uint8_t tracks = 0;      // RecSource::Tracks: bit t = track t
+  RecTap tap = RecTap::Post;
+  int bars = 4;            // 1, 2, 4, 8 or 16; 0 = until stopped
+  bool synced = true;      // start on the next bar of MIDI clock; else at once
+  enum class Dest : uint8_t { Library, Sampler, Drum };
+  Dest dest = Dest::Library;
+  int destTrack = 0;
+  int firstPad = 0;        // Drum: slices go onto this pad and up
+  SliceMode slice = SliceMode::Chords;
+  int sliceCount = 8;      // SliceMode::Equal
+  bool muteSources = true; // after the take, mute the tracks it recorded
 };
 
 // One entry in the project's program-change list.
@@ -212,6 +231,53 @@ class Session {
   // Swaps a slot with its neighbour (delta ±1), settings and all.
   void moveInsert(int scope, int slot, int delta);
 
+  // ---- resampling (HANDOFF §7.6, DECISIONS D-51 to D-53) ----
+  // Takes are written to the project's recordings/ folder as 48 kHz float WAV
+  // with a JSON sidecar (D-49), then sent where the setup says.
+  RecSetup& recSetup() { return rec_; }
+  const RecSetup& recSetup() const { return rec_; }
+  enum class RecState { Idle, Armed, Recording, Review };
+  RecState recState() const;
+  // The take in flight (armed or recording), for progress and the live waveform.
+  const Take* take() const { return take_.get(); }
+  // Starts a take with the current setup. False (and why) if it can't.
+  bool arm(std::string& error);
+  void stopTake();    // armed: disarm; synced: stop on the next downbeat; else stop now
+  void cancelTake();  // throw the take away
+
+  // A take for drum pads waits here with its slice points until it's committed.
+  struct SliceReview {
+    std::filesystem::path file;  // the recording
+    SampleLoader::Ptr sample;    // its audio
+    std::vector<int64_t> slices; // start frames, ascending, the first 0
+    double tempo = 0;
+    int bars = 0;
+    int track = 0, firstPad = 0;
+    int maxSlices() const { return DrumEngine::kPads - firstPad; }
+  };
+  const SliceReview* review() const { return review_ ? &*review_ : nullptr; }
+  void moveSlice(int i, int64_t delta);  // slice 0 stays at the start
+  int addSlice(int64_t at);              // returns its index, or -1 if there's no room
+  void removeSlice(int i);
+  void playSlice(int i);
+  // Writes the slices next to the recording and puts them on the pads, in a choke group.
+  bool commitSlices(std::string& error);
+  void keepRecording();  // end the review: the recording stays, no pads change
+
+  // Undo the last take: its files go, and the tracks it changed come back.
+  bool canUndoTake() const { return undo_.has_value() && !take_; }
+  std::string undoName() const { return undo_ ? undo_->name : std::string(); }
+  bool undoTake(std::string& error);
+
+  // This project's recordings, newest first.
+  struct RecordingEntry {
+    std::filesystem::path path;
+    RecordingInfo info;
+    double seconds = 0;
+  };
+  std::vector<RecordingEntry> recordings(int max = 50) const;
+  std::filesystem::path recordingsDir() const;
+
   // ---- JSON (exposed for tests and ion-render) ----
   std::string toJson() const;
   bool fromJson(const std::string& text, std::string& error);
@@ -236,9 +302,14 @@ class Session {
   void unpin(const Sample* sample);
   void handleLoads();
   nlohmann::json insertsJson(int scope) const;
+  nlohmann::json trackJson(int t) const;  // as saved in project.json
+  void trackFromJson(int t, const nlohmann::json& jt);
   void insertsFromJson(int scope, const nlohmann::json& arr);
   void mixerFromJson(int scope, const nlohmann::json& mixer);
   void setIfDifferent(ParamRef ref, float value);
+  void finishTake(Take* take);
+  void sendToSampler(int t, const std::string& stored);
+  std::string soundSlug(int t) const;
 
   Module& module_;
   Paths paths_;
@@ -283,6 +354,20 @@ class Session {
   Values lastStore_{};  // ParamStore as seen at the last tick
   Values saved_{};      // values at the last save/load
   Values autosaved_{};  // values at the last autosave
+
+  // Resampling.
+  RecSetup rec_;
+  std::unique_ptr<Take> take_;  // in flight: the audio thread may be writing it
+  bool takeAbandoned_ = false;  // …but it belongs to a project that's been closed
+  std::optional<SliceReview> review_;
+  struct TakeUndo {
+    std::string name;
+    std::vector<std::filesystem::path> files;           // to delete (files or folders)
+    std::vector<std::pair<int, std::string>> tracks;    // tracks as they were (project JSON)
+    std::vector<std::pair<int, float>> mutes;           // source tracks' mute before
+    std::filesystem::path sidecar;
+  };
+  std::optional<TakeUndo> undo_;
 
   bool dirty_ = false;          // non-parameter edits since the last save
   bool autosavedDirty_ = false; // …since the last autosave

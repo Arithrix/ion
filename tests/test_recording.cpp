@@ -350,3 +350,238 @@ TEST_CASE("slicer: transients find each hit within a couple of milliseconds") {
   CHECK(transientSlices(x, 3).size() == 3);
   CHECK(transientSlices(std::vector<float>(48000, 0.0f), 16) == std::vector<int64_t>{0});
 }
+
+// ---- the Session: files, destinations, undo --------------------------------------
+
+#include <filesystem>
+#include <nlohmann/json.hpp>
+
+#include "audio/wav.h"
+#include "engine/drum/drum_engine.h"
+#include "engine/sampler/sampler_engine.h"
+#include "project/config.h"
+#include "project/session.h"
+
+namespace {
+
+namespace fs = std::filesystem;
+
+struct TempRoot {
+  fs::path path;
+  TempRoot() {
+    path = fs::temp_directory_path() / ("ion-rec-" + std::to_string(std::random_device{}()));
+    fs::create_directories(path);
+  }
+  ~TempRoot() { fs::remove_all(path); }
+};
+
+// A session with track 1 playing `audio` from a sampler (no loop), and MIDI
+// clock at 120 BPM from frame 0.
+struct SessionRig {
+  TempRoot root;
+  std::unique_ptr<Module> module = std::make_unique<Module>();
+  Config config;
+  Session session{*module, Paths::under(root.path), config};
+  std::vector<float> buf = std::vector<float>(2 * 256);
+  int64_t frame = 0, nextTick = 0;
+  bool clock = true;
+
+  explicit SessionRig(const std::vector<float>& audio) {
+    session.newProject("rec");
+    const fs::path wavPath = root.path / "source.wav";
+    wav::Audio a;
+    a.channels = 1;
+    a.samples = audio;
+    std::string error;
+    REQUIRE(wav::write(wavPath, a, error));
+    session.setEngine(0, EngineType::Sampler);
+    session.setPadSample(0, 0, wavPath.string());
+    REQUIRE(session.waitForSamples());
+    run(1024);
+  }
+  void run(int64_t frames) {
+    const int64_t end = frame + frames;
+    while (frame < end) {
+      const int64_t to = frame + 256;
+      while (clock && nextTick < to) {
+        module->pushMidi({{0xF8}, MidiEvent::Timing::Frame, nextTick});
+        nextTick += kTick;
+      }
+      module->process(buf.data(), 256);
+      frame = to;
+      session.tick();
+    }
+  }
+  // Start the transport on the next tick and play C3 on track 1 with it.
+  void startWithNote() {
+    module->pushMidi({{0xFA}, MidiEvent::Timing::Frame, nextTick});
+    module->pushMidi({{0x90, 60, 127}, MidiEvent::Timing::Frame, nextTick});
+  }
+};
+
+nlohmann::json readJson(const fs::path& p) {
+  std::string text;
+  REQUIRE(readFile(p, text));
+  return nlohmann::json::parse(text);
+}
+
+}  // namespace
+
+TEST_CASE("session: a take sliced on its chord changes goes onto drum pads, and undo puts everything back") {
+  const auto progression = chords({{60, 64, 67}, {57, 60, 64}, {53, 57, 60}, {55, 59, 62}});
+  SessionRig r(progression);
+  Session& s = r.session;
+  s.setEngine(1, EngineType::Drum);  // track 2: the destination, with an old pad to keep
+  RecSetup& rs = s.recSetup();
+  rs.source = RecSource::Tracks;
+  rs.tracks = 1;  // track 1
+  rs.tap = RecTap::Pre;
+  rs.bars = 4;
+  rs.synced = true;
+  rs.dest = RecSetup::Dest::Drum;
+  rs.destTrack = 1;
+  rs.firstPad = 4;
+  rs.slice = SliceMode::Chords;
+  rs.muteSources = true;
+
+  std::string error;
+  REQUIRE(s.arm(error));
+  CHECK(s.recState() == Session::RecState::Armed);
+  r.run(5000);
+  r.startWithNote();
+  r.run(10 * kTick);
+  CHECK(s.recState() == Session::RecState::Recording);
+  r.run(4 * 96 * kTick);
+  REQUIRE(s.recState() == Session::RecState::Review);
+
+  const Session::SliceReview* rv = s.review();
+  REQUIRE(rv);
+  CHECK(rv->sample->frames == 4 * 96 * kTick);  // trimmed to exactly 4 bars
+  CHECK(rv->tempo == doctest::Approx(120.0));
+  CHECK(rv->bars == 4);
+  CHECK(rv->slices == std::vector<int64_t>{0, 96000, 192000, 288000});
+  const fs::path wavFile = rv->file;
+  CHECK(fs::exists(wavFile));
+  CHECK(wavFile.filename().string().find("_120bpm_4bar") != std::string::npos);
+  const auto side = readJson(sidecarPath(wavFile));
+  CHECK(side["tempo"] == 120.0);
+  CHECK(side["bars"] == 4);
+  CHECK(side["frames"] == 4 * 96 * kTick);
+  CHECK(side["sources"] == "track 1");
+  CHECK(side["settings"].size() == 1);
+  CHECK(side["settings"][0]["engine"] == "sampler");
+  CHECK(s.param({0, static_cast<uint16_t>(kMute)}) == 1.0f);  // the source is muted
+
+  // Nudge, add and remove, then commit.
+  s.moveSlice(1, 48);
+  CHECK(s.review()->slices[1] == 96048);
+  s.moveSlice(1, -48);
+  const int added = s.addSlice(330000);
+  CHECK(added == 4);
+  s.removeSlice(added);
+  CHECK(s.review()->slices.size() == 4);
+  s.moveSlice(0, 100);  // slice 0 stays at the start
+  CHECK(s.review()->slices[0] == 0);
+  REQUIRE(s.commitSlices(error));
+  CHECK(s.recState() == Session::RecState::Idle);
+  REQUIRE(s.waitForSamples());
+  r.run(512);
+  for (int i = 0; i < 4; ++i) {
+    const int pad = 4 + i;
+    CHECK(s.padStatus(1, pad) == Session::PadStatus::Ready);
+    CHECK(s.padName(1, pad) == "slice 0" + std::to_string(i + 1));
+    CHECK(s.param(engineParamRef(1, DrumEngine::param(pad, DrumEngine::kChoke))) == 1.0f);  // group A
+    CHECK(s.param(engineParamRef(1, DrumEngine::param(pad, DrumEngine::kMode))) == static_cast<float>(DrumEngine::kOneShot));
+    CHECK(s.padSample(1, pad)->frames == 96000);
+  }
+  CHECK(readJson(sidecarPath(wavFile))["sent_to"] == "drum · track 2 · pads 5–8");
+  CHECK(s.recordings().size() == 1);
+
+  // Undo: the pads are empty again, the source plays, the files are gone.
+  REQUIRE(s.canUndoTake());
+  REQUIRE(s.undoTake(error));
+  REQUIRE(s.waitForSamples());
+  r.run(512);
+  CHECK(s.track(1).engine == EngineType::Drum);
+  for (int pad = 4; pad < 8; ++pad) CHECK(s.padStatus(1, pad) == Session::PadStatus::Empty);
+  CHECK(s.param({0, static_cast<uint16_t>(kMute)}) == 0.0f);
+  CHECK_FALSE(fs::exists(wavFile));
+  CHECK_FALSE(fs::exists(sidecarPath(wavFile)));
+  CHECK_FALSE(fs::exists(wavFile.parent_path() / wavFile.stem()));
+  CHECK(s.recordings().empty());
+  CHECK_FALSE(s.canUndoTake());
+}
+
+TEST_CASE("session: a take for the sampler loops from C3 on its track, which isn't muted with the others") {
+  SessionRig r(chords({{60, 64, 67}}));
+  Session& s = r.session;
+  s.setEngine(2, EngineType::Fm);
+  RecSetup& rs = s.recSetup();
+  rs.source = RecSource::Tracks;
+  rs.tracks = 1 | 4;  // tracks 1 and 3
+  rs.bars = 1;
+  rs.dest = RecSetup::Dest::Sampler;
+  rs.destTrack = 2;  // track 3 records itself into a sampler
+  std::string error;
+  REQUIRE(s.arm(error));
+  r.startWithNote();
+  r.run(2 * 96 * kTick);
+  REQUIRE(s.recState() == Session::RecState::Idle);
+  REQUIRE(s.waitForSamples());
+  r.run(512);
+  CHECK(s.track(2).engine == EngineType::Sampler);
+  CHECK(s.track(2).pads[0].sample.rfind("recordings/tracks-1-3_120bpm_1bar", 0) == 0);
+  CHECK(s.padSample(2, 0)->frames == 96000);
+  CHECK(s.param(engineParamRef(2, SamplerEngine::kLoop)) == static_cast<float>(SamplerEngine::kLoopForward));
+  CHECK(s.param(engineParamRef(2, SamplerEngine::kRoot)) == 60.0f);
+  CHECK(s.param({0, static_cast<uint16_t>(kMute)}) == 1.0f);
+  CHECK(s.param({2, static_cast<uint16_t>(kMute)}) == 0.0f);  // it plays the recording now
+  const auto recs = s.recordings();
+  REQUIRE(recs.size() == 1);
+  CHECK(recs[0].info.sentTo == "sampler · track 3");
+  CHECK(recs[0].info.sources == "tracks 1 + 3");
+
+  // A project saved under a new name takes its recordings along.
+  REQUIRE(s.saveAs("rec copy", error));
+  CHECK(fs::exists(s.recordingsDir() / recs[0].path.filename()));
+
+  // Undo brings the FM track back.
+  REQUIRE(s.undoTake(error));
+  CHECK(s.track(2).engine == EngineType::Fm);
+}
+
+TEST_CASE("session: arming checks the setup; a cancelled take leaves nothing") {
+  SessionRig r(chords({{60, 64, 67}}));
+  Session& s = r.session;
+  RecSetup& rs = s.recSetup();
+  std::string error;
+  rs.source = RecSource::Tracks;
+  rs.tracks = 0;
+  CHECK_FALSE(s.arm(error));
+  CHECK(error.find("choose the tracks") != std::string::npos);
+  rs.tracks = 1 << 5;
+  CHECK_FALSE(s.arm(error));
+  CHECK(error == "track 6 is empty");
+
+  rs.source = RecSource::Master;
+  rs.synced = false;
+  rs.bars = 0;
+  REQUIRE(s.arm(error));
+  CHECK_FALSE(s.arm(error));  // one at a time
+  r.run(4096);
+  s.cancelTake();
+  r.run(512);
+  CHECK(s.recState() == Session::RecState::Idle);
+  CHECK(s.recordings().empty());
+  CHECK_FALSE(s.canUndoTake());
+
+  // Free, at once: stops when told, and keeps what it has.
+  REQUIRE(s.arm(error));
+  r.run(48000);
+  s.stopTake();
+  r.run(512);
+  const auto recs = s.recordings();
+  REQUIRE(recs.size() == 1);
+  CHECK(recs[0].info.tempo == 0);
+  CHECK(recs[0].path.filename().string().rfind("mix_1.0s", 0) == 0);
+}
