@@ -1,0 +1,24 @@
+ ion  Tracks Instr Mixer Fx Rec Library            no clock   cpu 0%   no audio
+╭ Signal chain ────────────────────╮╭ COMP · Track 3 slot 1 ───────────────────╮
+│track 3 · SYN-BAS 4               ││  On                           on         │
+│   EQ       flat                ● ││  Threshold   ███████████▎░░░░ -18.0 dB   │
+│ 1 COMP     thr −18 · 3.0:1     ● ││  Ratio       █████▉░░░░░░░░░░ 3.0:1      │
+│ 2 CHORUS   rate 0.40 · 50%     ● ││  Attack      ██████████▋░░░░░ 10.0 ms    │
+│ 3 —        empty                 ││  Release     ████████▏░░░░░░░ 150 ms     │
+│ A → delay  -12.0 dB              ││  Knee        ████░░░░░░░░░░░░ +6.0 dB    │
+│ B → reverb -8.0 dB               ││  Makeup      ░░░░░░░░░░░░░░░░ 0.0 dB     │
+│   sends    post-fader            ││  Mix         ████████████████ 100%       │
+│                                  ││                                          │
+│send buses                        ││reduction ░░░░░░░░░░░░░░░░░░░░ none       │
+│ A DELAY    1/8D · fb 40% · …   ● ││                                          │
+│ B REVERB   hall · 2.4 s · −…   ● ││                                          │
+│                                  ││                                          │
+│master                            ││                                          │
+│   EQ       flat                ● ││                                          │
+│ 1 COMP     thr −12 · 2.0:1     ● ││                                          │
+│ 2 —        empty                 ││                                          │
+│ 3 —        empty                 ││                                          │
+│   LIMIT    ceiling −0.3 dB     ● ││                                          │
+╰──────────────────────────────────╯╰──────────────────────────────────────────╯
+ midi MIDI off  ·  last: nothing yet
+ ↑↓  Slot   ⏎  Edit   a  Add   x  Remove   b  Bypass   [ ]  Reorder   ←→  Send

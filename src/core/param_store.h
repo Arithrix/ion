@@ -15,8 +15,8 @@ namespace ion {
 // this to draw values, so CC moves show up on screen; Session reads it to save.
 class ParamStore {
  public:
-  static constexpr int kPerScope = kEngineParamBase + kMaxEngineParams;  // 96
-  static constexpr int kScopes = kTrackCount + 1;                         // tracks + master
+  static constexpr int kPerScope = kEngineParamBase + kMaxEngineParams;  // 416
+  static constexpr int kScopes = kScopeCount;                             // tracks, master, returns
 
   ParamStore() {
     for (int s = 0; s < kScopes; ++s)

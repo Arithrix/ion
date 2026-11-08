@@ -1,0 +1,36 @@
+ ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
+╭ Signal chain ──────────────────────────────────────╮╭ REVERB · send B ─────────────────────────────────────────────────────────╮
+│track 3 · SYN-BAS 4                                 ││ Plate  Hall  Room                                                        │
+│   EQ          flat                               ● ││                                                                          │
+│ 1 COMP        thr −18 · 3.0:1                    ● ││  Type                                 hall                               │
+│ 2 CHORUS      rate 0.40 · 50%                    ● ││▸ Size        ████████████████▊░░░░░░░ 70%                                │
+│ 3 —           empty                                ││  Decay       █████████████░░░░░░░░░░░ 2.40 s                             │
+│ A → delay     -12.0 dB                             ││  Pre-delay   ██▍░░░░░░░░░░░░░░░░░░░░░ 20.0 ms                            │
+│ B → reverb    -8.0 dB                              ││  Damping     ████████████░░░░░░░░░░░░ 50%                                │
+│   sends       post-fader                           ││  Width       █████████████████████▋░░ 90%                                │
+│                                                    ││  Mod         ██████░░░░░░░░░░░░░░░░░░ 25%                                │
+│send buses                                          ││  Low cut     ██████████████▏░░░░░░░░░ 200 Hz                             │
+│ A DELAY       1/8D · fb 40% · 0 dB               ● ││  High cut    █████████████████▋░░░░░░ 9.00 kHz                           │
+│ B REVERB      hall · 2.4 s · −5 dB               ● ││                                                                          │
+│                                                    ││ ▅▇▇▇▆▆▆▅▅▄▄▄▃▃▃▂▂▁▁▁                                                     │
+│master                                              ││ ██████████████████████▇▇▇▆▆▆▅▅▄▄▄▃▃▃▂▂▁▁▁                                │
+│   EQ          flat                               ● ││ ███████████████████████████████████████████▇▇▇▆▆▆▅▅▄▄▄▃▃▃▂▂▁▁▁           │
+│ 1 COMP        thr −12 · 2.0:1                    ● ││0 … 2.7 s · −60 dB at 2.4 s                                               │
+│ 2 —           empty                                ││                                                                          │
+│ 3 —           empty                                ││return: −5 dB · fader, pan and EQ in the Mixer                            │
+│   LIMIT       ceiling −0.3 dB                    ● ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+╰────────────────────────────────────────────────────╯╰──────────────────────────────────────────────────────────────────────────╯
+ midi MIDI off  ·  last: nothing yet
+ ↑↓  Param   ←→  Adjust   l  Learn   b  Bypass   Tab  Chain   Esc  Back

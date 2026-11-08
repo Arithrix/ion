@@ -42,11 +42,31 @@ const std::array<ParamInfo, kMixerParamCount> kMixer = {{
     {"eq.hs.q", "High shelf Q", 0.3f, 2.0f, 0.707f, Curve::Log, Unit::None, kLogFine * 3, kLogCoarse * 3},
     {"eq.lp.on", "Low-pass", 0, 1, 0, Curve::Toggle, Unit::None, 1, 1},
     {"eq.lp.freq", "Low-pass freq", 1000.0f, 20000.0f, 18000.0f, Curve::Log, Unit::Hz, kLogFine * 2, kLogCoarse * 2},
+    {"send.a", "Send A (delay)", kFaderMinDb, 6.0f, kFaderMinDb, Curve::Fader, Unit::Db, 0.01f, 0.05f},
+    {"send.b", "Send B (reverb)", kFaderMinDb, 6.0f, kFaderMinDb, Curve::Fader, Unit::Db, 0.01f, 0.05f},
+    {"send.pre", "Sends pre-fader", 0, 1, 0, Curve::Toggle, Unit::None, 1, 1},
 }};
+
+const ParamInfo kInsertOn = {"on", "On", 0, 1, 1, Curve::Toggle, Unit::None, 1, 1};
 
 }  // namespace
 
 std::span<const ParamInfo> mixerParams() { return kMixer; }
+const ParamInfo& insertOnInfo() { return kInsertOn; }
+
+std::string scopeLabel(int scope) {
+  if (scope == kMasterScope) return "Master";
+  if (scope == kDelayScope) return "Delay return";
+  if (scope == kReverbScope) return "Reverb return";
+  return "Track " + std::to_string(scope + 1);
+}
+
+std::string scopeKey(int scope) {
+  if (scope == kMasterScope) return "master";
+  if (scope == kDelayScope) return "delay";
+  if (scope == kReverbScope) return "reverb";
+  return "track" + std::to_string(scope + 1);
+}
 const ParamInfo& mixerParam(MixerParam p) { return kMixer[p]; }
 
 float faderGain(float db) {
@@ -147,6 +167,7 @@ std::string formatValue(const ParamInfo& info, float v) {
       break;
     case Unit::Hz:
       if (v >= 1000.0f) std::snprintf(buf, sizeof buf, "%.2f kHz", static_cast<double>(v / 1000.0f));
+      else if (v < 10.0f) std::snprintf(buf, sizeof buf, "%.2f Hz", static_cast<double>(v));
       else std::snprintf(buf, sizeof buf, "%.0f Hz", static_cast<double>(v));
       break;
     case Unit::Pan: {
@@ -166,6 +187,9 @@ std::string formatValue(const ParamInfo& info, float v) {
       else if (v >= 100.0f) std::snprintf(buf, sizeof buf, "%.0f ms", static_cast<double>(v));
       else std::snprintf(buf, sizeof buf, "%.1f ms", static_cast<double>(v));
       break;
+    case Unit::Ratio:
+      std::snprintf(buf, sizeof buf, v >= 10.0f ? "%.0f:1" : "%.1f:1", static_cast<double>(v));
+      break;
     case Unit::None:
     case Unit::Offset:
     case Unit::Note:
@@ -177,8 +201,9 @@ std::string formatValue(const ParamInfo& info, float v) {
 }
 
 std::string paramKey(ParamRef ref, const ParamInfo& info, std::string_view enginePrefix) {
-  std::string key = ref.scope == kMasterScope ? "master" : "track" + std::to_string(ref.scope + 1);
+  std::string key = scopeKey(ref.scope);
   key += '.';
+  if (ref.isInsert()) key += "fx" + std::to_string(ref.slot() + 1) + ".";
   if (ref.isEngine()) {
     key += enginePrefix;
     key += '.';

@@ -69,6 +69,9 @@ ParamRef engineRef(int track, int index) {
 //   1 → 2: FM macros and the program list were added. Both are optional
 //          fields with defaults, so a format-1 file reads as it is.
 //   2 → 3: drum tracks (pads, kit name). Older files have none: nothing to do.
+//   3 → 4: inserts, sends, returns; the master's whole strip. Older files keep
+//          the defaults (no inserts, sends off, the glue compressor out), and
+//          the master's "fader" is still read.
 bool migrate(json& j, std::string& error) {
   if (!j.contains("format") || !j["format"].is_number_integer()) {
     error = "not an ion project (no \"format\")";
@@ -100,6 +103,8 @@ std::unique_ptr<Engine> createEngine(EngineType type) {
 Session::Session(Module& module, Paths paths, Config& config)
     : module_(module), paths_(std::move(paths)), config_(config), loader_(std::make_unique<SampleLoader>()) {
   for (int t = 0; t < kTrackCount; ++t) tracks_[static_cast<std::size_t>(t)].channel = t;
+  inserts_[kDelayScope][0] = EffectType::Delay;
+  inserts_[kReverbScope][0] = EffectType::Reverb;
   defaultValues();
   lastStore_ = values_;
   saved_ = autosaved_ = values_;
@@ -118,6 +123,63 @@ void Session::defaultValues() {
   for (int s = 0; s < ParamStore::kScopes; ++s)
     for (int i = 0; i < kMixerParamCount; ++i)
       values_[static_cast<std::size_t>(ParamStore::index(mixerRef(s, i)))] = mixerParams()[static_cast<std::size_t>(i)].def;
+  // The returns' own effects (the Module makes them at these defaults).
+  for (int scope : {kDelayScope, kReverbScope}) {
+    values_[static_cast<std::size_t>(ParamStore::index(insertOnRef(scope, 0)))] = 1;
+    const auto table = effectParams(inserts_[static_cast<std::size_t>(scope)][0]);
+    for (std::size_t i = 0; i < table.size(); ++i)
+      values_[static_cast<std::size_t>(ParamStore::index(insertParamRef(scope, 0, static_cast<int>(i))))] = table[i].def;
+  }
+}
+
+// ---- effects ---------------------------------------------------------------------------
+
+bool Session::insertFixed(int scope, int slot) const { return scope >= kDelayScope && slot == 0; }
+
+EffectType Session::insert(int scope, int slot) const {
+  if (scope < 0 || scope >= kScopeCount || slot < 0 || slot >= kInsertSlots) return EffectType::None;
+  return inserts_[static_cast<std::size_t>(scope)][static_cast<std::size_t>(slot)];
+}
+
+void Session::setInsert(int scope, int slot, EffectType type) {
+  if (scope < 0 || scope >= kScopeCount || slot < 0 || slot >= kInsertSlots || insertFixed(scope, slot)) return;
+  inserts_[static_cast<std::size_t>(scope)][static_cast<std::size_t>(slot)] = type;
+  Command c;
+  c.type = Command::Type::SetInsert;
+  c.scope = static_cast<uint8_t>(scope);
+  c.slot = slot;
+  c.effect = createEffect(type).release();
+  send(c);
+  // The Module resets the slot to the effect's defaults, switched in.
+  for (int i = 0; i < kInsertStride; ++i)
+    values_[static_cast<std::size_t>(ParamStore::index({static_cast<uint8_t>(scope), static_cast<uint16_t>(kInsertBase + slot * kInsertStride + i)}))] = 0;
+  values_[static_cast<std::size_t>(ParamStore::index(insertOnRef(scope, slot)))] = 1;
+  const auto table = effectParams(type);
+  for (std::size_t i = 0; i < table.size(); ++i)
+    values_[static_cast<std::size_t>(ParamStore::index(insertParamRef(scope, slot, static_cast<int>(i))))] = table[i].def;
+  markDirty();
+}
+
+void Session::moveInsert(int scope, int slot, int delta) {
+  const int to = slot + delta;
+  if (to < 0 || to >= kInsertSlots || insertFixed(scope, slot) || insertFixed(scope, to)) return;
+  auto settings = [&](int sl) {
+    std::array<float, kInsertStride> v{};
+    for (int i = 0; i < kInsertStride; ++i) v[static_cast<std::size_t>(i)] = param({static_cast<uint8_t>(scope), static_cast<uint16_t>(kInsertBase + sl * kInsertStride + i)});
+    return v;
+  };
+  const EffectType a = insert(scope, slot), b = insert(scope, to);
+  const auto va = settings(slot), vb = settings(to);
+  auto place = [&](int sl, EffectType type, const std::array<float, kInsertStride>& v) {
+    setInsert(scope, sl, type);
+    if (type == EffectType::None) return;
+    for (int i = 0; i < kInsertStride; ++i) {
+      const ParamRef ref{static_cast<uint8_t>(scope), static_cast<uint16_t>(kInsertBase + sl * kInsertStride + i)};
+      if (paramInfo(ref) && param(ref) != v[static_cast<std::size_t>(i)]) setParam(ref, v[static_cast<std::size_t>(i)]);
+    }
+  };
+  place(to, a, va);
+  place(slot, b, vb);
 }
 
 void Session::send(const Command& c) {
@@ -214,6 +276,14 @@ void Session::setChannel(int t, int channel) {
 
 const ParamInfo* Session::paramInfo(ParamRef ref) const {
   if (ref.scope >= ParamStore::kScopes) return nullptr;
+  if (ref.isInsert()) {
+    const EffectType type = inserts_[ref.scope][static_cast<std::size_t>(ref.slot())];
+    if (type == EffectType::None) return nullptr;
+    if (ref.slotIndex() == 0) return &insertOnInfo();
+    const auto table = effectParams(type);
+    const std::size_t i = static_cast<std::size_t>(ref.slotIndex() - 1);
+    return i < table.size() ? &table[i] : nullptr;
+  }
   if (!ref.isEngine()) return ref.index < kMixerParamCount ? &mixerParams()[ref.index] : nullptr;
   if (ref.scope >= kTrackCount) return nullptr;
   const auto table = engineParams(tracks_[ref.scope].engine);
@@ -235,8 +305,11 @@ void Session::nudgeParam(ParamRef ref, int direction, bool coarse) {
 
 std::string Session::paramLabel(ParamRef ref) const {
   const ParamInfo* pi = paramInfo(ref);
-  std::string s = ref.scope == kMasterScope ? "Master" : "Track " + std::to_string(ref.scope + 1);
-  s += " · ";
+  std::string s = scopeLabel(ref.scope) + " · ";
+  if (ref.isInsert()) {
+    s += std::string(effectLabel(inserts_[ref.scope][static_cast<std::size_t>(ref.slot())])) + " " +
+         std::to_string(ref.slot() + 1) + " ";
+  }
   if (ref.isEngine() && ref.scope < kTrackCount) {
     s += engineLabel(tracks_[ref.scope].engine);
     s += ' ';
@@ -255,9 +328,14 @@ std::string Session::paramKey(ParamRef ref) const {
 std::optional<ParamRef> Session::parseParamKey(const std::string& key) const {
   int scope = -1;
   std::string rest;
-  if (key.rfind("master.", 0) == 0) {
-    scope = kMasterScope;
-    rest = key.substr(7);
+  for (int named : {static_cast<int>(kMasterScope), static_cast<int>(kDelayScope), static_cast<int>(kReverbScope)}) {
+    const std::string prefix = scopeKey(named) + ".";
+    if (key.rfind(prefix, 0) == 0) {
+      scope = named;
+      rest = key.substr(prefix.size());
+    }
+  }
+  if (scope >= 0) {
   } else if (key.rfind("track", 0) == 0) {
     const auto dot = key.find('.');
     if (dot == std::string::npos) return std::nullopt;
@@ -269,6 +347,16 @@ std::optional<ParamRef> Session::parseParamKey(const std::string& key) const {
   }
   for (int i = 0; i < kMixerParamCount; ++i)
     if (rest == mixerParams()[static_cast<std::size_t>(i)].key) return mixerRef(scope, i);
+  // "fx2.ratio", "fx1.on"
+  if (rest.size() > 4 && rest.rfind("fx", 0) == 0 && rest[3] == '.' && rest[2] >= '1' && rest[2] < '1' + kInsertSlots) {
+    const int slot = rest[2] - '1';
+    const std::string name = rest.substr(4);
+    if (name == insertOnInfo().key) return insertOnRef(scope, slot);
+    const auto table = effectParams(inserts_[static_cast<std::size_t>(scope)][static_cast<std::size_t>(slot)]);
+    for (std::size_t i = 0; i < table.size(); ++i)
+      if (name == table[i].key) return insertParamRef(scope, slot, static_cast<int>(i));
+    return std::nullopt;
+  }
   if (scope < kTrackCount) {
     const EngineType type = tracks_[static_cast<std::size_t>(scope)].engine;
     const std::string prefix = std::string(engineKey(type)) + ".";
@@ -827,6 +915,9 @@ void Session::tick() {
       case Notification::Type::SampleReleased:
         unpin(n->sample);
         break;
+      case Notification::Type::EffectRetired:
+        delete n->effect;
+        break;
       case Notification::Type::ProgramsRetired:
         delete n->programs;
         break;
@@ -921,6 +1012,9 @@ void Session::reset() {
     sendPrograms();
   }
   padLoads_ = {};
+  for (int scope = 0; scope < kScopeCount; ++scope)
+    for (int slot = 0; slot < kInsertSlots; ++slot)
+      if (!insertFixed(scope, slot) && insert(scope, slot) != EffectType::None) setInsert(scope, slot, EffectType::None);
   const Values before = values_;
   defaultValues();
   for (std::size_t i = 0; i < values_.size(); ++i) {
@@ -928,6 +1022,14 @@ void Session::reset() {
     const ParamRef ref{static_cast<uint8_t>(i / ParamStore::kPerScope), static_cast<uint16_t>(i % ParamStore::kPerScope)};
     if (!ref.isEngine()) setValue(ref, values_[i]);
   }
+  // Every project has a glue compressor on the master (HANDOFF §7.4), set up
+  // gently and switched out, so a project sounds the same until it's turned on.
+  setInsert(kMasterScope, 0, EffectType::Compressor);
+  setParam(insertParamRef(kMasterScope, 0, Compressor::kThreshold), -12);
+  setParam(insertParamRef(kMasterScope, 0, Compressor::kRatio), 2);
+  setParam(insertParamRef(kMasterScope, 0, Compressor::kAttack), 10);
+  setParam(insertParamRef(kMasterScope, 0, Compressor::kRelease), 200);
+  setParam(insertOnRef(kMasterScope, 0), 0);
 }
 
 void Session::newProject(const std::string& name) {
@@ -935,6 +1037,64 @@ void Session::newProject(const std::string& name) {
   name_ = name;
   saved_ = autosaved_ = values_;
   dirty_ = autosavedDirty_ = false;
+}
+
+namespace {
+
+// The strip (fader, pan, EQ, sends) of any scope.
+json mixerJson(const Session& s, int scope) {
+  json mixer;
+  for (int i = 0; i < kMixerParamCount; ++i)
+    mixer[mixerParams()[static_cast<std::size_t>(i)].key] = s.param(mixerRef(scope, i));
+  return mixer;
+}
+
+}  // namespace
+
+json Session::insertsJson(int scope) const {
+  json out = json::array();
+  for (int slot = 0; slot < kInsertSlots; ++slot) {
+    const EffectType type = insert(scope, slot);
+    if (type == EffectType::None) continue;
+    json jp;
+    const auto table = effectParams(type);
+    for (std::size_t i = 0; i < table.size(); ++i) jp[table[i].key] = param(insertParamRef(scope, slot, static_cast<int>(i)));
+    out.push_back({{"slot", slot + 1}, {"type", effectKey(type)}, {"on", param(insertOnRef(scope, slot)) >= 0.5f}, {"params", jp}});
+  }
+  return out;
+}
+
+void Session::insertsFromJson(int scope, const json& arr) {
+  if (!arr.is_array()) return;
+  for (const json& ji : arr) {
+    const int slot = ji.value("slot", 0) - 1;
+    if (slot < 0 || slot >= kInsertSlots) continue;
+    const EffectType type = effectFromKey(ji.value("type", std::string("none")).c_str());
+    if (!insertFixed(scope, slot)) setInsert(scope, slot, type);
+    if (insert(scope, slot) != type || type == EffectType::None) continue;
+    setIfDifferent(insertOnRef(scope, slot), ji.value("on", true) ? 1.0f : 0.0f);
+    if (!ji.contains("params") || !ji["params"].is_object()) continue;
+    const auto table = effectParams(type);
+    for (std::size_t i = 0; i < table.size(); ++i)
+      if (ji["params"].contains(table[i].key) && ji["params"][table[i].key].is_number())
+        setIfDifferent(insertParamRef(scope, slot, static_cast<int>(i)), ji["params"][table[i].key].get<float>());
+  }
+}
+
+void Session::mixerFromJson(int scope, const json& mixer) {
+  if (!mixer.is_object()) return;
+  for (int i = 0; i < kMixerParamCount; ++i) {
+    const ParamInfo& pi = mixerParams()[static_cast<std::size_t>(i)];
+    if (mixer.contains(pi.key) && mixer[pi.key].is_number()) setIfDifferent(mixerRef(scope, i), mixer[pi.key].get<float>());
+  }
+}
+
+// Loading sends only what differs from what's there (the defaults, after
+// reset()): a full project must fit through the command queue with nothing
+// draining it (ion-render, make-demo).
+void Session::setIfDifferent(ParamRef ref, float value) {
+  const ParamInfo* pi = paramInfo(ref);
+  if (pi && clampValue(*pi, value) != param(ref)) setParam(ref, value);
 }
 
 std::string Session::toJson() const {
@@ -949,10 +1109,8 @@ std::string Session::toJson() const {
     jt["track"] = t + 1;
     jt["engine"] = engineKey(tr.engine);
     jt["channel"] = tr.channel + 1;
-    json mixer;
-    for (int i = 0; i < kMixerParamCount; ++i)
-      mixer[mixerParams()[static_cast<std::size_t>(i)].key] = param(mixerRef(t, i));
-    jt["mixer"] = mixer;
+    jt["mixer"] = mixerJson(*this, t);
+    if (json fx = insertsJson(t); !fx.empty()) jt["inserts"] = fx;
     if (tr.engine != EngineType::None) {
       json je;
       const auto table = engineParams(tr.engine);
@@ -979,7 +1137,9 @@ std::string Session::toJson() const {
     tracks.push_back(jt);
   }
   j["tracks"] = tracks;
-  j["master"] = {{"fader", param(mixerRef(kMasterScope, kFader))}};
+  j["master"] = {{"mixer", mixerJson(*this, kMasterScope)}, {"inserts", insertsJson(kMasterScope)}};
+  j["returns"] = {{"delay", {{"mixer", mixerJson(*this, kDelayScope)}, {"inserts", insertsJson(kDelayScope)}}},
+                  {"reverb", {{"mixer", mixerJson(*this, kReverbScope)}, {"inserts", insertsJson(kReverbScope)}}}};
   json cc = json::array();
   for (const CcEntry& e : ccMappings()) {
     json jc;
@@ -1014,13 +1174,8 @@ bool Session::fromJson(const std::string& text, std::string& error) {
         if (t < 0 || t >= kTrackCount) continue;
         TrackState& tr = tracks_[static_cast<std::size_t>(t)];
         setChannel(t, jt.value("channel", t + 1) - 1);
-        if (jt.contains("mixer") && jt["mixer"].is_object()) {
-          for (int i = 0; i < kMixerParamCount; ++i) {
-            const ParamInfo& pi = mixerParams()[static_cast<std::size_t>(i)];
-            if (jt["mixer"].contains(pi.key) && jt["mixer"][pi.key].is_number())
-              setParam(mixerRef(t, i), jt["mixer"][pi.key].get<float>());
-          }
-        }
+        if (jt.contains("mixer")) mixerFromJson(t, jt["mixer"]);
+        if (jt.contains("inserts")) insertsFromJson(t, jt["inserts"]);
         const EngineType type = engineFromKey(jt.value("engine", std::string("none")).c_str());
         if (type == EngineType::None) continue;
         const json je = jt.contains(engineKey(type)) ? jt[engineKey(type)] : json::object();
@@ -1054,8 +1209,20 @@ bool Session::fromJson(const std::string& text, std::string& error) {
         }
       }
     }
-    if (j.contains("master") && j["master"].contains("fader"))
-      setParam(mixerRef(kMasterScope, kFader), j["master"]["fader"].get<float>());
+    if (j.contains("master") && j["master"].is_object()) {
+      const json& m = j["master"];
+      if (m.contains("mixer")) mixerFromJson(kMasterScope, m["mixer"]);
+      else if (m.contains("fader") && m["fader"].is_number()) setParam(mixerRef(kMasterScope, kFader), m["fader"].get<float>());  // format ≤ 3
+      if (m.contains("inserts")) insertsFromJson(kMasterScope, m["inserts"]);
+    }
+    if (j.contains("returns") && j["returns"].is_object())
+      for (int scope : {kDelayScope, kReverbScope}) {
+        const std::string key = scopeKey(scope);
+        if (!j["returns"].contains(key)) continue;
+        const json& jr = j["returns"][key];
+        if (jr.contains("mixer")) mixerFromJson(scope, jr["mixer"]);
+        if (jr.contains("inserts")) insertsFromJson(scope, jr["inserts"]);
+      }
     if (j.contains("cc") && j["cc"].is_array()) {
       int slot = 0;
       for (const json& jc : j["cc"]) {

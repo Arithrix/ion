@@ -8,8 +8,11 @@
 #include <string>
 #include <vector>
 
+#include <nlohmann/json_fwd.hpp>
+
 #include "engine/drum/drum_engine.h"
 #include "engine/fm/dx7_voice.h"
+#include "engine/fx/effects.h"
 #include "engine/module.h"
 #include "library/fm_library.h"
 #include "library/sample_loader.h"
@@ -20,7 +23,8 @@
 namespace ion {
 
 // 1: Phase 1. 2: FM macros, the program list, library ids (v0.2.0). 3: drum kits (v0.3.0).
-inline constexpr int kProjectFormat = 3;
+// 4: inserts, sends, the returns and the master chain (v0.4.0).
+inline constexpr int kProjectFormat = 4;
 
 struct PadState {
   // As saved: an absolute path, or one relative to the project folder
@@ -197,6 +201,16 @@ class Session {
   bool waitForSamples(int timeoutMs = 10000);
   int pinnedSamples() const { return static_cast<int>(pinned_.size()); }  // for tests
 
+  // ---- effects (HANDOFF §7) ----
+  // Three insert slots in every scope (tracks, master, the two returns). A
+  // return's slot 0 is its own delay or reverb and can't be changed.
+  EffectType insert(int scope, int slot) const;
+  bool insertFixed(int scope, int slot) const;
+  // A new effect of `type` in the slot (None empties it), at its defaults and switched in.
+  void setInsert(int scope, int slot, EffectType type);
+  // Swaps a slot with its neighbour (delta ±1), settings and all.
+  void moveInsert(int scope, int slot, int delta);
+
   // ---- JSON (exposed for tests and ion-render) ----
   std::string toJson() const;
   bool fromJson(const std::string& text, std::string& error);
@@ -220,6 +234,10 @@ class Session {
   void pin(const SampleLoader::Ptr& sample);
   void unpin(const Sample* sample);
   void handleLoads();
+  nlohmann::json insertsJson(int scope) const;
+  void insertsFromJson(int scope, const nlohmann::json& arr);
+  void mixerFromJson(int scope, const nlohmann::json& mixer);
+  void setIfDifferent(ParamRef ref, float value);
 
   Module& module_;
   Paths paths_;
@@ -227,6 +245,7 @@ class Session {
   std::string name_;
   std::array<TrackState, kTrackCount> tracks_{};
   std::array<CcMapping, kMaxCcMappings> cc_{};
+  std::array<std::array<EffectType, kInsertSlots>, kScopeCount> inserts_{};
   std::optional<ParamRef> learning_;
   std::unique_ptr<FmLibrary> library_;
   std::vector<ProgramEntry> programs_;

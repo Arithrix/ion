@@ -9,6 +9,7 @@
 #include "audio/wav.h"
 #include "core/version.h"
 #include "engine/drum/drum_engine.h"
+#include "engine/fx/effects.h"
 #include "engine/fm/fm_engine.h"
 #include "engine/module.h"
 #include "library/fm_library.h"
@@ -195,6 +196,14 @@ struct SnapshotRig {
     session.setParam({2, kFader}, -9.0f);
     session.setParam({2, kMute}, 1.0f);
 
+    // Track 3's inserts and sends (the FX mockup): compressor and chorus, sends to both buses.
+    session.setInsert(2, 0, EffectType::Compressor);
+    session.setInsert(2, 1, EffectType::Chorus);
+    session.setParam({2, kSendA}, -12.0f);
+    session.setParam({2, kSendB}, -8.0f);
+    session.setParam({kReverbScope, kFader}, -4.5f);
+    session.setParam(insertOnRef(kMasterScope, 0), 1.0f);
+
     // Track 4: a drum kit (the DrumKit mockup), from generated samples.
     makeSamples(kSnapshotRoot / "samples");
     config.sampleRoots = {(kSnapshotRoot / "samples").string()};
@@ -279,6 +288,10 @@ TEST_CASE("ui snapshots: every screen at the handoff's sizes") {
       {"drum_params_130x36", ui::ScreenId::Instrument, 130, 36, false, false, 3, {"Tab", "Tab", "Down", "Down"}},
       {"drum_params_60x35", ui::ScreenId::Instrument, 60, 35, false, false, 3, {"Tab", "Tab", "Down", "Down"}},
       {"piano_drum_130x36", ui::ScreenId::Instrument, 130, 36, true, false, 3},
+      {"fx_130x36", ui::ScreenId::Fx, 130, 36, false, false, 2, {"Down", "Down", "Down", "Down", "Down", "Down", "Down", "Tab", "Down"}},
+      {"fx_80x24", ui::ScreenId::Fx, 80, 24, false, false, 2},
+      {"fx_60x35", ui::ScreenId::Fx, 60, 35, false, false, 2},
+      {"fx_picker_130x36", ui::ScreenId::Fx, 130, 36, false, false, 2, {"Down", "Down", "Return"}},
       {"library_kits_130x36", ui::ScreenId::Library, 130, 36, false, false, 3, {"Tab", "Down", "Down", "Right"}},
   };
   for (const Case& c : cases) {
@@ -345,4 +358,21 @@ TEST_CASE("import: a failed or empty import is still written to the log") {
   CHECK(log.find("failed: no such file or folder") != std::string::npos);
   CHECK(log.find("no .syx or .snd files") != std::string::npos);
   fs::remove_all(root);
+}
+
+TEST_CASE("mixer: m and s act on the selected strip; returns mute but don't solo") {
+  SnapshotRig r;
+  // Strips: 8 tracks, then D, R, M. From track 1, eight steps right is D.
+  const std::vector<std::string> toDelay = {"Right", "Right", "Right", "Right", "Right", "Right", "Right", "Right"};
+  auto keys = toDelay;
+  keys.push_back("m");
+  keys.push_back("s");
+  ui::snapshot(r.session, *r.module, ui::ScreenId::Mixer, 130, 36, false, false, 0, keys);
+  CHECK(r.session.param({kDelayScope, kMute}) == 1.0f);
+  CHECK(r.session.param({kDelayScope, kSolo}) == 0.0f);
+  CHECK(r.session.param({0, kMute}) == 0.0f);
+  CHECK(r.session.param({7, kSolo}) == 0.0f);
+  // On a track, m mutes that track.
+  ui::snapshot(r.session, *r.module, ui::ScreenId::Mixer, 130, 36, false, false, 0, {"Right", "m"});
+  CHECK(r.session.param({1, kMute}) == 1.0f);
 }

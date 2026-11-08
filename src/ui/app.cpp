@@ -81,8 +81,7 @@ class App {
     screens_[static_cast<int>(ScreenId::Tracks)] = makeTracksScreen();
     screens_[static_cast<int>(ScreenId::Instrument)] = makeInstrumentScreen();
     screens_[static_cast<int>(ScreenId::Mixer)] = makeMixerScreen();
-    screens_[static_cast<int>(ScreenId::Fx)] =
-        makePlaceholderScreen("Effects", "Compressor, chorus, delay and reverb, insert slots and send buses arrive in Phase 4.");
+    screens_[static_cast<int>(ScreenId::Fx)] = makeFxScreen();
     screens_[static_cast<int>(ScreenId::Rec)] =
         makePlaceholderScreen("Resample", "Clock-synced recording, slicing onto pads and loading into the sampler arrive in Phase 6.");
     screens_[static_cast<int>(ScreenId::Library)] = makeLibraryScreen();
@@ -200,8 +199,14 @@ class App {
           case 'w': save(); return true;
           case 'W': startSaveAs(); return true;
           case 'l': startLearn(); return true;
-          case 'm': s.nudgeParam({static_cast<uint8_t>(ctx_.track), kMute}, 1, false); return true;
-          case 's': s.nudgeParam({static_cast<uint8_t>(ctx_.track), kSolo}, 1, false); return true;
+          case 'm':
+          case 's': {
+            const int scope = screen().focusedScope(ctx_).value_or(ctx_.track);
+            if (scope == kMasterScope) return true;                    // the master has neither
+            if (c[0] == 's' && scope >= kTrackCount) return true;      // returns are solo-safe
+            s.nudgeParam({static_cast<uint8_t>(scope), c[0] == 'm' ? kMute : kSolo}, 1, false);
+            return true;
+          }
           case ' ': audition(); return true;
           default:
             if (c[0] >= '1' && c[0] <= '8') {
@@ -266,6 +271,7 @@ class App {
         break;
       case Context::Request::ShowMixer: show(ScreenId::Mixer); break;
       case Context::Request::ShowInstrument: show(ScreenId::Instrument); break;
+      case Context::Request::ShowFx: show(ScreenId::Fx); break;
       case Context::Request::Audition: audition(); break;
       case Context::Request::Import: startImport(ctx_.importPath); break;
       case Context::Request::Prompt:

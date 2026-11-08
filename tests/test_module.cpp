@@ -125,7 +125,7 @@ TEST_CASE("module: frame-timed MIDI lands on FM's 64-frame grid, inside the call
   };
   const auto at1000 = render(1000), at1024 = render(1024), at1025 = render(1025);
   CHECK(at1000 == at1024);
-  CHECK(onset(at1000) >= 1024);
+  CHECK(onset(at1000) >= 1024 + Limiter::kLookahead);
   CHECK(onset(at1025) == onset(at1024) + 64);
 }
 
@@ -139,8 +139,9 @@ TEST_CASE("module: live MIDI timing — tight mode is jitter-free") {
   m->pushMidi({{0x90, 60, 100}, MidiEvent::Timing::Monotonic, cycle - 4'000'000});  // 4 ms before
   m->process(out.data(), 256, cycle);
   // 4 ms before the cycle → 256 − 192 = 64 frames into it (tight adds one buffer).
-  CHECK(onset(out) >= 64);
-  CHECK(onset(out) < 64 + 64 + 8);
+  // (+ the master limiter's lookahead.)
+  CHECK(onset(out) >= 64 + Limiter::kLookahead);
+  CHECK(onset(out) < 64 + 64 + 8 + Limiter::kLookahead);
 }
 
 TEST_CASE("module: fader, pan, mute and solo") {

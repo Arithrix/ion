@@ -17,7 +17,11 @@
 namespace ion {
 
 inline constexpr int kTrackCount = 8;
-inline constexpr uint8_t kMasterScope = kTrackCount;  // scope 8
+// Scopes: the eight tracks, the master, and the two send-bus returns.
+inline constexpr uint8_t kMasterScope = kTrackCount;  // 8
+inline constexpr uint8_t kDelayScope = 9;             // send A's return
+inline constexpr uint8_t kReverbScope = 10;           // send B's return
+inline constexpr int kScopeCount = 11;
 
 enum class Curve : uint8_t {
   Linear,  // value = min + n * (max - min)
@@ -33,6 +37,7 @@ enum class Unit : uint8_t {
   Ms,      // a time held in milliseconds: "420 ms", "1.20 s"
   Note,    // a MIDI note: "C1" (60 = C3, as on the OXI)
   Cents,   // "+12 ct"
+  Ratio,   // "3.0:1"
 };
 
 struct ParamInfo {
@@ -49,7 +54,8 @@ struct ParamInfo {
   const char* maxLabel = nullptr;        // shown instead of the value at max ("full")
 };
 
-// ---- mixer parameters (per track; the master uses the same table, only Fader) ----
+// ---- mixer parameters (every scope has the strip; sends are used by tracks, and
+// the delay return's Send B feeds the reverb) ----
 enum MixerParam : uint8_t {
   kFader, kPan, kMute, kSolo,
   kEqBypass,
@@ -59,19 +65,41 @@ enum MixerParam : uint8_t {
   kB2On, kB2Freq, kB2Gain, kB2Q,
   kHsOn, kHsFreq, kHsGain, kHsQ,
   kLpOn, kLpFreq,
+  kSendA, kSendB, kSendPre,
   kMixerParamCount
 };
 
-// Engine parameters are numbered from 64. A drum kit has 16 pads × 17 parameters.
-inline constexpr uint16_t kEngineParamBase = 64;
+// Insert slots (HANDOFF §7.2): three per scope, numbered from 64. Each slot
+// has an on/bypass switch (index 0) and up to 19 parameters of its effect.
+inline constexpr uint16_t kInsertBase = 64;
+inline constexpr int kInsertSlots = 3;
+inline constexpr int kInsertStride = 20;
+// Engine parameters are numbered from 128. A drum kit has 16 pads × 17 parameters.
+inline constexpr uint16_t kEngineParamBase = 128;
 inline constexpr int kMaxEngineParams = 288;
 
 struct ParamRef {
-  uint8_t scope = 0;  // track 0-7, or kMasterScope
-  uint16_t index = 0;  // MixerParam, or kEngineParamBase + engine param
+  uint8_t scope = 0;   // track 0-7, kMasterScope, kDelayScope, kReverbScope
+  uint16_t index = 0;  // MixerParam, an insert parameter, or kEngineParamBase + engine param
   bool operator==(const ParamRef&) const = default;
   bool isEngine() const { return index >= kEngineParamBase; }
+  bool isInsert() const { return index >= kInsertBase && index < kInsertBase + kInsertSlots * kInsertStride; }
+  int slot() const { return (index - kInsertBase) / kInsertStride; }       // for isInsert()
+  int slotIndex() const { return (index - kInsertBase) % kInsertStride; }  // 0 = on, then the effect's
 };
+
+// Insert slot `slot`'s on switch, and its effect's parameter `index`.
+constexpr ParamRef insertOnRef(int scope, int slot) {
+  return {static_cast<uint8_t>(scope), static_cast<uint16_t>(kInsertBase + slot * kInsertStride)};
+}
+constexpr ParamRef insertParamRef(int scope, int slot, int index) {
+  return {static_cast<uint8_t>(scope), static_cast<uint16_t>(kInsertBase + slot * kInsertStride + 1 + index)};
+}
+// The on/bypass switch every slot has.
+const ParamInfo& insertOnInfo();
+// "Track 3", "Master", "Delay return"; "track3", "master", "delay" in keys.
+std::string scopeLabel(int scope);
+std::string scopeKey(int scope);
 
 // Engine parameter `index` (into the engine's table) of track t.
 constexpr ParamRef engineParamRef(int track, int index) {
@@ -96,8 +124,8 @@ std::string noteName(int note);
 inline constexpr float kFaderMinDb = -96.0f;
 float faderGain(float db);
 
-// "track3.fader" / "master.fader" / "track3.fm.poly". The engine key prefix is
-// passed in because engine tables live with the engines.
+// "track3.fader" / "master.fader" / "track3.fm.poly" / "track3.fx1.ratio". The
+// engine key prefix is passed in because engine tables live with the engines.
 std::string paramKey(ParamRef ref, const ParamInfo& info, std::string_view enginePrefix = {});
 
 }  // namespace ion

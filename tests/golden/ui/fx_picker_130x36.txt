@@ -1,0 +1,36 @@
+ ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
+╭ Signal chain ──────────────────────────────────────╮╭ Add effect ──────────────────────────────────────────────────────────────╮
+│track 3 · SYN-BAS 4                                 ││put an effect in Track 3 slot 3                                           │
+│   EQ          flat                               ● ││                                                                          │
+│ 1 COMP        thr −18 · 3.0:1                    ● ││ ▸ COMP     level control: threshold, ratio, knee, attack, release        │
+│ 2 CHORUS      rate 0.40 · 50%                    ● ││   CHORUS   width and movement: two modulated voices                      │
+│ 3 —           empty                                ││   DELAY    echoes, synced to the clock or in ms                          │
+│ A → delay     -12.0 dB                             ││   REVERB   plate, hall or room                                           │
+│ B → reverb    -8.0 dB                              ││                                                                          │
+│   sends       post-fader                           ││⏎ adds it · Esc cancels                                                   │
+│                                                    ││                                                                          │
+│send buses                                          ││                                                                          │
+│ A DELAY       1/8D · fb 40% · 0 dB               ● ││                                                                          │
+│ B REVERB      hall · 2.4 s · −5 dB               ● ││                                                                          │
+│                                                    ││                                                                          │
+│master                                              ││                                                                          │
+│   EQ          flat                               ● ││                                                                          │
+│ 1 COMP        thr −12 · 2.0:1                    ● ││                                                                          │
+│ 2 —           empty                                ││                                                                          │
+│ 3 —           empty                                ││                                                                          │
+│   LIMIT       ceiling −0.3 dB                    ● ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+│                                                    ││                                                                          │
+╰────────────────────────────────────────────────────╯╰──────────────────────────────────────────────────────────────────────────╯
+ midi MIDI off  ·  last: nothing yet
+ ↑↓  Effect   ⏎  Add   Esc  Cancel

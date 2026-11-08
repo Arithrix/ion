@@ -15,10 +15,10 @@
 │                                                                               ││fader      ███████▏░░ 0.0 dB                   │
 │                                                                               ││pan        █████░░░░░ C                        │
 │                                                                               ││eq         flat                                │
+│                                                                               ││inserts    — · — · —                           │
+│                                                                               ││send A     ░░░░░░░░░░ −∞ dB                    │
+│                                                                               ││send B     ░░░░░░░░░░ −∞ dB                    │
 │                                                                               ││midi ch    4                                   │
-│                                                                               ││                                               │
-│                                                                               ││inserts · sends   arrive in Phase 4            │
-│                                                                               ││                                               │
 │                                                                               ││                                               │
 │                                                                               ││                                               │
 │                                                                               ││                                               │

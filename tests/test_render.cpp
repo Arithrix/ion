@@ -8,6 +8,7 @@
 
 #include "audio/wav.h"
 #include "engine/fm/fm_engine.h"
+#include "engine/fx/effects.h"
 #include "engine/module.h"
 #include "midi/smf.h"
 #include "project/config.h"
@@ -120,9 +121,12 @@ TEST_CASE("golden render: FM phrase") {
   std::string error;
   REQUIRE(wav::read(golden, expected, error));
   REQUIRE(expected.samples.size() == audio.samples.size());
+  // The golden file predates the master limiter (0.4.0): the render is the
+  // same sound, later by the limiter's lookahead.
+  const std::size_t shift = 2 * static_cast<std::size_t>(Limiter::kLookahead);
   double sumSq = 0, maxDiff = 0;
-  for (std::size_t i = 0; i < audio.samples.size(); ++i) {
-    const double d = std::fabs(double(audio.samples[i]) - expected.samples[i]);
+  for (std::size_t i = 0; i + shift < audio.samples.size(); ++i) {
+    const double d = std::fabs(double(audio.samples[i + shift]) - expected.samples[i]);
     sumSq += d * d;
     maxDiff = std::max(maxDiff, d);
   }

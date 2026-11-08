@@ -17,7 +17,21 @@ namespace {
 
 using namespace ftxui;
 
-constexpr int kMasterIndex = kTrackCount;  // strip 8
+// Strips left to right: tracks 1-8, the delay and reverb returns, the master.
+constexpr int kStrips = kScopeCount;
+constexpr int kMasterIndex = kStrips - 1;
+int scopeOf(int strip) {
+  if (strip < kTrackCount) return strip;
+  if (strip == kTrackCount) return kDelayScope;
+  if (strip == kTrackCount + 1) return kReverbScope;
+  return kMasterScope;
+}
+
+std::string dbShort(float db) {
+  if (db <= kFaderMinDb) return "·";
+  const int n = static_cast<int>(std::lround(db));
+  return n < 0 ? "−" + std::to_string(-n) : (n > 0 ? "+" : "") + std::to_string(n);
+}
 
 std::vector<float> trackValues(const Session& s, int t) {
   std::vector<float> v(kMixerParamCount);
@@ -64,33 +78,31 @@ int fieldParam(const Band& b, int field) {
 class MixerScreen final : public Screen {
  public:
   Element render(Context& ctx) override {
-    if (strip_ < kMasterIndex) strip_ = ctx.track;
-    const int eqTrack = strip_ == kMasterIndex ? ctx.track : strip_;
+    if (strip_ < kTrackCount) strip_ = ctx.track;
     Element strips = ctx.narrow() ? stripList(ctx) : stripRow(ctx);
-    Element eq = eqPane(ctx, eqTrack);
+    Element eq = eqPane(ctx, scopeOf(strip_));
     return vbox({strips, eq | flex});
   }
 
   bool onEvent(Context& ctx, const Event& e) override {
     Session& s = ctx.session;
     if (e == Event::Tab || e == Event::TabReverse) {
-      pane_ = (pane_ == 0 && strip_ != kMasterIndex) ? 1 : 0;
+      pane_ = 1 - pane_;
       return true;
     }
+    const auto scope = static_cast<uint8_t>(scopeOf(strip_));
     if (e == Event::Character('b')) {
-      const int t = strip_ == kMasterIndex ? ctx.track : strip_;
-      s.nudgeParam({static_cast<uint8_t>(t), kEqBypass}, 1, false);
+      s.nudgeParam({scope, kEqBypass}, 1, false);
       return true;
     }
-    const auto scope = static_cast<uint8_t>(strip_);
     if (pane_ == 0) {
       const bool narrowList = ctx.narrow();
       // In the wide strip row ←→ picks a channel and ↑↓ moves its fader; the
       // narrow list is vertical, so the two swap.
       const Event prev = narrowList ? Event::ArrowUp : Event::ArrowLeft;
       const Event next = narrowList ? Event::ArrowDown : Event::ArrowRight;
-      if (e == prev) { strip_ = (strip_ + kMasterIndex) % (kMasterIndex + 1); syncTrack(ctx); return true; }
-      if (e == next) { strip_ = (strip_ + 1) % (kMasterIndex + 1); syncTrack(ctx); return true; }
+      if (e == prev) { strip_ = (strip_ + kStrips - 1) % kStrips; syncTrack(ctx); return true; }
+      if (e == next) { strip_ = (strip_ + 1) % kStrips; syncTrack(ctx); return true; }
       int dir = 0;
       bool coarse = false;
       if (!narrowList) {
@@ -109,8 +121,8 @@ class MixerScreen final : public Screen {
       if (strip_ != kMasterIndex) {
         if (e == Event::Character('[')) { s.nudgeParam({scope, kPan}, -1, false); return true; }
         if (e == Event::Character(']')) { s.nudgeParam({scope, kPan}, 1, false); return true; }
-        if (e == Event::Return) { pane_ = 1; return true; }
       }
+      if (e == Event::Return) { pane_ = 1; return true; }
       return false;
     }
     // EQ pane
@@ -122,7 +134,7 @@ class MixerScreen final : public Screen {
     }
     if (const Nudge n = nudgeOf(e); n.direction) {
       const int p = fieldParam(kBands[static_cast<std::size_t>(band_)], field_);
-      if (p >= 0) s.nudgeParam({static_cast<uint8_t>(ctx.track), static_cast<uint8_t>(p)}, n.direction, n.coarse);
+      if (p >= 0) s.nudgeParam({scope, static_cast<uint8_t>(p)}, n.direction, n.coarse);
       return true;
     }
     return false;
@@ -138,16 +150,19 @@ class MixerScreen final : public Screen {
             {"m", "Mute"},     {"s", "Solo"},   {"l", "Learn"}, {"Esc", "Back"}};
   }
 
-  std::optional<ParamRef> focusedParam(Context& ctx) override {
-    if (pane_ == 0) return ParamRef{static_cast<uint8_t>(strip_), kFader};
+  std::optional<int> focusedScope(Context&) override { return scopeOf(strip_); }
+
+  std::optional<ParamRef> focusedParam(Context&) override {
+    const auto scope = static_cast<uint8_t>(scopeOf(strip_));
+    if (pane_ == 0) return ParamRef{scope, kFader};
     const int p = fieldParam(kBands[static_cast<std::size_t>(band_)], field_);
     if (p < 0) return std::nullopt;
-    return ParamRef{static_cast<uint8_t>(ctx.track), static_cast<uint8_t>(p)};
+    return ParamRef{scope, static_cast<uint8_t>(p)};
   }
 
  private:
   void syncTrack(Context& ctx) {
-    if (strip_ < kMasterIndex) ctx.track = strip_;
+    if (strip_ < kTrackCount) ctx.track = strip_;
   }
   void clampField() {
     while (fieldParam(kBands[static_cast<std::size_t>(band_)], field_) < 0) field_ = (field_ + 3) % 4;
@@ -156,11 +171,12 @@ class MixerScreen final : public Screen {
   Element strip(Context& ctx, int index, int width, int meterHeight) {
     const Session& s = ctx.session;
     const ModuleStatus& st = ctx.module.status();
-    const bool master = index == kMasterIndex;
+    const auto scope = static_cast<uint8_t>(scopeOf(index));
+    const bool master = scope == kMasterScope;
+    const bool ret = scope == kDelayScope || scope == kReverbScope;
     const bool sel = index == strip_;
-    const auto scope = static_cast<uint8_t>(index);
-    const EngineType type = master ? EngineType::None : s.track(index).engine;
-    const MeterStatus& m = master ? st.master : st.track[static_cast<std::size_t>(index)];
+    const EngineType type = scope < kTrackCount ? s.track(scope).engine : EngineType::None;
+    const MeterStatus& m = master ? st.master : ret ? st.returns[scope == kDelayScope ? 0 : 1] : st.track[scope];
 
     const float fader = s.param({scope, kFader});
     const float faderN = toNormalized(mixerParam(kFader), fader);
@@ -169,20 +185,27 @@ class MixerScreen final : public Screen {
     for (int row = meterHeight - 1; row >= 0; --row)
       faderCol.push_back(row == cap ? text("━━") | color(sel ? palette::accent : palette::text) : text(" │") | color(palette::border));
 
-    const std::string id = master ? "M" : std::to_string(index + 1);
-    const std::string label = master ? "OUT" : engineLabel(type);
-    const std::string name = master ? "master" : (type == EngineType::None ? "empty" : trackSoundName(s, index));
+    const std::string id = master ? "M" : scope == kDelayScope ? "D" : scope == kReverbScope ? "R" : std::to_string(index + 1);
+    const std::string label = master ? "OUT" : ret ? "RTN" : engineLabel(type);
+    const std::string name = master ? "master" : scope == kDelayScope ? "delay" : scope == kReverbScope ? "reverb"
+                                                 : (type == EngineType::None ? "empty" : trackSoundName(s, scope));
     const bool muted = !master && s.param({scope, kMute}) >= 0.5f;
-    const bool solo = !master && s.param({scope, kSolo}) >= 0.5f;
-    const bool eqBypassed = !master && s.param({scope, kEqBypass}) >= 0.5f;
+    const bool solo = scope < kTrackCount && s.param({scope, kSolo}) >= 0.5f;
+    const bool eqBypassed = s.param({scope, kEqBypass}) >= 0.5f;
+    const bool idle = scope < kTrackCount && type == EngineType::None;
+    const bool compact = width < 8;
+    // Sends: a track's A (delay) and B (reverb); the delay return's into the reverb.
+    std::string sends = " ";
+    if (scope < kTrackCount) sends = "A" + dbShort(s.param({scope, kSendA})) + " B" + dbShort(s.param({scope, kSendB}));
+    else if (scope == kDelayScope) sends = "→R " + dbShort(s.param({scope, kSendB}));
 
     Elements col = {
         hbox({text(id + " ") | bold | color(sel ? palette::accent : palette::text),
-              text(label) | color(master ? palette::accent : engineColor(type))}),
-        text(fit(name, width - 2)) | color(type == EngineType::None && !master ? palette::faint : palette::text),
-        text(master ? " " : eqGlyph(s, index)) | color(eqBypassed || type == EngineType::None ? palette::faint : palette::value),
-        text(master ? " " : "pan " + formatValue(mixerParam(kPan), s.param({scope, kPan}))) |
-            color(type == EngineType::None ? palette::faint : palette::dim),
+              text(label) | color(master ? palette::accent : ret ? palette::dim : engineColor(type))}),
+        text(fit(name, width - 1)) | color(idle ? palette::faint : palette::text),
+        text(eqGlyph(s, scope)) | color(eqBypassed || idle ? palette::faint : palette::value),
+        text(fit(sends, width)) | color(idle ? palette::faint : palette::dim),
+        text(master ? " " : (compact ? "" : "pan ") + formatValue(mixerParam(kPan), s.param({scope, kPan}))) | color(idle ? palette::faint : palette::dim),
         hbox({verticalMeter(holds_[static_cast<std::size_t>(index)][0].update(m.rmsLeft.load(std::memory_order_relaxed),
                                                                               m.peakLeft.load(std::memory_order_relaxed)),
                             meterHeight),
@@ -191,22 +214,24 @@ class MixerScreen final : public Screen {
                             meterHeight),
               vbox(faderCol)}) |
             center,
-        text(formatValue(mixerParam(kFader), fader)) | color(sel ? palette::text : palette::dim) | center,
+        text(compact ? dbShort(fader) : formatValue(mixerParam(kFader), fader)) | color(sel ? palette::text : palette::dim) | center,
         master ? text(" ")
-               : hbox({text(" M ") | color(muted ? palette::bg : palette::faint) | bgcolor(muted ? palette::record : palette::bg),
+        : ret  ? text(" M ") | color(muted ? palette::bg : palette::faint) | bgcolor(muted ? palette::record : palette::bg) | center
+               : hbox({text(compact ? "M" : " M ") | color(muted ? palette::bg : palette::faint) | bgcolor(muted ? palette::record : palette::bg),
                        text(" "),
-                       text(" S ") | color(solo ? palette::bg : palette::faint) | bgcolor(solo ? palette::accent : palette::bg)}) |
+                       text(compact ? "S" : " S ") | color(solo ? palette::bg : palette::faint) | bgcolor(solo ? palette::accent : palette::bg)}) |
                      center,
     };
     const Color border = sel && pane_ == 0 ? palette::accent : (master ? palette::value : palette::border);
+    (void)ret;
     return vbox(col) | size(WIDTH, EQUAL, width) | borderStyled(ROUNDED, border) | (sel ? bgcolor(palette::raised) : nothing);
   }
 
   Element stripRow(Context& ctx) {
-    const int width = std::max(10, (ctx.width - 2) / (kMasterIndex + 1) - 2);
-    const int meterHeight = std::clamp(ctx.height - 26, 4, 10);
+    const int width = std::max(5, ctx.width / kStrips - 2);
+    const int meterHeight = std::clamp(ctx.height - 27, 3, 10);
     Elements strips;
-    for (int i = 0; i <= kMasterIndex; ++i) strips.push_back(strip(ctx, i, width, meterHeight));
+    for (int i = 0; i < kStrips; ++i) strips.push_back(strip(ctx, i, width, meterHeight));
     return hbox(strips);
   }
 
@@ -214,22 +239,26 @@ class MixerScreen final : public Screen {
     const Session& s = ctx.session;
     const ModuleStatus& st = ctx.module.status();
     Elements rows;
-    for (int i = 0; i <= kMasterIndex; ++i) {
-      const bool master = i == kMasterIndex;
-      const auto scope = static_cast<uint8_t>(i);
+    for (int i = 0; i < kStrips; ++i) {
+      const auto scope = static_cast<uint8_t>(scopeOf(i));
+      const bool master = scope == kMasterScope;
+      const bool ret = scope == kDelayScope || scope == kReverbScope;
       const bool sel = i == strip_ && pane_ == 0;
-      const MeterStatus& m = master ? st.master : st.track[static_cast<std::size_t>(i)];
+      const MeterStatus& m = master ? st.master : ret ? st.returns[scope == kDelayScope ? 0 : 1] : st.track[scope];
       const MeterReading reading = holds_[static_cast<std::size_t>(i)][0].update(std::max(m.rmsLeft.load(), m.rmsRight.load()),
                                                                                  std::max(m.peakLeft.load(), m.peakRight.load()));
       std::string ms = master ? "" : (s.param({scope, kMute}) >= 0.5f ? "M" : (s.param({scope, kSolo}) >= 0.5f ? "S" : ""));
+      const EngineType type = scope < kTrackCount ? s.track(scope).engine : EngineType::None;
+      const std::string id = master ? "M" : scope == kDelayScope ? "D" : scope == kReverbScope ? "R" : std::to_string(i + 1);
+      const std::string label = master ? "master" : scope == kDelayScope ? "delay" : scope == kReverbScope ? "reverb" : engineLabel(type);
       Element row = hbox({
-          text(master ? " M " : " " + std::to_string(i + 1) + " ") | bold,
-          text(fit(master ? "master" : engineLabel(s.track(i).engine), 5)) | size(WIDTH, EQUAL, 6) |
-              color(sel ? palette::bg : (master ? palette::accent : engineColor(s.track(i).engine))),
+          text(" " + id + " ") | bold,
+          text(fit(label, 6)) | size(WIDTH, EQUAL, 7) |
+              color(sel ? palette::bg : (master ? palette::accent : ret ? palette::dim : engineColor(type))),
           levelBar(reading, 6, sel),
           text(" " + formatValue(mixerParam(kFader), s.param({scope, kFader}))) | size(WIDTH, EQUAL, 10),
           text(master ? "" : formatValue(mixerParam(kPan), s.param({scope, kPan}))) | size(WIDTH, EQUAL, 5),
-          text(eqGlyph(s, std::min(i, kTrackCount - 1))) | color(sel ? palette::bg : palette::value),
+          text(eqGlyph(s, scope)) | color(sel ? palette::bg : palette::value),
           text(" " + ms) | bold,
           filler(),
       });
@@ -293,9 +322,8 @@ class MixerScreen final : public Screen {
 
   Element eqPane(Context& ctx, int t) {
     const Session& s = ctx.session;
-    const TrackState& tr = s.track(t);
-    std::string title = "EQ · track " + std::to_string(t + 1);
-    if (tr.engine != EngineType::None) title += " · " + trackSoundName(s, t);
+    std::string title = "EQ · " + scopeLabel(t);
+    if (t < kTrackCount && s.track(t).engine != EngineType::None) title += " · " + trackSoundName(s, t);
     const int tableWidth = 44;
     const int curveCols = ctx.narrow() ? std::max(10, ctx.width - 4) : std::max(10, ctx.width - tableWidth - 8);
     const int curveRows = std::clamp(ctx.height - (ctx.narrow() ? 24 : 27), 3, 12);
@@ -322,8 +350,8 @@ class MixerScreen final : public Screen {
     return pane(title, body, pane_ == 1 ? palette::accent : palette::border);
   }
 
-  std::array<std::array<PeakHold, 2>, kMasterIndex + 1> holds_{};  // per strip, L and R
-  int strip_ = 0;  // 0-7 tracks, 8 master
+  std::array<std::array<PeakHold, 2>, kStrips> holds_{};  // per strip, L and R
+  int strip_ = 0;  // 0-7 tracks, 8 delay return, 9 reverb return, 10 master
   int pane_ = 0;   // 0 strips, 1 EQ
   int band_ = 2;
   int field_ = 2;
