@@ -585,3 +585,37 @@ TEST_CASE("session: arming checks the setup; a cancelled take leaves nothing") {
   CHECK(recs[0].info.tempo == 0);
   CHECK(recs[0].path.filename().string().rfind("mix_1.0s", 0) == 0);
 }
+
+TEST_CASE("session: the Rec setup is saved with the project") {
+  SessionRig r(chords({{60, 64, 67}}));
+  Session& s = r.session;
+  RecSetup& rs = s.recSetup();
+  rs.source = RecSource::Tracks;
+  rs.tracks = 1 | 8;
+  rs.tap = RecTap::Pre;
+  rs.bars = 16;
+  rs.synced = false;
+  rs.dest = RecSetup::Dest::Drum;
+  rs.destTrack = 6;
+  rs.firstPad = 4;
+  rs.slice = SliceMode::Equal;
+  rs.sliceCount = 16;
+  rs.muteSources = false;
+  std::string error;
+  REQUIRE(s.save(error));
+  s.newProject("other");
+  CHECK(s.recSetup().source == RecSource::Master);
+  REQUIRE(s.load("rec", error));
+  const RecSetup& back = s.recSetup();
+  CHECK(back.source == RecSource::Tracks);
+  CHECK(back.tracks == (1 | 8));
+  CHECK(back.tap == RecTap::Pre);
+  CHECK(back.bars == 16);
+  CHECK_FALSE(back.synced);
+  CHECK(back.dest == RecSetup::Dest::Drum);
+  CHECK(back.destTrack == 6);
+  CHECK(back.firstPad == 4);
+  CHECK(back.slice == SliceMode::Equal);
+  CHECK(back.sliceCount == 16);
+  CHECK_FALSE(back.muteSources);
+}

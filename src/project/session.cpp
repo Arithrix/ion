@@ -78,6 +78,7 @@ ParamRef engineRef(int track, int index) {
 //          (D-50): drum pads' "vel.level" is now "vel.amp"; hold "full" moved
 //          from 5000 to 10000; a gate pad's decay is now its release. FM's
 //          Attack and Release macros are gone (their values and CCs drop).
+//   5 → 6: the Rec setup ("rec"), optional: older files get the defaults.
 // A drum pad's settings from before the uniform envelope (0.3, 0.4), in place.
 // `prefix` is "padN." in a project, "" in a kit.
 void upgradePadParams(json& params, const std::string& prefix) {
@@ -1052,8 +1053,43 @@ void Session::autosaveIfNeeded() {
 
 // ---- files ----------------------------------------------------------------------------
 
+json Session::recJson() const {
+  const RecSetup& r = rec_;
+  json tracks = json::array();
+  for (int t = 0; t < kTrackCount; ++t)
+    if (r.tracks >> t & 1) tracks.push_back(t + 1);
+  const char* dest = r.dest == RecSetup::Dest::Sampler ? "sampler" : r.dest == RecSetup::Dest::Drum ? "drum" : "library";
+  const char* slice = r.slice == SliceMode::Equal ? "equal" : r.slice == SliceMode::Transients ? "transients" : "chords";
+  return {{"source", r.source == RecSource::Master ? "master" : "tracks"}, {"tracks", tracks}, {"tap", r.tap == RecTap::Pre ? "pre" : "post"},
+          {"bars", r.bars}, {"start", r.synced ? "next bar" : "now"}, {"send_to", dest}, {"track", r.destTrack + 1},
+          {"first_pad", r.firstPad + 1}, {"slice", slice}, {"slices", r.sliceCount}, {"mute_sources", r.muteSources}};
+}
+
+void Session::recFromJson(const json& j) {
+  RecSetup r;
+  r.source = j.value("source", std::string()) == "tracks" ? RecSource::Tracks : RecSource::Master;
+  if (j.contains("tracks") && j["tracks"].is_array())
+    for (const json& t : j["tracks"])
+      if (t.is_number_integer() && t.get<int>() >= 1 && t.get<int>() <= kTrackCount) r.tracks |= static_cast<uint8_t>(1 << (t.get<int>() - 1));
+  r.tap = j.value("tap", std::string()) == "pre" ? RecTap::Pre : RecTap::Post;
+  const int bars = j.value("bars", 4);
+  r.bars = bars == 0 || bars == 1 || bars == 2 || bars == 4 || bars == 8 || bars == 16 ? bars : 4;
+  r.synced = j.value("start", std::string("next bar")) != "now";
+  const std::string dest = j.value("send_to", std::string());
+  r.dest = dest == "sampler" ? RecSetup::Dest::Sampler : dest == "drum" ? RecSetup::Dest::Drum : RecSetup::Dest::Library;
+  r.destTrack = std::clamp(j.value("track", 1) - 1, 0, kTrackCount - 1);
+  r.firstPad = std::clamp(j.value("first_pad", 1) - 1, 0, DrumEngine::kPads - 1);
+  const std::string slice = j.value("slice", std::string());
+  r.slice = slice == "equal" ? SliceMode::Equal : slice == "transients" ? SliceMode::Transients : SliceMode::Chords;
+  const int n = j.value("slices", 8);
+  r.sliceCount = n == 4 || n == 16 ? n : 8;
+  r.muteSources = j.value("mute_sources", true);
+  rec_ = r;
+}
+
 void Session::reset() {
   cancelLearn();
+  rec_ = {};
   // Recordings belong to the project being left: one still running is dropped.
   cancelTake();
   takeAbandoned_ = take_ != nullptr;
@@ -1225,6 +1261,7 @@ std::string Session::toJson() const {
   for (const ProgramEntry& p : programs_)
     programs.push_back({{"name", syx::name(p.voice)}, {"source", p.source}, {"voice", toHex(p.voice.data(), p.voice.size())}});
   j["programs"] = programs;
+  j["rec"] = recJson();
   return j.dump(2) + "\n";
 }
 
@@ -1343,6 +1380,7 @@ bool Session::fromJson(const std::string& text, std::string& error) {
       }
       sendPrograms();
     }
+    if (j.contains("rec") && j["rec"].is_object()) recFromJson(j["rec"]);
   } catch (const json::exception& e) {
     error = std::string("bad project file: ") + e.what();
     return false;

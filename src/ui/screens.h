@@ -89,6 +89,9 @@ class Screen {
   // True while the screen is taking typed text (a filter): letters, digits and
   // Backspace then go to onEvent instead of being shortcuts.
   virtual bool capturesText(Context&) { return false; }
+  // Space, when the screen has something of its own to play (a slice); false
+  // leaves it to the global audition.
+  virtual bool audition(Context&) { return false; }
 };
 
 // What a track plays, in a few words: the FM patch, the kit, "— empty —".
@@ -107,6 +110,7 @@ std::unique_ptr<Screen> makeFxScreen();
 std::unique_ptr<Screen> makeInstrumentScreen();
 std::unique_ptr<Screen> makeDrumScreen();     // the Instrument screen for DRUM tracks
 std::unique_ptr<Screen> makeSamplerScreen();  // …and for SAMPLER tracks
+std::unique_ptr<Screen> makeRecScreen();       // Rec (R): resampling
 std::unique_ptr<Screen> makeSettingsScreen();
 std::unique_ptr<Screen> makeLibraryScreen();
 std::unique_ptr<Screen> makePlaceholderScreen(std::string title, std::string message);

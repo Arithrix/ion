@@ -83,8 +83,7 @@ class App {
     screens_[static_cast<int>(ScreenId::Instrument)] = makeInstrumentScreen();
     screens_[static_cast<int>(ScreenId::Mixer)] = makeMixerScreen();
     screens_[static_cast<int>(ScreenId::Fx)] = makeFxScreen();
-    screens_[static_cast<int>(ScreenId::Rec)] =
-        makePlaceholderScreen("Resample", "Clock-synced recording, slicing onto pads and loading into the sampler arrive in Phase 6.");
+    screens_[static_cast<int>(ScreenId::Rec)] = makeRecScreen();
     screens_[static_cast<int>(ScreenId::Library)] = makeLibraryScreen();
     screens_[static_cast<int>(ScreenId::Settings)] = makeSettingsScreen();
   }
@@ -208,7 +207,9 @@ class App {
             s.nudgeParam({static_cast<uint8_t>(scope), c[0] == 'm' ? kMute : kSolo}, 1, false);
             return true;
           }
-          case ' ': audition(); return true;
+          case ' ':
+            if (!screen().audition(ctx_)) audition();
+            return true;
           default:
             if (c[0] >= '1' && c[0] <= '8') {
               ctx_.track = c[0] - '1';
@@ -650,8 +651,24 @@ class App {
     }
     const Session& s = ctx_.session;
     std::string project = wide ? fit(s.name(), 24) : "";
+    // A take armed or running shows on every screen.
+    std::string rec;
+    if (const Take* take = s.take()) {
+      const Session::RecState rs = s.recState();
+      if (rs == Session::RecState::Armed) rec = narrow ? "◌" : "◌ ARMED";
+      else if (rs == Session::RecState::Recording) {
+        rec = "● REC";
+        if (take->synced && !narrow) {
+          const int bar = std::max(0, take->tickCount.load() - 1) / 96 + 1;
+          rec += " " + std::to_string(std::min(bar, take->targetBars.load()));
+          if (take->bars > 0) rec += "/" + std::to_string(take->targetBars.load());
+        }
+      }
+      if (!rec.empty()) rec += narrow ? " " : "   ";
+    }
     return hbox({text(" ion") | bold | color(palette::accent), text(narrow ? " " : "  "), hbox(tabs), filler(),
                  text(project) | color(palette::dim), text(s.dirty() && wide ? " ● " : (wide ? "   " : "")) | color(palette::accent),
+                 text(rec) | bold | color(palette::record),
                  text(clock) | color(st.clockPresent.load() ? palette::text : palette::faint), text(narrow ? " " : "   "),
                  text(cpu) | color(palette::text), text(narrow ? " " : "   "),
                  text(audio + " ") | color(ctx_.audio && !ctx_.audio->realtime() ? palette::record : palette::dim)});

@@ -1,0 +1,36 @@
+ ion  Tracks Instr Mixer Fx Rec Library                                          resample ● ▶ 120.0 ext clock   cpu 0%   no audio
+╭ Setup ───────────────────────────────╮╭ Recording ─────────────────────────────────────────────────────────────────────────────╮
+│source   tracks                       ││SLICES · 4 · ⏎ puts them on pads 13–16                                           track 2│
+│tracks    1  2  3  4  5  6  7  8      ││                                                                                        │
+│tap      post-fx                      ││                      │                     │                     │                     │
+│length   4 bars                       ││▇▆▆▅▄▇▇▆▆▄▄▇▆▆▅▄▇▇▆▅▄▄│▆▆▅▄▇▇▆▅▅▄▇▇▆▅▄▇▇▆▅▅▄│▅▆▅▃█▇▅▅▅▃▇▇▅▅▄▇▇▆▅▅▃│▆▆▄▄▆▇▆▄▅▄▇▇▅▅▄▇▇▆▅▅▃│
+│start    next bar (clock)             ││██████████████████████│█████████████████████│█████████████████████│█████████████████████│
+│send to  drum pads                    ││██████████████████████│█████████████████████│█████████████████████│█████████████████████│
+│track    track 2 · empty kit          ││1                     2                     3                     4                     │
+│pads     from pad 13 (up to 4)        ││slice 3 of 4 · pad 15 · 2.000 s at 4.000 s · ←→ nudges it, Shift by 10 ms               │
+│slice    on chord changes             │├────────────────────────────────────────────────────────────────────────────────────────┤
+│after    mute the source tracks       ││recent recordings                                                                       │
+│                                      ││chords_120bpm_4bar.wav                           4 bars    library (slicing)            │
+│                                      ││u undoes chords_120bpm_4bar                                                             │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+├──────────────────────────────────────┤│                                                                                        │
+│r records 4 bars of the chosen tracks ││                                                                                        │
+│as you hear them (fader and pan, even ││                                                                                        │
+│if muted), from the next bar.         ││                                                                                        │
+│Then you check the slices and ⏎ puts  ││                                                                                        │
+│them on track 2.                      ││                                                                                        │
+╰──────────────────────────────────────╯╰────────────────────────────────────────────────────────────────────────────────────────╯
+ midi MIDI off  ·  last: note on   ch01 C3 vel 127
+ ⏎  To pads   Spc  Play   ↑↓  Slice   ←→  Nudge   a  Add   x  Remove   Esc  Keep, no pads   u  Undo take

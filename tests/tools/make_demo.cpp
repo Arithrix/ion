@@ -259,6 +259,58 @@ int main(int argc, char** argv) {
     s.addMapping(5, 74, engineParamRef(5, SamplerEngine::kCutoff));
   }
 
+  // Track 7 (ch 7): the chord loop resampled through the real recorder (Phase 6):
+  // four bars of track 6 from a downbeat of a pretend 120 BPM clock, sliced on
+  // its chord changes onto pads 1-4 (C1-D#1), choke group A.
+  {
+    s.setEngine(6, EngineType::Drum);
+    if (!s.waitForSamples()) {
+      std::fputs("make-demo: the chord loop didn't load\n", stderr);
+      return 1;
+    }
+    RecSetup& rs = s.recSetup();
+    rs.source = RecSource::Tracks;
+    rs.tracks = 1 << 5;
+    rs.bars = 4;
+    rs.synced = true;
+    rs.dest = RecSetup::Dest::Drum;
+    rs.destTrack = 6;
+    rs.firstPad = 0;
+    rs.slice = SliceMode::Chords;
+    rs.muteSources = false;
+    if (!s.arm(error)) {
+      std::fprintf(stderr, "make-demo: %s\n", error.c_str());
+      return 1;
+    }
+    std::vector<float> buf(2 * 256);
+    int64_t frame = 0, tick = 0;
+    auto run = [&](int64_t frames) {
+      for (const int64_t end = frame + frames; frame < end; frame += 256) {
+        for (; tick < frame + 256; tick += 1000) module->pushMidi({{0xF8}, MidiEvent::Timing::Frame, tick});
+        module->process(buf.data(), 256);
+        s.tick();
+      }
+    };
+    run(10000);
+    module->pushMidi({{0xFA}, MidiEvent::Timing::Frame, tick});
+    module->pushMidi({{0x95, 60, 110}, MidiEvent::Timing::Frame, tick});
+    run(4 * 96000 + 8192);
+    module->pushMidi({{0x85, 60, 0}, MidiEvent::Timing::Frame, frame});
+    run(4096);
+    if (s.recState() != Session::RecState::Review || !s.commitSlices(error) || !s.waitForSamples()) {
+      std::fprintf(stderr, "make-demo: the demo take didn't make slices: %s\n", error.empty() ? s.takeMessage().c_str() : error.c_str());
+      return 1;
+    }
+    s.tick();
+    std::printf("make-demo: %s\n", s.takeMessage().c_str());
+    set(6, kFader, -4.0f);
+    // Ready for a take of your own: the piano and strings (both on ch 1),
+    // four bars from the next downbeat, sliced onto pads 5-8 of track 7.
+    rs.tracks = 1 << 0 | 1 << 3;
+    rs.firstPad = 4;
+    rs.muteSources = true;
+  }
+
   // cc 75 on channel 1: the reverb's size; cc 76: the delay's feedback.
   s.addMapping(0, 75, insertParamRef(kReverbScope, 0, Reverb::kSize));
   s.addMapping(0, 76, insertParamRef(kDelayScope, 0, Delay::kFeedback));

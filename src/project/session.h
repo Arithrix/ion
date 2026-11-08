@@ -27,7 +27,8 @@ namespace ion {
 
 // 1: Phase 1. 2: FM macros, the program list, library ids (v0.2.0). 3: drum kits (v0.3.0).
 // 4: inserts, sends, the returns and the master chain (v0.4.0). 5: sampler tracks (v0.5.0).
-inline constexpr int kProjectFormat = 5;
+// 6: the Rec screen's setup (v0.6.0).
+inline constexpr int kProjectFormat = 6;
 
 struct PadState {
   // As saved: an absolute path, or one relative to the project folder
@@ -308,6 +309,8 @@ class Session {
   void mixerFromJson(int scope, const nlohmann::json& mixer);
   void setIfDifferent(ParamRef ref, float value);
   void finishTake(Take* take);
+  nlohmann::json recJson() const;
+  void recFromJson(const nlohmann::json& j);
   void sendToSampler(int t, const std::string& stored);
   std::string soundSlug(int t) const;
 

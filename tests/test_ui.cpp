@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <memory>
+#include <random>
 #include <regex>
 
 #include "audio/wav.h"
@@ -300,6 +301,10 @@ TEST_CASE("ui snapshots: every screen at the handoff's sizes") {
   };
   // Into garage/kicks/ and down to kick_tight_03 (which previews).
   const std::vector<std::string> kIntoKicks = {"Return", "Down", "Return", "Down", "Return", "Down", "Down", "Down", "Down", "Down"};
+  // Rec: tracks 3 and 6, four bars, sliced on chord changes onto pads 13-16 of track 4.
+  std::vector<std::string> kRecSetup = {"Right", "Down", "Right", "Right", "Return", "Right", "Right", "Right", "Return",
+                                        "Down", "Down", "Down", "Down", "Right", "Right", "Down", "Right", "Right", "Right", "Down"};
+  for (int i = 0; i < 12; ++i) kRecSetup.push_back("Right");
   const Case cases[] = {
       {"tracks_130x36", ui::ScreenId::Tracks, 130, 36},
       {"tracks_80x24", ui::ScreenId::Tracks, 80, 24},
@@ -337,8 +342,13 @@ TEST_CASE("ui snapshots: every screen at the handoff's sizes") {
       {"sampler_browse_130x36", ui::ScreenId::Instrument, 130, 36, false, false, 5, {"o"}},
       {"tracks_sampler_130x36", ui::ScreenId::Tracks, 130, 36, false, false, 5},
       {"library_kits_130x36", ui::ScreenId::Library, 130, 36, false, false, 3, {"Tab", "Down", "Down", "Right"}},
+      {"rec_130x36", ui::ScreenId::Rec, 130, 36, false, false, 0, kRecSetup},
+      {"rec_80x24", ui::ScreenId::Rec, 80, 24, false, false, 0, kRecSetup},
+      {"rec_60x35", ui::ScreenId::Rec, 60, 35, false, false, 0, kRecSetup},
+      {"rec_master_130x36", ui::ScreenId::Rec, 130, 36},
   };
   for (const Case& c : cases) {
+    if (c.screen == ui::ScreenId::Rec) r.session.recSetup() = RecSetup{};  // each case from the defaults
     const std::string frame = mask(ui::snapshot(r.session, *r.module, c.screen, c.w, c.h, c.piano, c.help, c.track, c.keys));
     // Never wider than the terminal.
     std::size_t start = 0;
@@ -419,4 +429,62 @@ TEST_CASE("mixer: m and s act on the selected strip; returns mute but don't solo
   // On a track, m mutes that track.
   ui::snapshot(r.session, *r.module, ui::ScreenId::Mixer, 130, 36, false, false, 0, {"Right", "m"});
   CHECK(r.session.param({1, kMute}) == 1.0f);
+}
+
+// ---- the Rec screen with a take running, and its slices ----
+
+TEST_CASE("ui snapshots: a take recording, then its slices waiting for review") {
+  const fs::path root = fs::temp_directory_path() / ("ion-ui-rec-" + std::to_string(std::random_device{}()));
+  fs::create_directories(root);
+  {
+    auto module = std::make_unique<Module>();
+    Config config;
+    Session session(*module, Paths::under(root), config);
+    session.newProject("resample");
+    // Track 1: a sampler playing four bars of chords (C, A minor, F, G), each struck on the beat.
+    wav::Audio a;
+    a.channels = 1;
+    a.samples.assign(4 * 96000, 0.0f);
+    const int chords[4][3] = {{60, 64, 67}, {57, 60, 64}, {53, 57, 60}, {55, 59, 62}};
+    for (int b = 0; b < 4; ++b)
+      for (int n : chords[b])
+        for (int i = 0; i < 96000; ++i) {
+          const double beat = (i % 24000) / 48000.0, env = std::min(1.0, beat / 0.01) * std::exp(-beat * 1.5);
+          const double f = 440.0 * std::pow(2.0, (n - 69) / 12.0);
+          a.samples[static_cast<std::size_t>(b * 96000 + i)] += static_cast<float>(0.08 * env * std::sin(2 * 3.14159265358979 * f * (b * 96000 + i) / 48000.0));
+        }
+    std::string error;
+    REQUIRE(wav::write(root / "chords.wav", a, error));
+    session.setEngine(0, EngineType::Sampler);
+    session.setPadSample(0, 0, (root / "chords.wav").string());
+    session.setEngine(1, EngineType::Drum);
+    REQUIRE(session.waitForSamples());
+    RecSetup& rs = session.recSetup();
+    rs.source = RecSource::Tracks;
+    rs.tracks = 1;
+    rs.dest = RecSetup::Dest::Drum;
+    rs.destTrack = 1;
+    rs.firstPad = 12;
+    REQUIRE(session.arm(error));
+
+    std::vector<float> buf(2 * 256);
+    int64_t frame = 0, tick = 0;
+    auto run = [&](int64_t frames) {
+      for (const int64_t end = frame + frames; frame < end; frame += 256) {
+        for (; tick < frame + 256; tick += 1000) module->pushMidi({{0xF8}, MidiEvent::Timing::Frame, tick});
+        module->process(buf.data(), 256);
+        session.tick();
+      }
+    };
+    run(20000);
+    module->pushMidi({{0xFA}, MidiEvent::Timing::Frame, tick});
+    module->pushMidi({{0x90, 60, 127}, MidiEvent::Timing::Frame, tick});
+    run(2 * 96000 + 48000);  // two and a half bars in
+    checkSnapshot("rec_recording_130x36", mask(ui::snapshot(session, *module, ui::ScreenId::Rec, 130, 36)));
+    run(2 * 96000);
+    REQUIRE(session.recState() == Session::RecState::Review);
+    checkSnapshot("rec_review_130x36", mask(ui::snapshot(session, *module, ui::ScreenId::Rec, 130, 36, false, false, 0, {"Down", "Down"})));
+    checkSnapshot("rec_review_60x35", mask(ui::snapshot(session, *module, ui::ScreenId::Rec, 60, 35)));
+  }
+  fs::remove_all(root);
 }
