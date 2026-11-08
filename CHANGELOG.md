@@ -5,6 +5,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-07
+
 ### Added
 - **Effects.** Every track, the master and both send returns have **three insert slots**. The effects:
   - **Compressor:** threshold, ratio, attack, release, knee, makeup, mix. It shows how much it's turning down.
