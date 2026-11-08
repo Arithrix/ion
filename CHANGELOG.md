@@ -20,7 +20,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 ### Changed (Phase 5)
 - Projects are now format 5 (sampler tracks); 0.4.x can't open projects saved by 0.5.0.
 
-### Added (Phase 4: effects)
+## [0.4.0] - 2026-11-07
+
+### Added
 - **Effects.** Every track, the master and both send returns have **three insert slots**. The effects:
   - **Compressor:** threshold, ratio, attack, release, knee, makeup, mix. It shows how much it's turning down.
   - **Chorus:** rate, depth, mix, width.
