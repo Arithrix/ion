@@ -1,8 +1,29 @@
 # Status
 
-**Phase:** 5 done · 0.4.0 (effects) and 0.5.0 (sampler + uniform envelope, D-50) are released and pushed. Next: Phase 6, not started.
-**Branch:** `main` (Phase 6 will be `phase/6-resampling`)
+**Phase:** 6 done, at its checkpoint (0.6.0: resampling). 0.4.0, 0.5.0 untested by Michael.
+**Branch:** `phase/6-resampling`, merged to `main` for the 0.6.0 release
 **Updated:** 2026-11-07
+
+## Done (Phase 6)
+- **Recorder in the Module** (D-51):
+  - takes of the master or any set of tracks (post-fx with fader and pan, mute ignored; or pre-fx dry);
+  - synced: armed until the downbeat tick, starting at its exact frame; the master read through the limiter's lookahead so it lines up too;
+  - 1–16 bars or until stopped; "now" without clock;
+  - trimmed to whole bars by a least-squares fit through every tick of the take (D-09 refined);
+  - the transport stopping keeps whole bars; `r` mid-take stops on the next downbeat.
+- **Slicing** (D-52): equal 4/8/16, chord changes (chroma novelty on the beat grid, relative to the in-chord noise floor), transients (spectral flux, moved back to the attack and a zero crossing).
+- **Session** (D-53):
+  - WAV + sidecar in `recordings/` (tempo, bars, sources, tap, start bar, slices, where it went, the source tracks' settings);
+  - to the library, a sampler (looped from C3), or drum pads after review (nudge, split, merge, audition), in a free choke group;
+  - mute sources (not the destination); undo the last take (tracks restored from snapshots, files deleted);
+  - project format 6 keeps the Rec setup; save-as copies recordings.
+- **Rec screen (`R`):** Setup rows; the take with bars filling and a live waveform; slice markers; recent recordings; `● REC 3/4` in the header everywhere. Wide, 80-column and narrow (Tab between panes) layouts. The sample browser lists the project's recordings.
+- **Demo:** make-demo records track 6's chord loop through the real recorder onto pads 1–4 of track 7, and leaves the Rec screen set up for a take of the piano and strings.
+- **Tests:** 148 cases.
+  - Module: synced start on the exact downbeat frame, tick capture, master alignment, post/pre taps with fader and mute, track selection, "now" lengths, stop on downbeat, clock stop, disarm, cancel.
+  - Slicer: equal; chord changes on bars (incl. two chords sharing notes), one chord restruck, a mid-bar change, no tempo; transients within 2 ms.
+  - Session: end to end onto pads (trim, sidecar, mute, nudge/add/remove, commit, choke group, undo), into a sampler (several sources, the destination not muted, save-as, undo), arming checks, cancel, free takes, setup save/load.
+  - Snapshots of the Rec screen idle at three sizes, recording, and reviewing.
 
 ## Done (Phase 5)
 - **One envelope for every instrument** (D-50, Michael's call):
@@ -88,16 +109,18 @@
   - Clean under AddressSanitizer and UBSan, apart from Synth_Dexed's own upstream warnings.
 
 ## Waiting on Michael
+- Try 0.6.0 (resampling: "resamples chords onto pads"). How chord-change slicing does on his material is the thing to tune.
 - Say whether FM without its old Attack/Release macros is OK, or bring them back (D-50; revert is possible).
 - Try 0.4.0 (effects: "dials in a mix") and 0.5.0 (sampler: "plays a sample chromatically"; the uniform envelope).
 - Choose the reverb by ear (D-42); the 1 ms limiter latency (D-45).
 - Tune by ear: velocity → level default (50%), drive amount, decay range, 4 voices per pad.
 - Still open from earlier: real-time priority (`no RT` in the header; dropouts without it, see V-10), latency feel, `ion --list-midi` with the OXI, macro ranges.
 
-## Next (Phase 6: resampling)
-Clock-synced recording of a track, tracks or the master (1–16 bars, from the next downbeat, sample-accurate, D-09). WAV + sidecar (D-49). Send to the library, a sampler track (loop set, root C3), or drum pads as slices (equal, per chord change, transients) with markers to nudge. Optional mute of the sources; undo the last take.
+## Next (Phase 7: Plaits)
+Port all 24 models (1.2 is public, V-01), N-voice polyphony, per-model macro descriptions, the 3×8 grid, the FM-library link for the three 6-op models, presets. The uniform envelope goes after its LPG (D-50). Start from HANDOFF §6.4 and `mockups/Plaits.dc.html`. Not started: waiting for the 0.6.0 checkpoint.
 
 ## Known gaps carried forward
+- Recording: no audio input yet; undo is one take deep and per session; a take's source settings are saved in its sidecar but there's no "bring the sources back" command yet; editing the Rec setup doesn't mark the project unsaved.
 - Global default CC mappings (D-26).
 - Near-duplicate FM patches aren't folded together (D-30).
 - No samples index in library.db yet; the browser reads folders (D-35).
