@@ -14,6 +14,7 @@ add_executable(ion-tests
   test_params_eq.cpp
   test_sampler.cpp
   test_session.cpp
+  test_recording.cpp
   test_render.cpp
   test_ui.cpp
   test_version.cpp

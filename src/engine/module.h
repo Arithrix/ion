@@ -15,6 +15,7 @@
 #include "engine/fx/effects.h"
 #include "engine/midi_types.h"
 #include "engine/sample.h"
+#include "engine/take.h"
 #include "library/syx.h"
 
 namespace ion {
@@ -65,6 +66,9 @@ struct Command {
     SetSample,     // `sample` (may be null) onto pad `slot` of drum `track`; the old one comes back as SampleReleased
     Preview,       // play `sample` once at gain `value`, straight to the master (null stops); comes back as SampleReleased
     SetInsert,     // `effect` (may be null) into insert `slot` of `scope`; the old one comes back as EffectRetired
+    Record,        // start `take` (armed until the next downbeat if it's synced); comes back as TakeDone
+    StopRecord,    // armed: disarm; synced: stop on the next downbeat; otherwise stop now
+    CancelRecord,  // drop the take (it comes back as TakeDone, Cancelled)
   };
   Type type = Type::Panic;
   uint8_t track = 0;
@@ -79,6 +83,7 @@ struct Command {
   const Sample* sample = nullptr;
   uint8_t scope = 0;  // SetInsert: any scope, returns and master included
   Effect* effect = nullptr;
+  Take* take = nullptr;
 };
 
 // Audio thread → control thread.
@@ -90,6 +95,7 @@ struct Notification {
     ProgramChanged,   // program `program` was loaded onto `track`
     SampleReleased,   // the audio thread no longer uses `sample` (one per SetSample/Preview that sent it)
     EffectRetired,    // delete `effect`
+    TakeDone,         // the audio thread has finished with `take` (Done or Cancelled)
   };
   Type type = Type::EngineRetired;
   Engine* engine = nullptr;
@@ -101,6 +107,7 @@ struct Notification {
   uint8_t program = 0;
   const Sample* sample = nullptr;
   Effect* effect = nullptr;
+  Take* take = nullptr;
 };
 
 struct MeterStatus {
@@ -182,6 +189,13 @@ class Module {
   void runInserts(int scope, float* l, float* r) noexcept;
   // EQ, then fader and pan into the master sum, for a return or a track.
   void strip(int scope, float* l, float* r, float gainScale, float* outL, float* outR) noexcept;
+  // Recording (HANDOFF §7.6, DECISIONS D-51).
+  void startTake(Take* t) noexcept;
+  void takeTick(int64_t frame, bool downbeat) noexcept;
+  void takeClockStopped() noexcept;
+  void captureTake(const float* l, const float* r, int64_t delay) noexcept;
+  void endTake(Take::State state) noexcept;
+  bool capturing() const noexcept { return take_ && take_->state.load(std::memory_order_relaxed) == Take::State::Recording; }
 
   // ---- audio-thread state ----
   std::array<Engine*, kTrackCount> engines_{};
@@ -225,6 +239,13 @@ class Module {
   float busLeft_[2][kBlockSize]{}, busRight_[2][kBlockSize]{};
   float scratchLeft_[kBlockSize]{}, scratchRight_[kBlockSize]{};
   ClockFollower clock_;
+
+  Take* take_ = nullptr;
+  int64_t takeStart_ = 0;  // module frame of the take's first sample
+  int64_t takeEnd_ = -1;   // capture stops here (exclusive) once known
+  int takeTicks_ = 0;      // clock ticks since the start tick
+  float recLeft_[kBlockSize]{}, recRight_[kBlockSize]{};  // the tracks being recorded, summed
+  std::array<float, kTrackCount> recGainLeft_{}, recGainRight_{};  // post-fx tap: fader and pan, ramped
 
   float trackLeft_[kTrackCount][kBlockSize]{};
   float trackRight_[kTrackCount][kBlockSize]{};

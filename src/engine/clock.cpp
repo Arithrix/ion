@@ -11,8 +11,8 @@ constexpr double kLostSeconds = 0.5;       // no tick for this long: clock gone
 
 }  // namespace
 
-void ClockFollower::tick(int64_t frame) {
-  if (lastTick_ >= 0 && frame <= lastTick_) return;  // out of order: ignore
+bool ClockFollower::tick(int64_t frame) {
+  if (lastTick_ >= 0 && frame <= lastTick_) return false;  // out of order: ignore
   window_[static_cast<std::size_t>(head_)] = frame;
   head_ = (head_ + 1) % kWindow;
   count_ = std::min(count_ + 1, kWindow);
@@ -39,6 +39,7 @@ void ClockFollower::tick(int64_t frame) {
   lastTick_ = frame;
   present_ = true;
   if (running_) ++ticks_;
+  return true;
 }
 
 void ClockFollower::start(int64_t) {

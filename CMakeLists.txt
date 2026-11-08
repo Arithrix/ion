@@ -53,6 +53,7 @@ add_library(ion_engine STATIC
   src/library/fm_library.cpp
   src/library/recording.cpp
   src/library/sample_loader.cpp
+  src/library/slicer.cpp
   src/library/syx.cpp
   src/engine/channel_eq.cpp
   src/engine/clock.cpp
