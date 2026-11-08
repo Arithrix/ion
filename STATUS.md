@@ -1,10 +1,14 @@
 # Status
 
-**Phase:** 5 · Sampler. Built and tested on `phase/5-sampler` (on top of `phase/4-effects`). Neither phase is released yet, so 0.3.0 stays installed for Michael's test tonight; 0.4.0 and 0.5.0 follow once he's tried it.
+**Phase:** 5 · Sampler, plus the uniform envelope (D-50). 0.4.0 (effects) is released; 0.5.0 is the Phase 5 checkpoint build.
 **Branch:** `phase/5-sampler`
 **Updated:** 2026-11-07
 
 ## Done (Phase 5)
+- **One envelope for every instrument** (D-50, Michael's call):
+  - the same AHDSR and velocity → amp on FM, drum pads and the sampler (amp and filter);
+  - FM's Attack/Release macros replaced by it, applied per voice inside Synth_Dexed, wide open by default;
+  - 0.3/0.4 drum kits and projects convert exactly.
 - **Sampler engine** (D-47):
   - one sample played chromatically from a root note across a key range;
   - loop off, forward (with crossfade) or ping-pong;
@@ -22,7 +26,7 @@
   - `o` opens the browser at the sample's folder, and an empty sampler starts in it.
   - Four sections side by side when wide, two at 80 columns, one at a time on narrow screens.
 - **Elsewhere:** Space plays the root note; the engine picker offers SMPL; Tracks shows the sample and its main settings.
-- **Tests:** 128 cases.
+- **Tests:** 132 cases.
   - Pitch by note and key range; loops; crossfade against a click; ADSR timing; filter, key tracking and velocity.
   - Synced LFO, glide, voice limit, sample hand-back, extremes.
   - Session round trip; snapshots at 130×36, 80×24 and 60×35.
@@ -84,7 +88,7 @@
   - Clean under AddressSanitizer and UBSan, apart from Synth_Dexed's own upstream warnings.
 
 ## Waiting on Michael
-- Try 0.3.0 tonight (`~/ion/releases/v0.3.0/TESTING.md`): build a garage kit and play it from the OXI. Then 0.4.0 gets released for the Phase 4 checkpoint ("dials in a mix").
+- Try 0.4.0 (effects: "dials in a mix") and 0.5.0 (sampler: "plays a sample chromatically"; the uniform envelope).
 - Choose the reverb by ear (D-42); the 1 ms limiter latency (D-45).
 - Tune by ear: velocity → level default (50%), drive amount, decay range, 4 voices per pad.
 - Still open from earlier: real-time priority (`no RT` in the header; dropouts without it, see V-10), latency feel, `ion --list-midi` with the OXI, macro ranges.

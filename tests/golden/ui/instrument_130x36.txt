@@ -13,19 +13,19 @@
 │· KOTO       cart_17       19                                         ││algorithm 5 · three 2-op stacks                         │
 │· RHODES MK1 cart_17       11                                         ││feedback 6 on op 6                                      │
 │· SLAP BASS  cart_17        5                                         ││                                                        │
-│· STRINGS 1  cart_17       13                                         ││macros · adjust without overwriting the patch           │
-│· SUB BASS 2 cart_17        7                                         ││  Bright    ░░░░░░░░░░░░░░ 0     modulator levels       │
-│★ SYN-BAS 4  cart_17        5  1                                      ││  Attack    ░░░░░░░░░░░░░░ 0     all envelope attacks   │
-│· SYN-LEAD 1 cart_17       25                                         ││  Release   ░░░░░░░░░░░░░░ 0     all envelope releases  │
-│· TAKE OFF   cart_17       31                                         ││  Feedback  ░░░░░░░░░░░░░░ 0     the patch feedback     │
-│· TUB BELLS  cart_17       17                                         ││  Detune    ░░░░░░░░░░░░░░ 0     spread between ops     │
-│· VOICE 1    cart_17       23                                         ││  Velocity  ░░░░░░░░░░░░░░ 0     touch on carriers      │
-│· WARM PAD   cart_17       29                                         ││                                                        │
-│                                                                      ││  Polyphony   8                                         │
-│                                                                      ││  Bend range  2                                         │
-│                                                                      ││  Mono        off                                       │
+│· STRINGS 1  cart_17       13                                         ││macros · over the patch      amp █████████████████████  │
+│· SUB BASS 2 cart_17        7                                         ││  Bright   ░░░░░░░░ 0          Attack   0               │
+│★ SYN-BAS 4  cart_17        5  1                                      ││  Feedback ░░░░░░░░ 0          Hold     0               │
+│· SYN-LEAD 1 cart_17       25                                         ││  Detune   ░░░░░░░░ 0          Decay    500 ms          │
+│· TAKE OFF   cart_17       31                                         ││  Velocity ░░░░░░░░ 0          Sustain  100%            │
+│· TUB BELLS  cart_17       17                                         ││                               Release  off             │
+│· VOICE 1    cart_17       23                                         ││  Polyphony  8                 Vel→amp  0%              │
+│· WARM PAD   cart_17       29                                         ││  Bend range 2                                          │
+│                                                                      ││  Mono       off                                        │
 │                                                                      ││                                                        │
 │                                                                      ││○ as stored · a save as · e export                      │
+│                                                                      ││                                                        │
+│                                                                      ││                                                        │
 │                                                                      ││                                                        │
 │                                                                      ││                                                        │
 │                                                                      ││                                                        │

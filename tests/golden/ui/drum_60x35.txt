@@ -1,7 +1,7 @@
  ion Trk Ins Mix Fx Rec Lib                     0% no audio
 ╭ Garage 02 · Tab ⇄ ───────────────────────────────────────╮
 │01 C1         02 C#1        03 D1         04 D#1          │
-│chords_124bp… kick_sub_01   clap_room     snare_rim       │
+│kick_tight_03 kick_sub_01   clap_room     snare_rim       │
 │▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯         │
 │                                                          │
 │05 E1   grp A 06 F1   grp A 07 F#1        08 G1           │
@@ -16,19 +16,19 @@
 │—             —             —             —               │
 │▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯       ▯▯▯▯▯▯▯         │
 ╰──────────────────────────────────────────────────────────╯
-╭ Pad 1 · chords_124bpm_4bar ──────────────────────────────╮
-│7.74 s · 48k · stereo · /tmp/ion-ui-snapshot/samp…        │
-│▇▇▇▇▇▇▇▇▆▆▆▆▆▆▇▇▇▇▇▇▇▇▆▆▆▆▆▆▇▇▇▇▇▇▇▇▆▆▆▆▆▆▇▇▇▇▇▇▇▇▆▆▆▆▆▆  │
-│  Tune           0 st          Filter         LP          │
-│  Fine           0 ct          Cutoff         8.20 kHz    │
-│  Level          -3.0 dB       Resonance      12%         │
-│  Pan            C             Drive          15%         │
-│  Start          0.0 ms        Vel→level      80%         │
-│  Reverse        off           Vel→filter     0%          │
-│  Mode           one-shot      Choke          none        │
-│  Hold           full          Note           C1          │
-│  Decay          420 ms                                   │
-│                                                          │
+╭ Pad 1 · kick_tight_03 ───────────────────────────────────╮
+│0.42 s · 44.1k→48k · mono · /tmp/ion-ui-snapshot/samp…    │
+│█▇▇▇▇▇▇▆▆▆▆▆▆▆▅▅▅▅▅▅▅▄▄▄▄▄▄▃▃▃▃▃▃▃▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁  │
+│  Tune           0 st          Attack         0           │
+│  Fine           0 ct          Hold           full        │
+│  Level          -3.0 dB       Decay          420 ms      │
+│  Pan            C             Sustain        0%          │
+│  Start          0.0 ms        Release        200 ms      │
+│  Reverse        off           Filter         LP          │
+│  Mode           one-shot      Cutoff         8.20 kHz    │
+│  Choke          none          Resonance      12%         │
+│  Note           C1            Vel→filter     0%          │
+│  Vel→amp        80%           Drive          15%         │
 │cc 71 → decay                                             │
 ╰──────────────────────────────────────────────────────────╯
  midi MIDI off · nothing yet

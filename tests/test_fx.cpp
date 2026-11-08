@@ -389,7 +389,7 @@ struct Rig {
     smp.type = Command::Type::SetSample;
     smp.sample = click.get();
     m.pushCommand(smp);
-    set(engineParamRef(0, DrumEngine::param(0, DrumEngine::kVelLevel)), 0);
+    set(engineParamRef(0, DrumEngine::param(0, DrumEngine::kVelAmp)), 0);
   }
   void set(ParamRef ref, float v) {
     Command c;

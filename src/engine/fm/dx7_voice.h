@@ -1,7 +1,7 @@
 #pragma once
 
 // What a DX7 voice means, beyond its bytes: which operator modulates which
-// (per algorithm), and the six front-panel macros (HANDOFF §6.3).
+// (per algorithm), and the front-panel macros (HANDOFF §6.3).
 //
 // Operators are numbered 1-6 as on the DX7. In voice data the first block of
 // 21 bytes is operator 6 and the last is operator 1; opOffset() hides that.
@@ -46,18 +46,17 @@ std::string describe(int algorithm);
 // applied is always a valid voice (and "save as" can bake it).
 struct Macros {
   int bright = 0;    // ±50: output level of modulators (operators that aren't carriers)
-  int attack = 0;    // ±50: + slower attacks (EG rate 1 of every operator)
-  int release = 0;   // ±50: + longer releases (EG rate 4 of every operator)
   int feedback = 0;  // ±7: the voice's feedback
   int detune = 0;    // ±7: + spreads operator detune apart, − pulls it to centre
   int velocity = 0;  // ±7: key velocity sensitivity of carriers
-  bool any() const { return bright || attack || release || feedback || detune || velocity; }
+  bool any() const { return bright || feedback || detune || velocity; }
   bool operator==(const Macros&) const = default;
 };
 
-inline constexpr int kMacroCount = 6;
-inline constexpr std::array<const char*, kMacroCount> kMacroNames = {"Bright", "Attack", "Release",
-                                                                     "Feedback", "Detune", "Velocity"};
+// Attack and Release were macros until 0.5.0; the uniform amp envelope
+// replaced them (DECISIONS D-50).
+inline constexpr int kMacroCount = 4;
+inline constexpr std::array<const char*, kMacroCount> kMacroNames = {"Bright", "Feedback", "Detune", "Velocity"};
 
 // Real-time safe (no allocation). With all macros at 0 the voice is returned unchanged.
 syx::Voice applyMacros(const syx::Voice& voice, const Macros& m);

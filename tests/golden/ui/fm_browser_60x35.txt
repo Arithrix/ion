@@ -29,7 +29,7 @@
 │                                                          │
 │                                                          │
 │                                                          │
-│brt +12  atk 0  rel −8  fb 0  det 0  vel 0                │
+│brt +12  fb 0  det 0  vel 0                               │
 ╰──────────────────────────────────────────────────────────╯
  midi MIDI off · nothing yet
  ↑↓  Browse   /  Filter   ←→  View   *  Fav   t  Tag

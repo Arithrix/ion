@@ -1,5 +1,5 @@
  ion Trk Ins Mix Fx Rec Lib                     0% no audio
-╭ Track 6 · chords_124bpm_4bar · /tmp/ion-ui-snapshot/s… ──╮
+╭ Track 6 · chords_124bpm_4bar · /tmp/ion-ui-snapshot/r… ──╮
 │1  ·  · ·  2   · ·  · 3   ·  · ·  4   · ·  ·              │
 │▅▅▄▄▄▃▃▂▂▁▁   ▅▅▅▄▄▃▃▃▂▁▁    ▅▅▄▄▄▃▃▂▂▁▁   ▅▅▅▄▄▃▃▃▂▁▁    │
 │████████████▇▇████████████▇▇▇████████████▇▇████████████▇▇▇│

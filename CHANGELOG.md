@@ -18,7 +18,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 - Space on a sampler track plays its root note.
 
 ### Changed (Phase 5)
-- Projects are now format 5 (sampler tracks); 0.4.x can't open projects saved by 0.5.0.
+- **Every instrument has the same envelope** (attack, hold, decay, sustain, release, plus velocity → amp): FM, drum pads, the sampler, and Plaits when it arrives. Same names, same ranges, same picture; learn it once and one OXI knob does the same on every track.
+  - **FM:** it sits after the patch and starts wide open, so patches sound exactly as before until you use it. It can make a patch shorter or softer, but not longer.
+  - **FM's Attack and Release macros are gone**, replaced by it. Bright, Feedback, Detune and Velocity stay. Any Attack/Release macro settings and their CC mappings in older projects are dropped.
+  - **Drum pads:** hold and decay are now attack, hold, decay, sustain and release. Your 0.3/0.4 kits and projects convert exactly (a gate pad's decay becomes its release).
+- Projects are now format 5 (sampler tracks, the envelope); 0.4.x can't open projects saved by 0.5.0. Kits are saved as version 2; 0.4.x won't read their new envelope settings.
 
 ## [0.4.0] - 2026-11-07
 

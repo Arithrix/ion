@@ -35,6 +35,10 @@ EngineType engineFromKey(const char* key) {
   return EngineType::None;
 }
 
+static_assert(DrumEngine::kParamCount <= kMaxEngineParams, "drum parameters don't fit the engine range");
+static_assert(SamplerEngine::kParamCount <= kMaxEngineParams, "sampler parameters don't fit the engine range");
+static_assert(FmEngine::kParamCount <= kMaxEngineParams, "FM parameters don't fit the engine range");
+
 std::span<const ParamInfo> engineParams(EngineType type) {
   switch (type) {
     case EngineType::Fm: return FmEngine::paramTable();

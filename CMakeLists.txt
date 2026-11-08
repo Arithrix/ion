@@ -83,6 +83,7 @@ add_library(ion_ui STATIC
   src/ui/algorithm_diagram.cpp
   src/ui/app.cpp
   src/ui/drum_screen.cpp
+  src/ui/envelope_view.cpp
   src/ui/fm_browse.cpp
   src/ui/fx_screen.cpp
   src/ui/instrument_screen.cpp

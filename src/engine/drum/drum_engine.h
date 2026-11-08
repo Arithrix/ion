@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <span>
 
+#include "dsp/ahdsr.h"
 #include "engine/engine.h"
 #include "engine/sample.h"
 #include "engine/sample_retirement.h"
@@ -16,6 +17,10 @@ namespace ion {
 // Every pad parameter is an engine parameter, so each can be CC-mapped and is
 // saved like any other: index = pad × kPadParamCount + PadParam.
 //
+// Each pad has the uniform AHDSR envelope (D-50). In one-shot mode note-off
+// is ignored, so it runs attack, hold, decay, then sustain until the sample
+// ends; in gate mode note-off starts the release.
+//
 // Pads are polyphonic up to kPadVoices; a pad in a choke group stops every
 // voice in that group when it plays, itself included, so a pad alone in a
 // group is monophonic. Stopping a voice (choke, a fifth hit, a steal) fades it
@@ -25,8 +30,9 @@ class DrumEngine final : public Engine {
   static constexpr int kPads = 16;
   static constexpr int kFirstNote = 36;  // C1: pads 1-16 on C1-D#2
   enum PadParam : int {
-    kNote, kTune, kFine, kLevel, kPan, kStart, kReverse, kMode, kHold, kDecay,
-    kFilter, kCutoff, kReso, kDrive, kVelLevel, kVelFilter, kChoke,
+    kNote, kTune, kFine, kLevel, kPan, kStart, kReverse, kMode,
+    kAttack, kHold, kDecay, kSustain, kRelease,  // the uniform envelope (D-50)
+    kFilter, kCutoff, kReso, kDrive, kVelAmp, kVelFilter, kChoke,
     kPadParamCount
   };
   enum Mode : int { kOneShot, kGate };
@@ -89,8 +95,9 @@ class DrumEngine final : public Engine {
     std::array<float, kPadParamCount> v{};
   };
   struct Voice {
-    enum class Stage : uint8_t { Off, Hold, Decay, Fade };
-    Stage stage = Stage::Off;
+    bool on = false;
+    bool fading = false;     // choked, stolen or over the pad's limit: 5 ms to silence
+    float fade = 1;
     const Sample* sample = nullptr;
     int pad = 0;
     uint8_t note = 0;
@@ -99,15 +106,13 @@ class DrumEngine final : public Engine {
     double pos = 0;          // frame in the sample
     int direction = 1;       // −1 reversed
     float velocity = 1;      // 0…1
-    float env = 1;           // amplitude envelope
-    int holdLeft = 0;        // frames of hold left (one-shot); <0 = to the end
-    float fadeStep = 0;
+    dsp::Ahdsr amp;
     int declick = 0;         // frames of fade-in left
     float gainL = 0, gainR = 0;  // current, ramped to the pad's level and pan
     float cutoffScale = 1;   // velocity → filter
     float s1L = 0, s2L = 0, s1R = 0, s2R = 0;  // filter state
-    bool active() const { return stage != Stage::Off; }
-    bool released() const { return stage == Stage::Decay || stage == Stage::Fade; }
+    bool active() const { return on; }
+    bool released() const { return fading || amp.stage() == dsp::Ahdsr::Stage::Release || amp.stage() == dsp::Ahdsr::Stage::Decay; }
   };
 
   void start(int pad, uint8_t note, float velocity);

@@ -189,7 +189,7 @@ class TracksScreen final : public Screen {
     }
     if (type == EngineType::Sampler) {
       rows.push_back({Row::Patch, "sample", std::nullopt});
-      for (int p : {SamplerEngine::kRoot, SamplerEngine::kLoop, SamplerEngine::kAttack, SamplerEngine::kRelease, SamplerEngine::kCutoff}) {
+      for (int p : {SamplerEngine::kRoot, SamplerEngine::kLoop, SamplerEngine::kAmpAttack, SamplerEngine::kAmpRelease, SamplerEngine::kCutoff}) {
         std::string label = SamplerEngine::paramTable()[static_cast<std::size_t>(p)].label;
         label[0] = static_cast<char>(std::tolower(static_cast<unsigned char>(label[0])));
         rows.push_back({Row::Param, label, engineParamRef(t, p)});

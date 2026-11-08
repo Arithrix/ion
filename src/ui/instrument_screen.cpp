@@ -18,6 +18,7 @@
 #include "project/paths.h"
 #include "project/session.h"
 #include "ui/algorithm_diagram.h"
+#include "ui/envelope_view.h"
 #include "ui/fm_browse.h"
 #include "ui/screens.h"
 
@@ -27,10 +28,18 @@ namespace {
 using namespace ftxui;
 
 // What each macro does, in a few words (the mockup's note column).
-constexpr const char* kMacroNotes[dx7::kMacroCount] = {"modulator levels",  "all envelope attacks", "all envelope releases",
-                                                        "the patch feedback", "spread between ops",   "touch on carriers"};
-constexpr const char* kMacroShort[dx7::kMacroCount] = {"brt", "atk", "rel", "fb", "det", "vel"};
-constexpr int kMacroRows = dx7::kMacroCount + 3;  // + polyphony, bend range, mono
+constexpr const char* kMacroNotes[dx7::kMacroCount] = {"modulator levels", "the patch feedback", "spread between ops",
+                                                        "touch on carriers"};
+constexpr const char* kMacroShort[dx7::kMacroCount] = {"brt", "fb", "det", "vel"};
+// The pane's rows, in ↑↓ order: the macros, the amp envelope (D-50), then
+// polyphony, bend range and mono.
+constexpr int kAmpRows = FmEngine::kParamCount - FmEngine::kFirstAmp;  // attack … vel→amp
+constexpr int kMacroRows = dx7::kMacroCount + kAmpRows + 3;
+constexpr int rowParam(int row) {
+  return row < dx7::kMacroCount ? FmEngine::kFirstMacro + row
+         : row < dx7::kMacroCount + kAmpRows ? FmEngine::kFirstAmp + row - dx7::kMacroCount
+                                               : row - dx7::kMacroCount - kAmpRows;
+}
 
 std::string thousands(std::size_t n) {
   std::string s = std::to_string(n);
@@ -211,7 +220,7 @@ class InstrumentScreen final : public Screen {
     if (tr.engine != EngineType::Fm) return {{"Esc", "Back"}};
     if (ctx.fm->typing) return {{"type", "Filter"}, {"⏎", "Done"}, {"Esc", "Clear"}, {"↑↓", "Browse"}};
     if (pane_ == 1)
-      return {{"↑↓", "Macro"}, {"←→", "Adjust"}, {"l", "Learn"}, {"u", "Undo edits"}, {"a", "Save as"}, {"⏎", "Audition"},
+      return {{"↑↓", "Row"}, {"←→", "Adjust"}, {"l", "Learn"}, {"u", "Undo edits"}, {"a", "Save as"}, {"⏎", "Audition"},
               {"Tab", "Browse"}, {"Esc", "Back"}};
     Hints h = {{"↑↓", "Browse"}, {"/", "Filter"}, {"←→", "View"}, {"*", "Fav"}, {"t", "Tag"}, {"⏎", "Audition"}, {"Tab", "Macros"}};
     if (!ctx.narrow()) {
@@ -241,8 +250,7 @@ class InstrumentScreen final : public Screen {
  private:
   // Macro-pane rows: the six macros first, then the engine settings.
   ParamRef param(Context& ctx) const {
-    const int index = row_ < dx7::kMacroCount ? FmEngine::kFirstMacro + row_ : row_ - dx7::kMacroCount;
-    return {static_cast<uint8_t>(ctx.track), static_cast<uint16_t>(kEngineParamBase + index)};
+    return engineParamRef(ctx.track, rowParam(row_));
   }
 
   int listRows(const Context& ctx) const { return std::max(4, ctx.height - 12); }
@@ -326,7 +334,7 @@ class InstrumentScreen final : public Screen {
     if (narrow) {
       // CometFM: the macros as one line under the list.
       const dx7::Macros m = s.macros(ctx.track);
-      const int vals[] = {m.bright, m.attack, m.release, m.feedback, m.detune, m.velocity};
+      const int vals[] = {m.bright, m.feedback, m.detune, m.velocity};
       Elements mini;
       for (int i = 0; i < dx7::kMacroCount; ++i) {
         mini.push_back(text(std::string(kMacroShort[i]) + " ") | color(palette::dim));
@@ -399,36 +407,69 @@ class InstrumentScreen final : public Screen {
     const Session& s = ctx.session;
     const dx7::Macros m = s.macros(ctx.track);
     const bool focused = pane_ == 1;
-    const bool notes = width >= 52;
-    Elements out;
-    out.push_back(text(notes ? "macros · adjust without overwriting the patch" : "macros") | color(palette::dim));
     const auto table = FmEngine::paramTable();
-    // Without room, the engine rows go (row_ stays on the macros).
-    const int shown = roomy ? kMacroRows : dx7::kMacroCount;
-    if (!roomy) row_ = std::min(row_, dx7::kMacroCount - 1);
-    for (int i = 0; i < shown; ++i) {
-      const int index = i < dx7::kMacroCount ? FmEngine::kFirstMacro + i : i - dx7::kMacroCount;
+    // Without room, the voice rows go (row_ stays out of them).
+    const int lastRow = roomy ? kMacroRows : dx7::kMacroCount + kAmpRows;
+    if (!roomy) row_ = std::min(row_, lastRow - 1);
+    const bool twoColumns = width >= 56;
+    const int colW = twoColumns ? (width - 4) / 2 : width - 2;
+    const int barW = twoColumns ? 8 : 14;
+
+    auto row = [&](int r) {
+      const int index = rowParam(r);
       const ParamInfo& pi = table[static_cast<std::size_t>(index)];
-      const ParamRef ref{static_cast<uint8_t>(ctx.track), static_cast<uint16_t>(kEngineParamBase + index)};
-      const float v = s.param(ref);
-      const bool on = focused && i == row_;
-      if (i == dx7::kMacroCount) out.push_back(text(""));  // only reached when roomy
-      if (i < dx7::kMacroCount) {
-        const float norm = v / pi.max;
-        Element row = hbox({text(on ? "▸ " : "  ") | color(palette::accent), text(pi.label) | size(WIDTH, EQUAL, 10) | color(on ? palette::accent : palette::text),
-                            signedBar(norm, 14, on), text(" "), text(formatValue(pi, v)) | size(WIDTH, EQUAL, 4) | color(v != 0 ? palette::accent : palette::text),
-                            text(notes ? "  " + std::string(kMacroNotes[i]) : "") | color(palette::faint), filler()});
-        out.push_back(on ? row | bgcolor(palette::raised) : row);
+      const float v = s.param(engineParamRef(ctx.track, index));
+      const bool on = focused && r == row_;
+      Elements cells = {text(on ? "▸ " : "  ") | color(palette::accent)};
+      if (r < dx7::kMacroCount) {
+        cells.push_back(text(pi.label) | size(WIDTH, EQUAL, 9) | color(on ? palette::accent : palette::text));
+        cells.push_back(signedBar(v / pi.max, barW, on));
+        cells.push_back(text(" "));
+        cells.push_back(text(formatValue(pi, v)) | size(WIDTH, EQUAL, 4) | color(v != 0 ? palette::accent : palette::text));
+        if (!twoColumns && width >= 52) cells.push_back(text("  " + std::string(kMacroNotes[r])) | color(palette::faint));
       } else {
-        Element row = hbox({text(on ? "▸ " : "  ") | color(palette::accent), text(pi.label) | size(WIDTH, EQUAL, 12) | color(on ? palette::accent : palette::dim),
-                            text(formatValue(pi, v)) | color(palette::text), filler()});
-        out.push_back(on ? row | bgcolor(palette::raised) : row);
+        const bool amp = r < dx7::kMacroCount + kAmpRows;
+        cells.push_back(text(pi.label) | size(WIDTH, EQUAL, amp ? 9 : 11) | color(on ? palette::accent : amp ? palette::text : palette::dim));
+        cells.push_back(text(formatValue(pi, v)) | color(palette::text));
+      }
+      cells.push_back(filler());
+      Element e = hbox(cells);
+      return on ? e | bgcolor(palette::raised) : e;
+    };
+    const float* amp = nullptr;
+    std::array<float, kAmpRows> ampValues{};
+    for (int i = 0; i < kAmpRows; ++i) ampValues[static_cast<std::size_t>(i)] = s.param(engineParamRef(ctx.track, FmEngine::kFirstAmp + i));
+    amp = ampValues.data();
+
+    Elements macros = {text("macros · over the patch") | color(palette::dim)};
+    for (int r = 0; r < dx7::kMacroCount; ++r) macros.push_back(row(r));
+    Elements envelope = {hbox({text("amp ") | color(palette::dim), text(envelopeShape(amp, std::max(6, colW - 6))) | color(palette::value)})};
+    for (int r = dx7::kMacroCount; r < dx7::kMacroCount + kAmpRows; ++r) envelope.push_back(row(r));
+    Elements voice;
+    if (roomy)
+      for (int r = dx7::kMacroCount + kAmpRows; r < kMacroRows; ++r) voice.push_back(row(r));
+
+    Elements out;
+    if (twoColumns) {
+      Elements left = macros;
+      if (roomy) {
+        left.push_back(text(""));
+        for (auto& e : voice) left.push_back(e);
+      }
+      out.push_back(hbox({vbox(left) | size(WIDTH, EQUAL, colW), text("  "), vbox(envelope) | size(WIDTH, EQUAL, colW)}));
+    } else {
+      for (auto& e : macros) out.push_back(e);
+      out.push_back(text(""));
+      for (auto& e : envelope) out.push_back(e);
+      if (roomy) {
+        out.push_back(text(""));
+        for (auto& e : voice) out.push_back(e);
       }
     }
     if (roomy) out.push_back(text(""));
     if (m.any()) {
       std::string edits;
-      const int vals[] = {m.bright, m.attack, m.release, m.feedback, m.detune, m.velocity};
+      const int vals[] = {m.bright, m.feedback, m.detune, m.velocity};
       for (int i = 0; i < dx7::kMacroCount; ++i)
         if (vals[i]) {
           std::string lower = dx7::kMacroNames[static_cast<std::size_t>(i)];
@@ -436,7 +477,7 @@ class InstrumentScreen final : public Screen {
           edits += (edits.empty() ? "" : ", ") + lower + " " + (vals[i] > 0 ? "+" : "−") + std::to_string(std::abs(vals[i]));
         }
       out.push_back(paragraph("● edited: " + edits) | color(palette::accent));
-      out.push_back(text(notes ? "a save as new patch · u undo edits · e export" : "a save as · u undo · e export") | color(palette::dim));
+      out.push_back(text(width >= 52 ? "a save as new patch · u undo edits · e export" : "a save as · u undo · e export") | color(palette::dim));
     } else {
       out.push_back(text("○ as stored · a save as · e export") | color(palette::faint));
     }

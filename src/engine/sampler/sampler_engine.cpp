@@ -5,6 +5,7 @@
 #include <numbers>
 #include <utility>
 
+#include "engine/envelope_params.h"
 #include "engine/voice_alloc.h"
 
 namespace ion {
@@ -21,6 +22,9 @@ const char* const kLoops[] = {"off", "forward", "ping-pong"};
 const char* const kFilters[] = {"off", "LP12", "LP24", "HP", "BP"};
 const char* const kShapes[] = {"sine", "triangle", "square", "S&H"};
 const char* const kDivisions[] = {"4 bars", "2 bars", "1 bar", "1/2", "1/4", "1/8", "1/16", "1/32", "1/4T", "1/8T", "1/16T", "1/4D", "1/8D"};
+
+constexpr EnvDefaults kAmp{2, 1, 500, 1, 200};    // hold 1 = none
+constexpr EnvDefaults kFilt{2, 1, 400, 0, 300};
 
 // Order must match SamplerEngine::Param.
 const std::array<ParamInfo, SamplerEngine::kParamCount> kParams = {{
@@ -40,20 +44,15 @@ const std::array<ParamInfo, SamplerEngine::kParamCount> kParams = {{
     {"glide", "Glide", 0, 2000, 0, Curve::Linear, Unit::Ms, 5, 50, nullptr, nullptr, "off"},
     {"poly", "Voices", 1, SamplerEngine::kMaxPolyphony, 8, Curve::Choice, Unit::None, 1, 4},
     {"bend", "Bend range", 0, 12, 2, Curve::Choice, Unit::None, 1, 2},
-    {"attack", "Attack", 0.5f, 10000, 2, Curve::Log, Unit::Ms, kTimeFine, kTimeCoarse},
-    {"decay", "Decay", 1, 20000, 500, Curve::Log, Unit::Ms, kTimeFine, kTimeCoarse},
-    {"sustain", "Sustain", 0, 1, 1, Curve::Linear, Unit::Percent, 0.02f, 0.1f},
-    {"release", "Release", 1, 20000, 200, Curve::Log, Unit::Ms, kTimeFine, kTimeCoarse},
-    {"vel.amp", "Vel→amp", 0, 1, 0.6f, Curve::Linear, Unit::Percent, 0.05f, 0.25f},
+    envelopeParam(false, kEnvAttack, kAmp), envelopeParam(false, kEnvHold, kAmp), envelopeParam(false, kEnvDecay, kAmp),
+    envelopeParam(false, kEnvSustain, kAmp), envelopeParam(false, kEnvRelease, kAmp), velAmpParam(0.6f),
     {"filter", "Filter", 0, 4, 0, Curve::Choice, Unit::None, 1, 1, kFilters},
     {"cutoff", "Cutoff", 20, 20000, 8000, Curve::Log, Unit::Hz, kLogFine, kLogCoarse},
     {"reso", "Resonance", 0, 1, 0, Curve::Linear, Unit::Percent, 0.02f, 0.1f},
     {"keytrack", "Key track", 0, 1, 0.5f, Curve::Linear, Unit::Percent, 0.05f, 0.25f},
     {"env", "Env amount", -1, 1, 0, Curve::Linear, Unit::Percent, 0.02f, 0.1f},
-    {"f.attack", "F attack", 0.5f, 10000, 2, Curve::Log, Unit::Ms, kTimeFine, kTimeCoarse},
-    {"f.decay", "F decay", 1, 20000, 400, Curve::Log, Unit::Ms, kTimeFine, kTimeCoarse},
-    {"f.sustain", "F sustain", 0, 1, 0, Curve::Linear, Unit::Percent, 0.02f, 0.1f},
-    {"f.release", "F release", 1, 20000, 300, Curve::Log, Unit::Ms, kTimeFine, kTimeCoarse},
+    envelopeParam(true, kEnvAttack, kFilt), envelopeParam(true, kEnvHold, kFilt), envelopeParam(true, kEnvDecay, kFilt),
+    envelopeParam(true, kEnvSustain, kFilt), envelopeParam(true, kEnvRelease, kFilt),
     {"vel.filter", "Vel→filter", 0, 1, 0, Curve::Linear, Unit::Percent, 0.05f, 0.25f},
     {"lfo.shape", "LFO shape", 0, 3, 0, Curve::Choice, Unit::None, 1, 1, kShapes},
     {"lfo.sync", "LFO sync", 0, 1, 0, Curve::Toggle, Unit::None, 1, 1},
@@ -99,32 +98,6 @@ SamplerEngine::SamplerEngine() {
 
 void SamplerEngine::setParam(int index, float value) {
   if (index >= 0 && index < kParamCount) v_[static_cast<std::size_t>(index)] = value;
-}
-
-float SamplerEngine::Env::next(float attackStep, float decayCoeff, float sustain, float releaseCoeff) {
-  switch (stage) {
-    case Stage::Idle: level = 0; break;
-    case Stage::Attack:
-      level += attackStep;
-      if (level >= 1) {
-        level = 1;
-        stage = Stage::Decay;
-      }
-      break;
-    case Stage::Decay:
-      level = sustain + (level - sustain) * decayCoeff;
-      if (std::fabs(level - sustain) < 1e-4f) stage = Stage::Sustain;
-      break;
-    case Stage::Sustain: level += (sustain - level) * 0.002f; break;  // follows the knob without a step
-    case Stage::Release:
-      level *= releaseCoeff;
-      if (level < 1e-4f) {
-        level = 0;
-        stage = Stage::Idle;
-      }
-      break;
-  }
-  return level;
 }
 
 void SamplerEngine::setSample(int, const Sample* s) {
@@ -275,13 +248,9 @@ void SamplerEngine::renderVoice(Voice& v, float* left, float* right, std::size_t
   const double loopLen = loopEnd - loopStart;
   const double xfade = loop == kLoopForward ? std::min({static_cast<double>(v_[kCrossfade]) * kSampleRate / 1000.0, loopLen / 2, loopStart}) : 0.0;
 
-  // Amp: envelope steps, velocity, level, tremolo, pan.
-  const float attackStep = 1.0f / std::max(1.0f, v_[kAttack] * kSr / 1000.0f);
-  const float decayC = coeff(v_[kDecay]), releaseC = coeff(v_[kRelease]);
-  const float fAttackStep = 1.0f / std::max(1.0f, v_[kFAttack] * kSr / 1000.0f);
-  const float fDecayC = coeff(v_[kFDecay]), fReleaseC = coeff(v_[kFRelease]);
-  const float va = v_[kVelAmp];
-  float gain = std::pow(10.0f, v_[kLevel] / 20.0f) * (1 - va + va * v.velocity * v.velocity);
+  // Amp: the envelopes, velocity, level, tremolo, pan.
+  const dsp::Ahdsr::Coeffs ampC = envelopeCoeffs(&v_[kAmpAttack]), filtC = envelopeCoeffs(&v_[kFAttack]);
+  float gain = std::pow(10.0f, v_[kLevel] / 20.0f) * velocityGain(v_[kVelAmp], v.velocity);
   gain *= 1 - v_[kLfoLevel] * (0.5f + 0.5f * lfo);
   const float pan = std::clamp(v_[kLfoPan] * lfo, -1.0f, 1.0f);
   const float theta = (pan + 1.0f) * std::numbers::pi_v<float> / 4.0f;
@@ -291,7 +260,7 @@ void SamplerEngine::renderVoice(Voice& v, float* left, float* right, std::size_t
   const int filter = static_cast<int>(std::lround(v_[kFilter]));
   float a1 = 0, a2 = 0, a3 = 0, k = 2;
   if (filter != kFilterOff) {
-    const float octaves = v_[kEnvAmount] * 5.0f * v.filt.level + v_[kKeyTrack] * (v.pitch - v_[kRoot]) / 12.0f +
+    const float octaves = v_[kEnvAmount] * 5.0f * v.filt.level() + v_[kKeyTrack] * (v.pitch - v_[kRoot]) / 12.0f +
                           v_[kLfoCutoff] * 4.0f * lfo - v_[kVelFilter] * 4.0f * (1.0f - v.velocity);
     const float fc = std::clamp(v_[kCutoff] * std::exp2(octaves), 10.0f, 0.45f * kSr);
     const float g = std::tan(std::numbers::pi_v<float> * fc / kSr);
@@ -331,8 +300,8 @@ void SamplerEngine::renderVoice(Voice& v, float* left, float* right, std::size_t
       break;
     }
 
-    const float env = v.amp.next(attackStep, decayC, v_[kSustain], releaseC);
-    v.filt.next(fAttackStep, fDecayC, v_[kFSustain], fReleaseC);
+    const float env = v.amp.next(ampC);
+    v.filt.next(filtC);
     if (filter != kFilterOff) {
       for (int c = 0; c < 2; ++c)
         for (int st = 0; st < stages; ++st) {
@@ -358,7 +327,7 @@ void SamplerEngine::renderVoice(Voice& v, float* left, float* right, std::size_t
     }
     left[i] += x[0] * e * gl;
     right[i] += x[1] * e * gr;
-    if (v.amp.stage == Env::Stage::Idle) {
+    if (v.amp.idle()) {
       v.on = false;
       break;
     }

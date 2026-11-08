@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <span>
 
+#include "dsp/ahdsr.h"
 #include "engine/engine.h"
 #include "engine/sample.h"
 #include "engine/sample_retirement.h"
@@ -26,10 +27,10 @@ class SamplerEngine final : public Engine {
     // Play
     kMode, kRoot, kLowKey, kHighKey, kTune, kFine, kLevel, kStart, kLoop, kLoopStart, kLoopEnd, kCrossfade, kSnap,
     kGlide, kPoly, kBendRange,
-    // Amp
-    kAttack, kDecay, kSustain, kRelease, kVelAmp,
-    // Filter
-    kFilter, kCutoff, kReso, kKeyTrack, kEnvAmount, kFAttack, kFDecay, kFSustain, kFRelease, kVelFilter,
+    // Amp: the uniform envelope (D-50), then velocity
+    kAmpAttack, kAmpHold, kAmpDecay, kAmpSustain, kAmpRelease, kVelAmp,
+    // Filter, with the same envelope
+    kFilter, kCutoff, kReso, kKeyTrack, kEnvAmount, kFAttack, kFHold, kFDecay, kFSustain, kFRelease, kVelFilter,
     // Mod
     kLfoShape, kLfoSync, kLfoRate, kLfoDivision, kLfoPitch, kLfoCutoff, kLfoPan, kLfoLevel,
     kParamCount
@@ -66,16 +67,6 @@ class SamplerEngine final : public Engine {
   float lfo() const { return lfoValue_; }  // −1…1, for tests and the UI
 
  private:
-  struct Env {
-    enum class Stage : uint8_t { Idle, Attack, Decay, Sustain, Release } stage = Stage::Idle;
-    float level = 0;
-    void start() { stage = Stage::Attack; }
-    void release() {
-      if (stage != Stage::Idle) stage = Stage::Release;
-    }
-    // One sample. a/d/r are per-sample steps or coefficients, s the sustain level.
-    float next(float attackStep, float decayCoeff, float sustain, float releaseCoeff);
-  };
   struct Voice {
     bool on = false;
     const Sample* sample = nullptr;
@@ -89,7 +80,7 @@ class SamplerEngine final : public Engine {
     double pos = 0;
     int direction = 1;
     float pitch = 0;       // semitones, gliding to `note`
-    Env amp, filt;
+    dsp::Ahdsr amp, filt;
     float s1[2][2]{}, s2[2][2]{};  // SVF state [stage][channel]
     bool active() const { return on; }
     bool released() const { return !held || fading; }

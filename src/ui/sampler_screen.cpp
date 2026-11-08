@@ -13,6 +13,8 @@
 #include "library/recording.h"
 #include "project/paths.h"
 #include "project/session.h"
+#include "engine/envelope_params.h"
+#include "ui/envelope_view.h"
 #include "ui/sample_view.h"
 #include "ui/screens.h"
 
@@ -29,32 +31,15 @@ struct Section {
 const std::array<Section, 4> kSections = {{
     {"Play", {P::kMode, P::kLoop, P::kStart, P::kLoopStart, P::kLoopEnd, P::kCrossfade, P::kSnap, P::kRoot, P::kLowKey, P::kHighKey,
               P::kTune, P::kFine, P::kGlide, P::kPoly, P::kBendRange, P::kLevel}},
-    {"Amp", {P::kAttack, P::kDecay, P::kSustain, P::kRelease, P::kVelAmp}},
-    {"Filter", {P::kFilter, P::kCutoff, P::kReso, P::kKeyTrack, P::kEnvAmount, P::kFAttack, P::kFDecay, P::kFSustain, P::kFRelease,
-                P::kVelFilter}},
+    {"Amp", {P::kAmpAttack, P::kAmpHold, P::kAmpDecay, P::kAmpSustain, P::kAmpRelease, P::kVelAmp}},
+    {"Filter", {P::kFilter, P::kCutoff, P::kReso, P::kKeyTrack, P::kEnvAmount, P::kFAttack, P::kFHold, P::kFDecay, P::kFSustain,
+                P::kFRelease, P::kVelFilter}},
     {"Mod", {P::kLfoShape, P::kLfoSync, P::kLfoRate, P::kLfoDivision, P::kLfoPitch, P::kLfoCutoff, P::kLfoPan, P::kLfoLevel}},
 }};
 
 bool isPoint(int p) { return p == P::kStart || p == P::kLoopStart || p == P::kLoopEnd; }
 
 const char* levels[] = {" ", "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"};
-
-// An ADSR as a row of block characters over `width` columns.
-std::string envelopeShape(float a, float d, float s, float r, int width) {
-  const float hold = std::max(200.0f, (a + d) * 0.5f);
-  const float total = a + d + hold + r;
-  std::string out;
-  for (int x = 0; x < width; ++x) {
-    const float t = total * (static_cast<float>(x) + 0.5f) / static_cast<float>(width);
-    float level;
-    if (t < a) level = t / a;
-    else if (t < a + d) level = s + (1 - s) * std::pow(1e-3f, (t - a) / d);
-    else if (t < a + d + hold) level = s;
-    else level = s * std::pow(1e-3f, (t - a - d - hold) / r);
-    out += levels[std::clamp(static_cast<int>(std::lround(level * 8)), 0, 8)];
-  }
-  return out;
-}
 
 std::string lfoShape(int shape, int width) {
   std::string out;
@@ -445,11 +430,14 @@ class SamplerScreen final : public Screen {
     auto v = [&](int q) { return s.param(engineParamRef(t, q)); };
     Elements out;
     switch (index) {
-      case 1: out.push_back(text(envelopeShape(v(P::kAttack), v(P::kDecay), v(P::kSustain), v(P::kRelease), inner)) | color(palette::value)); break;
-      case 2:
-        out.push_back(text(envelopeShape(v(P::kFAttack), v(P::kFDecay), v(P::kFSustain), v(P::kFRelease), inner)) |
-                      color(std::lround(v(P::kFilter)) == 0 ? palette::faint : palette::value));
+      case 1:
+      case 2: {
+        const int first = index == 1 ? P::kAmpAttack : P::kFAttack;
+        std::array<float, kEnvParamCount> env{};
+        for (int k = 0; k < kEnvParamCount; ++k) env[static_cast<std::size_t>(k)] = v(first + k);
+        out.push_back(text(envelopeShape(env.data(), inner)) | color(index == 2 && std::lround(v(P::kFilter)) == 0 ? palette::faint : palette::value));
         break;
+      }
       case 3: out.push_back(text(lfoShape(static_cast<int>(std::lround(v(P::kLfoShape))), inner)) | color(palette::value)); break;
       default: {
         // Play: where the root sits in the key range.

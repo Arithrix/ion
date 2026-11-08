@@ -20,15 +20,14 @@ namespace {
 using namespace ftxui;
 using Clock = std::chrono::steady_clock;
 
-// The pad editor's rows, in two columns: playback and envelope on the left,
-// tone and response on the right.
-constexpr int kRows[] = {DrumEngine::kTune,   DrumEngine::kFine,     DrumEngine::kLevel,     DrumEngine::kPan,
-                         DrumEngine::kStart,  DrumEngine::kReverse,  DrumEngine::kMode,      DrumEngine::kHold,
-                         DrumEngine::kDecay,  DrumEngine::kFilter,   DrumEngine::kCutoff,    DrumEngine::kReso,
-                         DrumEngine::kDrive,  DrumEngine::kVelLevel, DrumEngine::kVelFilter, DrumEngine::kChoke,
-                         DrumEngine::kNote};
+// The pad editor's rows, in two columns: playing the sample on the left; the
+// envelope (the same one every instrument has, D-50) and tone on the right.
+constexpr int kRows[] = {DrumEngine::kTune,    DrumEngine::kFine,   DrumEngine::kLevel,  DrumEngine::kPan,     DrumEngine::kStart,
+                         DrumEngine::kReverse, DrumEngine::kMode,   DrumEngine::kChoke,  DrumEngine::kNote,    DrumEngine::kVelAmp,
+                         DrumEngine::kAttack,  DrumEngine::kHold,   DrumEngine::kDecay,  DrumEngine::kSustain, DrumEngine::kRelease,
+                         DrumEngine::kFilter,  DrumEngine::kCutoff, DrumEngine::kReso,   DrumEngine::kVelFilter, DrumEngine::kDrive};
 constexpr int kRowCount = static_cast<int>(std::size(kRows));
-constexpr int kLeftRows = 9;
+constexpr int kLeftRows = 10;
 
 Color chokeColor(int group) {
   switch (group) {
@@ -284,10 +283,8 @@ class DrumScreen final : public Screen {
     std::string value = formatValue(pi, v);
     bool inactive = false;
     const auto padValue = [&](int q) { return s.param(engineParamRef(t, DrumEngine::param(pad, q))); };
-    if (p == DrumEngine::kHold && std::lround(padValue(DrumEngine::kMode)) == DrumEngine::kGate) {
-      value = "gate";
-      inactive = true;
-    }
+    // One-shot ignores note-off, so the release never comes.
+    if (p == DrumEngine::kRelease && std::lround(padValue(DrumEngine::kMode)) == DrumEngine::kOneShot) inactive = true;
     if ((p == DrumEngine::kCutoff || p == DrumEngine::kReso || p == DrumEngine::kVelFilter) &&
         std::lround(padValue(DrumEngine::kFilter)) == DrumEngine::kFilterOff)
       inactive = true;
@@ -342,7 +339,18 @@ class DrumScreen final : public Screen {
     const int colW = twoColumns ? (inner - 2) / 2 : inner;
     Elements left, right;
     for (int r = 0; r < kRowCount; ++r) (twoColumns && r >= kLeftRows ? right : left).push_back(paramCell(ctx, r, colW));
-    if (twoColumns) out.push_back(hbox({vbox(left) | size(WIDTH, EQUAL, colW), text("  "), vbox(right) | size(WIDTH, EQUAL, colW)}));
+    if (twoColumns) {
+      // Short screens scroll both columns together to keep the focused row in view.
+      const int visible = std::max(3, height - 2 - static_cast<int>(out.size()));
+      const int inCol = row_ % kLeftRows;
+      const int first = std::clamp(inCol - visible / 2, 0, std::max(0, kLeftRows - visible));
+      auto slice = [&](Elements& col) {
+        Elements e;
+        for (int r = first; r < std::min(static_cast<int>(col.size()), first + visible); ++r) e.push_back(col[static_cast<std::size_t>(r)]);
+        return e;
+      };
+      out.push_back(hbox({vbox(slice(left)) | size(WIDTH, EQUAL, colW), text("  "), vbox(slice(right)) | size(WIDTH, EQUAL, colW)}));
+    }
     else {
       // One column: keep the focused row in view.
       const int visible = std::max(3, height - 4 - (roomy ? 1 : 0));

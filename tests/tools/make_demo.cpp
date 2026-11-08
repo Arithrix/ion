@@ -156,19 +156,19 @@ int main(int argc, char** argv) {
   set(3, kHpOn, 1.0f);
   set(3, kHpFreq, 300.0f);
 
-  // Macros: the bass a little darker with a shorter release, so "edited"
-  // shows in the browser and save-as has something to bake.
+  // The bass a little darker (a macro, so "edited" shows in the browser and
+  // save-as has something to bake) and tighter (the amp envelope's release).
   auto macro = [&](int track, int p, float v) {
     s.setParam({static_cast<uint8_t>(track), static_cast<uint16_t>(kEngineParamBase + p)}, v);
   };
   macro(1, FmEngine::kBright, -6.0f);
-  macro(1, FmEngine::kRelease, -10.0f);
+  macro(1, FmEngine::kAmpRelease, 150.0f);  // the uniform amp envelope: a tighter bass
 
   // Mappings to try from the OXI: cc 74 on channel 1 is the piano's Bright
-  // macro, cc 71 its Release; cc 7 on channel 2 rides the bass fader (kept audible).
+  // macro, cc 71 its amp release; cc 7 on channel 2 rides the bass fader (kept audible).
   auto fmRef = [](int track, int p) { return ParamRef{static_cast<uint8_t>(track), static_cast<uint16_t>(kEngineParamBase + p)}; };
   s.addMapping(0, 74, fmRef(0, FmEngine::kBright));
-  s.addMapping(0, 71, fmRef(0, FmEngine::kRelease));
+  s.addMapping(0, 71, fmRef(0, FmEngine::kAmpRelease));
   s.addMapping(1, 7, {1, kFader}, 0.4f, 1.0f);
 
   // A program list: program change 1-8 on a channel loads these onto the FM
@@ -248,8 +248,8 @@ int main(int argc, char** argv) {
     s.setEngine(5, EngineType::Sampler);
     s.setPadSample(5, 0, "samples/chords 120bpm 4 bars.wav");
     s.setParam(engineParamRef(5, SamplerEngine::kLoop), SamplerEngine::kLoopForward);
-    s.setParam(engineParamRef(5, SamplerEngine::kAttack), 5);
-    s.setParam(engineParamRef(5, SamplerEngine::kRelease), 400);
+    s.setParam(engineParamRef(5, SamplerEngine::kAmpAttack), 5);
+    s.setParam(engineParamRef(5, SamplerEngine::kAmpRelease), 400);
     s.setParam(engineParamRef(5, SamplerEngine::kFilter), SamplerEngine::kLp24);
     s.setParam(engineParamRef(5, SamplerEngine::kCutoff), 5000);
     s.setParam(engineParamRef(5, SamplerEngine::kLfoSync), 1);

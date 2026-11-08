@@ -167,6 +167,9 @@ enum ENGINES {
 class Dexed
 {
   public:
+    // ion: each voice's amp envelope settings and velocity → amp (0 = none).
+    ion::dsp::Ahdsr::Coeffs ionAmp{};
+    float ionVelAmp = 0;
     Dexed(uint8_t maxnotes, uint32_t rate);
     ~Dexed();
 

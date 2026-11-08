@@ -210,11 +210,30 @@ void Dexed::getSamples(float* buffer, uint16_t n_samples)
       {
         voices[note].dx7_note->compute(audiobuf.get(), lfovalue, lfodelay, &controllers);
 
-        for (uint8_t j = 0; j < _N_; ++j)
+        // ion: the voice's amp envelope and velocity → amp (DECISIONS D-50).
+        // A release shorter than the patch's ends the voice early.
+        ion::dsp::Ahdsr& amp = voices[note].dx7_note->ionAmp;
+        const float v01 = voices[note].velocity / 127.0f;
+        const float vel = 1.0f - ionVelAmp + ionVelAmp * v01 * v01;
+        if (amp.steady(ionAmp))
         {
-          buffer[i + j] += signed_saturate_rshift(audiobuf.get()[j] >> 4, 24, 9) / 32768.0;
-          audiobuf.get()[j] = 0;
+          const float g = amp.level() * vel;  // most of the time: held or sustaining
+          for (uint8_t j = 0; j < _N_; ++j)
+          {
+            buffer[i + j] += signed_saturate_rshift(audiobuf.get()[j] >> 4, 24, 9) / 32768.0 * g;
+            audiobuf.get()[j] = 0;
+          }
         }
+        else
+        {
+          for (uint8_t j = 0; j < _N_; ++j)
+          {
+            buffer[i + j] += signed_saturate_rshift(audiobuf.get()[j] >> 4, 24, 9) / 32768.0 * amp.next(ionAmp) * vel;
+            audiobuf.get()[j] = 0;
+          }
+        }
+        if (amp.idle())
+          voices[note].live = false;
       }
     }
   }

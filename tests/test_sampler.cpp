@@ -74,7 +74,7 @@ struct Rig {
   SamplerEngine e;
   explicit Rig(const std::vector<float>& x) : s(makeSample(x)) {
     e.setSample(0, s.get());
-    e.setParam(SamplerEngine::kAttack, 0.5f);
+    e.setParam(SamplerEngine::kAmpAttack, 0.5f);
     e.setParam(SamplerEngine::kVelAmp, 0);
   }
 };
@@ -110,7 +110,7 @@ TEST_CASE("sampler: forward loop sustains while held; release ends it; ping-pong
   r.e.setParam(SamplerEngine::kLoop, SamplerEngine::kLoopForward);
   r.e.setParam(SamplerEngine::kLoopStart, 0.25f);
   r.e.setParam(SamplerEngine::kLoopEnd, 0.75f);
-  r.e.setParam(SamplerEngine::kRelease, 50);
+  r.e.setParam(SamplerEngine::kAmpRelease, 50);
   r.e.noteOn(60, 127);
   auto out = render(r.e, 48000);  // ten times the sample's length
   CHECK(peak(out, 40000) > 0.4f);
@@ -153,10 +153,10 @@ TEST_CASE("sampler: a loop crossfade hides a loop point that isn't at a zero cro
 
 TEST_CASE("sampler: amp envelope times and levels") {
   Rig r(std::vector<float>(96000, 0.5f));
-  r.e.setParam(SamplerEngine::kAttack, 100);
-  r.e.setParam(SamplerEngine::kDecay, 200);
-  r.e.setParam(SamplerEngine::kSustain, 0.5f);
-  r.e.setParam(SamplerEngine::kRelease, 300);
+  r.e.setParam(SamplerEngine::kAmpAttack, 100);
+  r.e.setParam(SamplerEngine::kAmpDecay, 200);
+  r.e.setParam(SamplerEngine::kAmpSustain, 0.5f);
+  r.e.setParam(SamplerEngine::kAmpRelease, 300);
   r.e.noteOn(60, 127);
   auto out = render(r.e, 48000);
   CHECK(out[2400] == doctest::Approx(0.25f).epsilon(0.03));   // half way up at 50 ms

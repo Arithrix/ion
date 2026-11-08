@@ -15,8 +15,10 @@ Pinned copies with their license files intact (HANDOFF §13). Sources were check
 | `sqlite/` | SQLite amalgamation | 3.54.1 (2026-10-16) | Public domain | sqlite.org/2026/sqlite-amalgamation-3540100.zip, SHA3-256 `92281c86…8e30` matches the download page |
 
 ## Local changes
-One upstream file is changed, marked `ion:` in the source:
+Two upstream changes, marked `ion:` in the source:
 - **Synth_Dexed `src/env.cpp`, `Env::update`.** Upstream sends every held note's envelopes to stage 3 whenever a voice parameter changes ("for now we simply reset ourselves at level 3"). Under a CC sweep that silences notes still in their attack. ion's version keeps each envelope in its stage and retargets it, and glides a standing level (sustain, or a hold) to its new value within about 0.1 s. Covered by `tests/test_fm_handover.cpp` ("macros: …"), which fails against the upstream code.
+
+- **Synth_Dexed `src/dexed.h`, `src/dx7note.h/.cpp`, `src/dexed.cpp` (`getSamples`): the uniform amp envelope (DECISIONS D-50).** Each `Dx7Note` carries an `ion::dsp::Ahdsr` (from `src/dsp/ahdsr.h`, header-only): `init()` starts it, `keyup()` releases it, `transferState()` carries it to a legato note. `getSamples` multiplies each voice's output by it and by velocity → amp, and marks a voice not live once its envelope is done. Marked `ion:`. With the envelope's defaults (wide open) the output is unchanged; the golden FM render checks that.
 
 Two other things are worked around from our side instead:
 - **Synth_Dexed** includes `<arm_math.h>` and expects Teensy/Circle helpers (`millis`, `constrain`, `signed_saturate_rshift`). `src/engine/fm/dexed_port/arm_math.h` provides them.

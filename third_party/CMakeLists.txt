@@ -8,6 +8,8 @@ add_library(synth_dexed STATIC ${SYNTH_DEXED_SOURCES})
 # Synth_Dexed normally gets from Teensy or Circle.
 target_include_directories(synth_dexed SYSTEM
   PUBLIC ${CMAKE_SOURCE_DIR}/src/engine/fm/dexed_port synth_dexed/src)
+# ion's envelope (src/dsp/ahdsr.h, header-only) is used inside Synth_Dexed: see README.
+target_include_directories(synth_dexed PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_compile_options(synth_dexed PRIVATE -w)
 
 # ---- FTXUI (MIT) ------------------------------------------------------------

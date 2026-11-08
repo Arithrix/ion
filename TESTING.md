@@ -48,7 +48,20 @@ Allow about 20 minutes. **Wired headphones or speakers please.** If you haven't 
 7. MIDI-learn anything with `l`.
 8. `g` (collect) copies the sample into the project's own folder, as on drum tracks. Then save (`w`).
 
-## 3. Recordings
+## 3. One envelope everywhere (5 min)
+Every instrument now has the same **Amp** envelope: Attack, Hold, Decay, Sustain, Release, and Vel→amp.
+1. **FM** (`1`, `I`, Tab to the patch pane): the macros are on the left, the amp envelope on the right.
+   - **Attack** and **Release** used to be macros. Now they're here, and they work like everywhere else.
+   - It starts wide open (release "off"), so patches sound as they did.
+   - Shorten **Release** to tighten a patch; raise **Attack** for a swell.
+   - The demo maps **CC 71 on channel 1 → piano release**.
+2. **Drums** (`5`, `I`): each pad's settings have the same five rows.
+   - A one-shot pad greys out Release: it ignores note-off.
+   - Set a pad to **gate**, and Release is what happens when the OXI's note ends.
+3. **Sampler** (`6`, `I`): the Amp and Filter sections use the same envelope, Hold included.
+4. Tell me how FM feels without the old macros: if you miss making patches *longer*, that's the thing they did that this can't.
+
+## 4. Recordings
 Phase 6 (resampling) will make recordings that carry their tempo and bars. The sampler already reads them: that's the demo's bar ruler.
 
 ## What to send back
@@ -56,7 +69,8 @@ Phase 6 (resampling) will make recordings that carry their tempo and bars. The s
 - Any click at a loop point, even with Snap on? Did Crossfade fix it?
 - Did the envelopes and filter feel right (ranges, speeds)? The LFO?
 - How was moving loop points with the keys? Is the zoom enough?
-- From before: your notes on 0.3.0 (drums) and 0.4.0 (effects), `no RT`, latency, `ion --list-midi`.
+- How does the uniform envelope feel on FM, drums and the sampler? Keep it, or bring FM's macros back?
+- From before: your notes on 0.4.0 (effects), `no RT`, latency, `ion --list-midi`.
 
 ## Known issues
 - One sample per track (multi-zone and SFZ come later).

@@ -189,7 +189,7 @@ struct SnapshotRig {
     session.loadPatch(2, *lib.find(id));
     session.toggleProgram(lib.find(id)->voice, "cart_17");
     session.setParam({2, static_cast<uint16_t>(kEngineParamBase + FmEngine::kBright)}, 12.0f);
-    session.setParam({2, static_cast<uint16_t>(kEngineParamBase + FmEngine::kRelease)}, -8.0f);
+    session.setParam(engineParamRef(2, FmEngine::kAmpRelease), 800.0f);
     session.addMapping(0, 74, {2, static_cast<uint16_t>(kEngineParamBase + FmEngine::kBright)});
     session.setParam({0, kPan}, -0.3f);
     session.setParam({0, kB1Gain}, 6.0f);
@@ -220,7 +220,7 @@ struct SnapshotRig {
     pad(0, DrumEngine::kFilter, DrumEngine::kLowPass);
     pad(0, DrumEngine::kCutoff, 8200);
     pad(0, DrumEngine::kReso, 0.12f);
-    pad(0, DrumEngine::kVelLevel, 0.8f);
+    pad(0, DrumEngine::kVelAmp, 0.8f);
     pad(0, DrumEngine::kDrive, 0.15f);
     pad(4, DrumEngine::kChoke, 1);
     pad(5, DrumEngine::kChoke, 1);
@@ -241,19 +241,20 @@ struct SnapshotRig {
         loop.samples[2 * static_cast<std::size_t>(i)] = x;
         loop.samples[2 * static_cast<std::size_t>(i) + 1] = x;
       }
-      const fs::path f = kSnapshotRoot / "samples" / "recordings" / "chords_124bpm_4bar.wav";
+      // Outside the sample root, so the drum screen's scripted keys never walk into it.
+      const fs::path f = kSnapshotRoot / "recordings" / "chords_124bpm_4bar.wav";
       fs::create_directories(f.parent_path());
       REQUIRE(wav::write(f, loop, error));
-      REQUIRE(writeFileAtomic(kSnapshotRoot / "samples" / "recordings" / "chords_124bpm_4bar.json",
+      REQUIRE(writeFileAtomic(kSnapshotRoot / "recordings" / "chords_124bpm_4bar.json",
                               R"({"ion_recording": 1, "tempo": 124.0, "bars": 4, "sources": "tracks 3 + 6"})", error));
       session.setEngine(5, EngineType::Sampler);
       session.setPadSample(5, 0, f.string());
       auto sp = [&](int p, float value) { session.setParam(engineParamRef(5, p), value); };
       sp(SamplerEngine::kLoop, SamplerEngine::kLoopForward);
-      sp(SamplerEngine::kAttack, 4);
-      sp(SamplerEngine::kDecay, 300);
-      sp(SamplerEngine::kSustain, 0.8f);
-      sp(SamplerEngine::kRelease, 220);
+      sp(SamplerEngine::kAmpAttack, 4);
+      sp(SamplerEngine::kAmpDecay, 300);
+      sp(SamplerEngine::kAmpSustain, 0.8f);
+      sp(SamplerEngine::kAmpRelease, 220);
       sp(SamplerEngine::kFilter, SamplerEngine::kLp24);
       sp(SamplerEngine::kCutoff, 6400);
       sp(SamplerEngine::kReso, 0.18f);

@@ -18,6 +18,7 @@
 
 #include "core/version.h"
 #include "engine/drum/drum_engine.h"
+#include "engine/envelope_params.h"
 #include "engine/fm/fm_engine.h"
 #include "engine/sampler/sampler_engine.h"
 
@@ -73,8 +74,31 @@ ParamRef engineRef(int track, int index) {
 //   3 → 4: inserts, sends, returns; the master's whole strip. Older files keep
 //          the defaults (no inserts, sends off, the glue compressor out), and
 //          the master's "fader" is still read.
-//   4 → 5: sampler tracks. Older files have none: nothing to do. (0.4 would
-//          otherwise open a sampler track as an empty one and lose it.)
+//   4 → 5: sampler tracks (nothing to convert), and the uniform envelope
+//          (D-50): drum pads' "vel.level" is now "vel.amp"; hold "full" moved
+//          from 5000 to 10000; a gate pad's decay is now its release. FM's
+//          Attack and Release macros are gone (their values and CCs drop).
+// A drum pad's settings from before the uniform envelope (0.3, 0.4), in place.
+// `prefix` is "padN." in a project, "" in a kit.
+void upgradePadParams(json& params, const std::string& prefix) {
+  if (!params.is_object()) return;
+  auto rename = [&](const std::string& from, const std::string& to) {
+    if (!params.contains(prefix + from)) return;
+    params[prefix + to] = params[prefix + from];
+    params.erase(prefix + from);
+  };
+  rename("vel.level", "vel.amp");
+  rename("hold", "amp.hold");
+  rename("decay", "amp.decay");
+  const std::string hold = prefix + "amp.hold", decay = prefix + "amp.decay", mode = prefix + "mode";
+  if (params.contains(hold) && params[hold].is_number() && params[hold].get<float>() >= 5000.0f) params[hold] = kEnvFull;
+  if (params.contains(mode) && params[mode].is_number() && params[mode].get<float>() >= 0.5f) {
+    // Gate used to hold while the key was down and decay from note-off.
+    params[prefix + "amp.release"] = params.contains(decay) ? params[decay] : json(500.0);
+    params[hold] = kEnvFull;
+  }
+}
+
 bool migrate(json& j, std::string& error) {
   if (!j.contains("format") || !j["format"].is_number_integer()) {
     error = "not an ion project (no \"format\")";
@@ -89,6 +113,18 @@ bool migrate(json& j, std::string& error) {
   if (format < 1) {
     error = "unknown project format " + std::to_string(format);
     return false;
+  }
+  if (format < 5) {
+    if (j.contains("tracks") && j["tracks"].is_array())
+      for (json& jt : j["tracks"])
+        if (jt.value("engine", std::string()) == "drum" && jt.contains("drum") && jt["drum"].contains("params"))
+          for (int pad = 1; pad <= DrumEngine::kPads; ++pad) upgradePadParams(jt["drum"]["params"], "pad" + std::to_string(pad) + ".");
+    if (j.contains("cc") && j["cc"].is_array())
+      for (json& jc : j["cc"]) {
+        std::string target = jc.value("target", std::string());
+        const auto at = target.find(".vel.level");
+        if (at != std::string::npos && target.find(".drum.pad") != std::string::npos) jc["target"] = target.replace(at, 10, ".vel.amp");
+      }
   }
   return true;
 }
@@ -497,7 +533,7 @@ void Session::loadPatch(int t, const FmPatch& patch) {
 dx7::Macros Session::macros(int t) const {
   auto v = [&](int i) { return static_cast<int>(std::lround(param(engineRef(t, FmEngine::kFirstMacro + i)))); };
   if (tracks_[static_cast<std::size_t>(t)].engine != EngineType::Fm) return {};
-  return {v(0), v(1), v(2), v(3), v(4), v(5)};
+  return {v(0), v(1), v(2), v(3)};
 }
 
 void Session::resetMacros(int t) {
@@ -834,7 +870,7 @@ bool Session::saveKit(int t, const std::string& name, std::string& error) {
     jp["params"] = params;
     pads.push_back(jp);
   }
-  const json j = {{"ion_kit", 1}, {"name", name}, {"saved_by", versionLine()}, {"saved_at", nowIso()}, {"pads", pads}};
+  const json j = {{"ion_kit", 2}, {"name", name}, {"saved_by", versionLine()}, {"saved_at", nowIso()}, {"pads", pads}};
   if (!writeFileAtomic(paths_.kitFile(name), j.dump(2) + "\n", error)) return false;
   tr.kit = name;
   markDirty();
@@ -851,11 +887,15 @@ bool Session::loadKit(int t, const fs::path& file, std::string& error) {
     error = "can't read " + file.string();
     return false;
   }
-  const json j = json::parse(text, nullptr, false);
+  json j = json::parse(text, nullptr, false);
   if (j.is_discarded() || !j.is_object() || !j.contains("ion_kit") || !j.contains("pads") || !j["pads"].is_array()) {
     error = "not an ion kit";
     return false;
   }
+  // Kits from before the uniform envelope (0.3, 0.4) are version 1.
+  if (j["ion_kit"].is_number() && j["ion_kit"].get<int>() < 2)
+    for (json& jp : j["pads"])
+      if (jp.contains("params")) upgradePadParams(jp["params"], "");
   try {
     const auto table = DrumEngine::padParamTable();
     std::array<const json*, DrumEngine::kPads> byPad{};
