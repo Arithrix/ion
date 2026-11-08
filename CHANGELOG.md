@@ -5,6 +5,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-07
+
 ### Added (Phase 6: resampling)
 - **The Rec screen (`R`)** records ion's own sound back into a sample: the master mix, or any tracks you pick.
   - **Starts on the next bar** of the OXI's clock and **stops exactly on the downbeat**, so a loop is the right length with nothing to trim. 1, 2, 4, 8 or 16 bars, or "until stopped" (it still ends on a downbeat).

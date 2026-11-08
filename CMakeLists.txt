@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 # The one place the version lives (HANDOFF §15). scripts/release.sh edits
 # these two lines. ION_PRERELEASE is empty or e.g. "-dev.4".
-project(ion VERSION 0.5.0 LANGUAGES C CXX)
+project(ion VERSION 0.6.0 LANGUAGES C CXX)
 set(ION_PRERELEASE "")
 
 set(CMAKE_CXX_STANDARD 20)
