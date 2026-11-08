@@ -53,6 +53,7 @@ add_library(ion_engine STATIC
   src/library/fm_library.cpp
   src/library/recording.cpp
   src/library/sample_loader.cpp
+  src/library/slicer.cpp
   src/library/syx.cpp
   src/engine/channel_eq.cpp
   src/engine/clock.cpp
@@ -71,6 +72,7 @@ add_library(ion_engine STATIC
   src/project/offline.cpp
   src/project/paths.cpp
   src/project/session.cpp
+  src/project/session_rec.cpp
 )
 add_dependencies(ion_engine ion_version_header)
 target_include_directories(ion_engine PUBLIC src ${ION_GENERATED_DIR})
@@ -90,6 +92,7 @@ add_library(ion_ui STATIC
   src/ui/library_screen.cpp
   src/ui/mixer_screen.cpp
   src/ui/piano.cpp
+  src/ui/rec_screen.cpp
   src/ui/sample_browse.cpp
   src/ui/sample_view.cpp
   src/ui/sampler_screen.cpp

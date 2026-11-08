@@ -5,6 +5,32 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 
 ## [Unreleased]
 
+### Added (Phase 6: resampling)
+- **The Rec screen (`R`)** records ion's own sound back into a sample: the master mix, or any tracks you pick.
+  - **Starts on the next bar** of the OXI's clock and **stops exactly on the downbeat**, so a loop is the right length with nothing to trim. 1, 2, 4, 8 or 16 bars, or "until stopped" (it still ends on a downbeat).
+  - No clock? Set **start** to "now": `r` starts and stops it.
+  - **Tracks** are recorded as you hear them: fader, pan and inserts, even if they're muted or another track is soloed. Or **pre-fx**, straight from the engine. The reverb and delay returns are only in a recording of the master.
+  - While it records you see the bars fill and the waveform draw. `r` stops on the next downbeat; Esc throws the take away. The header shows `● REC 3/4` on every screen.
+- **Where it goes:**
+  - **library:** the project's `recordings/` folder. The sample browser lists it at the top ("recordings (this project)").
+  - **sampler → a track:** it plays from C3, looped. The track becomes a sampler if it wasn't one.
+  - **drum pads → a track:** cut into slices **on chord changes**, **at transients**, or 4, 8 or 16 equal.
+    - You see the slices before anything changes: ↑↓ picks one (and plays it), ← → nudges it (1 ms, Shift 10 ms), `a` splits, `x` merges, Space plays.
+    - ⏎ puts them on the pads from the one you chose, one-shot, in a choke group of their own. Esc keeps just the recording.
+- **After a take** the tracks you recorded are muted (switch it off under "after"), unless a track is playing its own recording.
+- **`u` undoes the last take:** its files go, and the tracks it changed are back as they were.
+- **Every recording carries its tempo, bars and sources** in a `.json` beside it, plus the settings of the tracks that made it. In the sampler it shows its bars.
+- **The demo project** ("demo v0.6.0") has a take already made: track 6's chord loop, resampled onto **pads 1–4 of track 7** (channel 7, C1–D#1). The Rec screen is set up for one of your own: the piano and strings on channel 1, four bars, onto pads 5–8 of track 7.
+
+### Changed (Phase 6)
+- Projects are now format 6 (they keep the Rec setup); 0.5.x can't open projects saved by 0.6.0.
+- Save as also copies the project's recordings.
+
+### Known issues (Phase 6)
+- Chord-change slicing is tuned on synthesised chords. Real pads with lots of chorus or movement may need nudging; tell me how it does.
+- No audio input recording yet (designed for, not built).
+- Undo covers the last take only, and not after you switch project.
+
 ## [0.5.0] - 2026-11-07
 
 ### Added (Phase 5: sampler)

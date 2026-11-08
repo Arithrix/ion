@@ -78,6 +78,7 @@ ParamRef engineRef(int track, int index) {
 //          (D-50): drum pads' "vel.level" is now "vel.amp"; hold "full" moved
 //          from 5000 to 10000; a gate pad's decay is now its release. FM's
 //          Attack and Release macros are gone (their values and CCs drop).
+//   5 → 6: the Rec setup ("rec"), optional: older files get the defaults.
 // A drum pad's settings from before the uniform envelope (0.3, 0.4), in place.
 // `prefix` is "padN." in a project, "" in a kit.
 void upgradePadParams(json& params, const std::string& prefix) {
@@ -155,7 +156,10 @@ Session::Session(Module& module, Paths paths, Config& config)
 }
 
 Session::~Session() {
-  // Retired engines still waiting in the queue are freed by the Module.
+  // Retired engines still waiting in the queue are freed by the Module. A
+  // take still in flight may yet be written by the audio thread: it leaks
+  // rather than being freed under it.
+  (void)take_.release();
 }
 
 void Session::defaultValues() {
@@ -971,6 +975,9 @@ void Session::tick() {
       case Notification::Type::EffectRetired:
         delete n->effect;
         break;
+      case Notification::Type::TakeDone:
+        finishTake(n->take);
+        break;
       case Notification::Type::ProgramsRetired:
         delete n->programs;
         break;
@@ -1046,8 +1053,48 @@ void Session::autosaveIfNeeded() {
 
 // ---- files ----------------------------------------------------------------------------
 
+json Session::recJson() const {
+  const RecSetup& r = rec_;
+  json tracks = json::array();
+  for (int t = 0; t < kTrackCount; ++t)
+    if (r.tracks >> t & 1) tracks.push_back(t + 1);
+  const char* dest = r.dest == RecSetup::Dest::Sampler ? "sampler" : r.dest == RecSetup::Dest::Drum ? "drum" : "library";
+  const char* slice = r.slice == SliceMode::Equal ? "equal" : r.slice == SliceMode::Transients ? "transients" : "chords";
+  return {{"source", r.source == RecSource::Master ? "master" : "tracks"}, {"tracks", tracks}, {"tap", r.tap == RecTap::Pre ? "pre" : "post"},
+          {"bars", r.bars}, {"start", r.synced ? "next bar" : "now"}, {"send_to", dest}, {"track", r.destTrack + 1},
+          {"first_pad", r.firstPad + 1}, {"slice", slice}, {"slices", r.sliceCount}, {"mute_sources", r.muteSources}};
+}
+
+void Session::recFromJson(const json& j) {
+  RecSetup r;
+  r.source = j.value("source", std::string()) == "tracks" ? RecSource::Tracks : RecSource::Master;
+  if (j.contains("tracks") && j["tracks"].is_array())
+    for (const json& t : j["tracks"])
+      if (t.is_number_integer() && t.get<int>() >= 1 && t.get<int>() <= kTrackCount) r.tracks |= static_cast<uint8_t>(1 << (t.get<int>() - 1));
+  r.tap = j.value("tap", std::string()) == "pre" ? RecTap::Pre : RecTap::Post;
+  const int bars = j.value("bars", 4);
+  r.bars = bars == 0 || bars == 1 || bars == 2 || bars == 4 || bars == 8 || bars == 16 ? bars : 4;
+  r.synced = j.value("start", std::string("next bar")) != "now";
+  const std::string dest = j.value("send_to", std::string());
+  r.dest = dest == "sampler" ? RecSetup::Dest::Sampler : dest == "drum" ? RecSetup::Dest::Drum : RecSetup::Dest::Library;
+  r.destTrack = std::clamp(j.value("track", 1) - 1, 0, kTrackCount - 1);
+  r.firstPad = std::clamp(j.value("first_pad", 1) - 1, 0, DrumEngine::kPads - 1);
+  const std::string slice = j.value("slice", std::string());
+  r.slice = slice == "equal" ? SliceMode::Equal : slice == "transients" ? SliceMode::Transients : SliceMode::Chords;
+  const int n = j.value("slices", 8);
+  r.sliceCount = n == 4 || n == 16 ? n : 8;
+  r.muteSources = j.value("mute_sources", true);
+  rec_ = r;
+}
+
 void Session::reset() {
   cancelLearn();
+  rec_ = {};
+  // Recordings belong to the project being left: one still running is dropped.
+  cancelTake();
+  takeAbandoned_ = take_ != nullptr;
+  review_.reset();
+  undo_.reset();
   for (int t = 0; t < kTrackCount; ++t) {
     if (tracks_[static_cast<std::size_t>(t)].engine != EngineType::None) {
       Command c;
@@ -1150,49 +1197,51 @@ void Session::setIfDifferent(ParamRef ref, float value) {
   if (pi && clampValue(*pi, value) != param(ref)) setParam(ref, value);
 }
 
+json Session::trackJson(int t) const {
+  const TrackState& tr = tracks_[static_cast<std::size_t>(t)];
+  json jt;
+  jt["track"] = t + 1;
+  jt["engine"] = engineKey(tr.engine);
+  jt["channel"] = tr.channel + 1;
+  jt["mixer"] = mixerJson(*this, t);
+  if (json fx = insertsJson(t); !fx.empty()) jt["inserts"] = fx;
+  if (tr.engine != EngineType::None) {
+    json je;
+    const auto table = engineParams(tr.engine);
+    json params;
+    for (std::size_t i = 0; i < table.size(); ++i) params[table[i].key] = param(engineRef(t, static_cast<int>(i)));
+    je["params"] = params;
+    if (tr.engine == EngineType::Fm && tr.hasVoice) {
+      je["name"] = syx::name(tr.voice);
+      je["source"] = tr.voiceSource;
+      je["voice"] = toHex(tr.voice.data(), tr.voice.size());
+    }
+    if (tr.engine == EngineType::Drum) {
+      json pads = json::array();
+      for (int pad = 0; pad < DrumEngine::kPads; ++pad)
+        if (!tr.pads[static_cast<std::size_t>(pad)].sample.empty())
+          pads.push_back({{"pad", pad + 1}, {"sample", tr.pads[static_cast<std::size_t>(pad)].sample}});
+      je["kit"] = tr.kit;
+      // "name" is what the Library screen shows for the track.
+      je["name"] = !tr.kit.empty() ? tr.kit : std::to_string(pads.size()) + (pads.size() == 1 ? " pad" : " pads");
+      je["pads"] = pads;
+    }
+    if (tr.engine == EngineType::Sampler) {
+      je["sample"] = tr.pads[0].sample;
+      je["name"] = tr.pads[0].sample.empty() ? std::string() : fs::path(tr.pads[0].sample).stem().string();
+    }
+    jt[engineKey(tr.engine)] = je;
+  }
+  return jt;
+}
+
 std::string Session::toJson() const {
   json j;
   j["format"] = kProjectFormat;
   j["saved_by"] = versionLine();
   j["saved_at"] = nowIso();
   json tracks = json::array();
-  for (int t = 0; t < kTrackCount; ++t) {
-    const TrackState& tr = tracks_[static_cast<std::size_t>(t)];
-    json jt;
-    jt["track"] = t + 1;
-    jt["engine"] = engineKey(tr.engine);
-    jt["channel"] = tr.channel + 1;
-    jt["mixer"] = mixerJson(*this, t);
-    if (json fx = insertsJson(t); !fx.empty()) jt["inserts"] = fx;
-    if (tr.engine != EngineType::None) {
-      json je;
-      const auto table = engineParams(tr.engine);
-      json params;
-      for (std::size_t i = 0; i < table.size(); ++i) params[table[i].key] = param(engineRef(t, static_cast<int>(i)));
-      je["params"] = params;
-      if (tr.engine == EngineType::Fm && tr.hasVoice) {
-        je["name"] = syx::name(tr.voice);
-        je["source"] = tr.voiceSource;
-        je["voice"] = toHex(tr.voice.data(), tr.voice.size());
-      }
-      if (tr.engine == EngineType::Drum) {
-        json pads = json::array();
-        for (int pad = 0; pad < DrumEngine::kPads; ++pad)
-          if (!tr.pads[static_cast<std::size_t>(pad)].sample.empty())
-            pads.push_back({{"pad", pad + 1}, {"sample", tr.pads[static_cast<std::size_t>(pad)].sample}});
-        je["kit"] = tr.kit;
-        // "name" is what the Library screen shows for the track.
-        je["name"] = !tr.kit.empty() ? tr.kit : std::to_string(pads.size()) + (pads.size() == 1 ? " pad" : " pads");
-        je["pads"] = pads;
-      }
-      if (tr.engine == EngineType::Sampler) {
-        je["sample"] = tr.pads[0].sample;
-        je["name"] = tr.pads[0].sample.empty() ? std::string() : fs::path(tr.pads[0].sample).stem().string();
-      }
-      jt[engineKey(tr.engine)] = je;
-    }
-    tracks.push_back(jt);
-  }
+  for (int t = 0; t < kTrackCount; ++t) tracks.push_back(trackJson(t));
   j["tracks"] = tracks;
   j["master"] = {{"mixer", mixerJson(*this, kMasterScope)}, {"inserts", insertsJson(kMasterScope)}};
   j["returns"] = {{"delay", {{"mixer", mixerJson(*this, kDelayScope)}, {"inserts", insertsJson(kDelayScope)}}},
@@ -1212,7 +1261,58 @@ std::string Session::toJson() const {
   for (const ProgramEntry& p : programs_)
     programs.push_back({{"name", syx::name(p.voice)}, {"source", p.source}, {"voice", toHex(p.voice.data(), p.voice.size())}});
   j["programs"] = programs;
+  j["rec"] = recJson();
   return j.dump(2) + "\n";
+}
+
+// One track as saved, onto track t: on a fresh project (load) or over what's
+// there (undoing a take). Engine settings start from the engine's defaults.
+void Session::trackFromJson(int t, const json& jt) {
+  TrackState& tr = tracks_[static_cast<std::size_t>(t)];
+  // Over a live track: start from an empty one (the channel stays).
+  tr.hasVoice = false;
+  tr.voiceSource.clear();
+  tr.libraryId = 0;
+  tr.pads = {};
+  tr.kit.clear();
+  setChannel(t, jt.value("channel", t + 1) - 1);
+  if (jt.contains("mixer")) mixerFromJson(t, jt["mixer"]);
+  if (jt.contains("inserts")) insertsFromJson(t, jt["inserts"]);
+  const EngineType type = engineFromKey(jt.value("engine", std::string("none")).c_str());
+  if (type == EngineType::None) {
+    if (tr.engine != EngineType::None) setEngine(t, EngineType::None);
+    return;
+  }
+  const json je = jt.contains(engineKey(type)) ? jt[engineKey(type)] : json::object();
+  if (type == EngineType::Fm && je.contains("voice")) {
+    syx::Voice v{};
+    if (fromHex(je["voice"].get<std::string>(), v.data(), v.size())) {
+      tr.hasVoice = true;
+      tr.voice = syx::normalize(v);
+      tr.voiceSource = je.value("source", std::string());
+      linkLibrary(tr);
+    }
+  }
+  if (type == EngineType::Drum) {
+    tr.kit = je.value("kit", std::string());
+    if (je.contains("pads") && je["pads"].is_array())
+      for (const json& jp : je["pads"]) {
+        const int pad = jp.value("pad", 0) - 1;
+        if (pad >= 0 && pad < DrumEngine::kPads) tr.pads[static_cast<std::size_t>(pad)].sample = jp.value("sample", std::string());
+      }
+  }
+  if (type == EngineType::Sampler) tr.pads[0].sample = je.value("sample", std::string());
+  setEngine(t, type);
+  if (je.contains("params") && je["params"].is_object()) {
+    // The new engine is already at its defaults: send only what differs
+    // (a kit has 272 parameters, and the command queue holds 2048).
+    const auto table = engineParams(type);
+    for (std::size_t i = 0; i < table.size(); ++i)
+      if (je["params"].contains(table[i].key) && je["params"][table[i].key].is_number()) {
+        const float v = clampValue(table[i], je["params"][table[i].key].get<float>());
+        if (v != param(engineRef(t, static_cast<int>(i)))) setParam(engineRef(t, static_cast<int>(i)), v);
+      }
+  }
 }
 
 bool Session::fromJson(const std::string& text, std::string& error) {
@@ -1228,43 +1328,7 @@ bool Session::fromJson(const std::string& text, std::string& error) {
     if (j.contains("tracks") && j["tracks"].is_array()) {
       for (const json& jt : j["tracks"]) {
         const int t = jt.value("track", 0) - 1;
-        if (t < 0 || t >= kTrackCount) continue;
-        TrackState& tr = tracks_[static_cast<std::size_t>(t)];
-        setChannel(t, jt.value("channel", t + 1) - 1);
-        if (jt.contains("mixer")) mixerFromJson(t, jt["mixer"]);
-        if (jt.contains("inserts")) insertsFromJson(t, jt["inserts"]);
-        const EngineType type = engineFromKey(jt.value("engine", std::string("none")).c_str());
-        if (type == EngineType::None) continue;
-        const json je = jt.contains(engineKey(type)) ? jt[engineKey(type)] : json::object();
-        if (type == EngineType::Fm && je.contains("voice")) {
-          syx::Voice v{};
-          if (fromHex(je["voice"].get<std::string>(), v.data(), v.size())) {
-            tr.hasVoice = true;
-            tr.voice = syx::normalize(v);
-            tr.voiceSource = je.value("source", std::string());
-            linkLibrary(tr);
-          }
-        }
-        if (type == EngineType::Drum) {
-          tr.kit = je.value("kit", std::string());
-          if (je.contains("pads") && je["pads"].is_array())
-            for (const json& jp : je["pads"]) {
-              const int pad = jp.value("pad", 0) - 1;
-              if (pad >= 0 && pad < DrumEngine::kPads) tr.pads[static_cast<std::size_t>(pad)].sample = jp.value("sample", std::string());
-            }
-        }
-        if (type == EngineType::Sampler) tr.pads[0].sample = je.value("sample", std::string());
-        setEngine(t, type);
-        if (je.contains("params") && je["params"].is_object()) {
-          // The new engine is already at its defaults: send only what differs
-          // (a kit has 272 parameters, and the command queue holds 2048).
-          const auto table = engineParams(type);
-          for (std::size_t i = 0; i < table.size(); ++i)
-            if (je["params"].contains(table[i].key) && je["params"][table[i].key].is_number()) {
-              const float v = clampValue(table[i], je["params"][table[i].key].get<float>());
-              if (v != param(engineRef(t, static_cast<int>(i)))) setParam(engineRef(t, static_cast<int>(i)), v);
-            }
-        }
+        if (t >= 0 && t < kTrackCount) trackFromJson(t, jt);
       }
     }
     if (j.contains("master") && j["master"].is_object()) {
@@ -1316,6 +1380,7 @@ bool Session::fromJson(const std::string& text, std::string& error) {
       }
       sendPrograms();
     }
+    if (j.contains("rec") && j["rec"].is_object()) recFromJson(j["rec"]);
   } catch (const json::exception& e) {
     error = std::string("bad project file: ") + e.what();
     return false;
@@ -1367,12 +1432,14 @@ bool Session::saveAs(const std::string& name, std::string& error) {
   const std::string old = name_;
   // Collected samples live in the project folder: they go with it.
   std::error_code ec;
-  const fs::path samples = paths_.projectDir(old) / "samples";
-  if (!old.empty() && name != old && fs::is_directory(samples, ec)) {
+  // …and so do its recordings (pads and samplers point into both).
+  for (const char* folder : {"samples", "recordings"}) {
+    const fs::path from = paths_.projectDir(old) / folder;
+    if (old.empty() || name == old || !fs::is_directory(from, ec)) continue;
     fs::create_directories(paths_.projectDir(name), ec);
-    fs::copy(samples, paths_.projectDir(name) / "samples", fs::copy_options::recursive | fs::copy_options::skip_existing, ec);
+    fs::copy(from, paths_.projectDir(name) / folder, fs::copy_options::recursive | fs::copy_options::skip_existing, ec);
     if (ec) {
-      error = "can't copy the project's samples: " + ec.message();
+      error = std::string("can't copy the project's ") + folder + ": " + ec.message();
       return false;
     }
   }

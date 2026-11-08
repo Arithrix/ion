@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstring>
 #include <numbers>
+#include <utility>
 
 #include "core/denormals.h"
 #include "engine/drum/drum_engine.h"
@@ -188,6 +189,7 @@ void Module::renderBlock() noexcept {
   while (auto c = commandQueue_.pop()) handleCommand(*c);
 
   clock_.update(frames_);
+  if (!clock_.present()) takeClockStopped();
   FmEngine::setClock(static_cast<uint64_t>(frames_));
 
   for (int t = 0; t < kTrackCount; ++t) {
@@ -334,17 +336,44 @@ void Module::mix() noexcept {
 
   int voices = 0;
   constexpr float kInvBlock = 1.0f / static_cast<float>(kBlockSize);
+  const bool recording = capturing();
+  if (recording) {
+    std::memset(recLeft_, 0, sizeof recLeft_);
+    std::memset(recRight_, 0, sizeof recRight_);
+  }
   for (int t = 0; t < kTrackCount; ++t) {
     const auto ti = static_cast<std::size_t>(t);
     const auto& v = values_[ti];
     StripState& s = strips_[ti];
     float* l = trackLeft_[t];
     float* r = trackRight_[t];
+    const bool rec = recording && take_->source == RecSource::Tracks && (take_->tracks >> t & 1);
+    if (rec && take_->tap == RecTap::Pre)
+      for (std::size_t i = 0; i < kBlockSize; ++i) {
+        recLeft_[i] += l[i];
+        recRight_[i] += r[i];
+      }
 
     if (!asleep(t, l, r)) {
       if (engines_[ti]) eq_[ti].process(l, r, kBlockSize, EqSettings::fromParams(v.data()));
       runInserts(t, l, r);
       settle(t, l, r);
+    }
+
+    if (rec && take_->tap == RecTap::Post) {
+      // What the track sends to the master, but heard even when muted or soloed out.
+      const PanGains rp = panGains(v[kPan]);
+      const float g = faderGain(v[kFader]);
+      float& gl = recGainLeft_[ti];
+      float& gr = recGainRight_[ti];
+      const float sl = (g * rp.left - gl) * kInvBlock, sr = (g * rp.right - gr) * kInvBlock;
+      for (std::size_t i = 0; i < kBlockSize; ++i) {
+        const float k = static_cast<float>(i + 1);
+        recLeft_[i] += l[i] * (gl + sl * k);
+        recRight_[i] += r[i] * (gr + sr * k);
+      }
+      gl = g * rp.left;
+      gr = g * rp.right;
     }
 
     // Fader and pan into the master; sends to the buses, before or after the
@@ -419,7 +448,8 @@ void Module::mix() noexcept {
     runInserts(kMasterScope, left_, right_);
     settle(kMasterScope, left_, right_);
   }
-  renderPreview();
+  // The browser's preview isn't part of a recording of the master: it waits.
+  if (!(recording && take_->source == RecSource::Master)) renderPreview();
   const float mg = faderGain(values_[kMasterScope][kFader]);
   const float step = (mg - master_.gainLeft) * kInvBlock;
   bool clipped = false;
@@ -439,6 +469,125 @@ void Module::mix() noexcept {
   if (clipped) status_.clippedBlocks.fetch_add(1, std::memory_order_relaxed);
   meter(left_, right_, kBlockSize, master_.peakLeft, master_.peakRight, master_.msLeft, master_.msRight,
         status_.master);
+
+  if (recording) {
+    // The master comes out of the limiter 1 ms late: read it that much later, so
+    // a take of the master lines up with the bar exactly as a take of tracks does.
+    if (take_->source == RecSource::Master) captureTake(left_, right_, Limiter::kLookahead);
+    else captureTake(recLeft_, recRight_, 0);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// recording (DECISIONS D-51)
+
+namespace {
+// A synced take records this far past its last downbeat, so the control thread
+// can trim to the length the clock measured over the whole take.
+constexpr int64_t kTakeTail = 2048;
+constexpr int kTicksPerBar = 96;
+}  // namespace
+
+void Module::startTake(Take* t) noexcept {
+  if (take_) endTake(Take::State::Cancelled);
+  take_ = t;
+  takeEnd_ = -1;
+  takeTicks_ = 0;
+  recGainLeft_.fill(0);
+  recGainRight_.fill(0);
+  for (int tr = 0; tr < kTrackCount; ++tr) {
+    // Start the post-fx tap at the track's gain, not ramping up from zero.
+    const auto& v = values_[static_cast<std::size_t>(tr)];
+    const PanGains p = panGains(v[kPan]);
+    recGainLeft_[static_cast<std::size_t>(tr)] = faderGain(v[kFader]) * p.left;
+    recGainRight_[static_cast<std::size_t>(tr)] = faderGain(v[kFader]) * p.right;
+  }
+  t->frames.store(0, std::memory_order_relaxed);
+  t->tickCount.store(0, std::memory_order_relaxed);
+  t->cutShort = false;
+  t->bpm = clock_.present() && clock_.bpm() > 0 ? clock_.bpm() : 120.0;
+  if (t->synced) {
+    // Bars it may run to; a free synced take stops on the downbeat after "stop".
+    const int room = static_cast<int>(std::max<std::size_t>(t->ticks.size(), 1) - 1) / kTicksPerBar;
+    t->targetBars.store(t->bars > 0 ? std::min(t->bars, room) : room, std::memory_order_relaxed);
+    t->state.store(Take::State::Armed, std::memory_order_release);
+    return;
+  }
+  // Now: from this block. A length in bars is counted at the current tempo.
+  takeStart_ = frames_;
+  t->startFrame = frames_;
+  t->startBar = 0;
+  t->targetBars.store(t->bars, std::memory_order_relaxed);
+  if (t->bars > 0) takeEnd_ = frames_ + std::llround(t->bars * 4 * 60.0 / t->bpm * kSampleRate);
+  t->state.store(Take::State::Recording, std::memory_order_release);
+}
+
+void Module::takeTick(int64_t frame, bool downbeat) noexcept {
+  Take* t = take_;
+  if (!t || !t->synced) return;
+  const Take::State st = t->state.load(std::memory_order_relaxed);
+  if (st == Take::State::Armed) {
+    if (!downbeat) return;
+    takeStart_ = frame;
+    takeTicks_ = 0;
+    t->startFrame = frame;
+    t->startBar = clock_.bar();  // the tick has been counted: this is the bar it opens
+    t->bpm = clock_.bpm() > 0 ? clock_.bpm() : t->bpm;
+    if (!t->ticks.empty()) t->ticks[0] = 0;
+    t->tickCount.store(1, std::memory_order_relaxed);
+    t->state.store(Take::State::Recording, std::memory_order_release);
+    return;
+  }
+  if (st != Take::State::Recording || takeEnd_ >= 0) return;
+  ++takeTicks_;
+  if (static_cast<std::size_t>(takeTicks_) < t->ticks.size()) {
+    t->ticks[static_cast<std::size_t>(takeTicks_)] = frame - takeStart_;
+    t->tickCount.store(takeTicks_ + 1, std::memory_order_release);
+  }
+  if (takeTicks_ >= t->targetBars.load(std::memory_order_relaxed) * kTicksPerBar) takeEnd_ = frame + kTakeTail;
+}
+
+// The transport stopped or the clock went away: a synced take keeps the whole
+// bars it has (the control thread drops it if there are none).
+void Module::takeClockStopped() noexcept {
+  if (!take_ || !take_->synced) return;
+  const Take::State st = take_->state.load(std::memory_order_relaxed);
+  if (st != Take::State::Recording || takeEnd_ >= 0) return;
+  take_->targetBars.store(takeTicks_ / kTicksPerBar, std::memory_order_relaxed);
+  take_->cutShort = true;
+  takeEnd_ = frames_;  // the capture ends it
+}
+
+void Module::captureTake(const float* l, const float* r, int64_t delay) noexcept {
+  Take* t = take_;
+  const int64_t blockEnd = frames_ + static_cast<int64_t>(kBlockSize);
+  const int64_t start = takeStart_ + delay, end = takeEnd_ >= 0 ? takeEnd_ + delay : -1;
+  const int64_t from = std::max(start, frames_);
+  int64_t to = end >= 0 ? std::min(end, blockEnd) : blockEnd;
+  bool full = false;
+  if (to - start > t->capacity) {
+    to = start + t->capacity;
+    full = true;
+  }
+  for (int64_t f = from; f < to; ++f) {
+    const auto i = static_cast<std::size_t>(f - start);
+    const auto k = static_cast<std::size_t>(f - frames_);
+    t->left[i] = l[k];
+    t->right[i] = r[k];
+  }
+  if (to > from) t->frames.store(to - start, std::memory_order_release);
+  if (full && end < 0) t->cutShort = true;
+  if (full || (end >= 0 && blockEnd >= end)) endTake(Take::State::Done);
+}
+
+void Module::endTake(Take::State state) noexcept {
+  Take* t = std::exchange(take_, nullptr);
+  if (!t) return;
+  takeEnd_ = -1;
+  t->state.store(state, std::memory_order_release);
+  Notification n{Notification::Type::TakeDone};
+  n.take = t;
+  notify(n);
 }
 
 void Module::renderPreview() noexcept {
@@ -469,10 +618,18 @@ void Module::dispatch(const MidiMessage& m, int64_t frame) noexcept {
   status_.midiReceived.fetch_add(1, std::memory_order_relaxed);
 
   switch (m.status) {
-    case 0xF8: clock_.tick(frame); return;
+    case 0xF8: {
+      // A downbeat is a tick landing on a multiple of 96 (four 24-tick beats) while running.
+      const bool downbeat = clock_.running() && clock_.ticks() % 96 == 0;
+      if (clock_.tick(frame)) takeTick(frame, downbeat);
+      return;
+    }
     case 0xFA: clock_.start(frame); return;
     case 0xFB: clock_.cont(frame); return;
-    case 0xFC: clock_.stop(frame); return;
+    case 0xFC:
+      clock_.stop(frame);
+      takeClockStopped();
+      return;
     case 0xF2: clock_.songPosition(m.data1 | (m.data2 << 7)); return;
     default: break;
   }
@@ -686,6 +843,27 @@ void Module::handleCommand(const Command& c) noexcept {
       }
       break;
     }
+    case Command::Type::Record:
+      if (c.take) startTake(c.take);
+      break;
+    case Command::Type::StopRecord:
+      if (take_) {
+        const Take::State st = take_->state.load(std::memory_order_relaxed);
+        if (st == Take::State::Armed) {
+          endTake(Take::State::Cancelled);
+        } else if (take_->synced) {
+          // On the next downbeat: the bar under way is the last.
+          const int bars = takeTicks_ / kTicksPerBar + 1;
+          if (bars < take_->targetBars.load(std::memory_order_relaxed)) take_->targetBars.store(bars, std::memory_order_relaxed);
+        } else if (takeEnd_ < 0 || takeEnd_ > frames_) {
+          take_->cutShort = take_->bars > 0;  // short of the bars it was asked for
+          takeEnd_ = frames_;                 // the capture ends it
+        }
+      }
+      break;
+    case Command::Type::CancelRecord:
+      endTake(Take::State::Cancelled);
+      break;
     case Command::Type::SetPrograms: {
       ProgramTable* old = programs_;
       programs_ = c.programs;

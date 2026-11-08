@@ -301,6 +301,31 @@ Older formats open with no inserts, sends off and the glue compressor out, and k
 ### D-49 · decided · Recording sidecars
 A recording `name.wav` carries `name.json`: `{"ion_recording": 1, "tempo": 124.0, "bars": 4, "beats_per_bar": 4, "sources": "tracks 3 + 6", "recorded_at": "…"}`. The Rec screen will write them (Phase 6). The sampler already reads them: it shows bars, tempo and sources, and draws a bar ruler.
 
+## Decided during Phase 6
+
+### D-51 · decided · The recorder: where it listens, when it starts, how long it is
+A take is a buffer the control thread allocates (zeroed, so the audio thread never faults pages in) and hands to the Module, like a sample. The audio thread writes it and publishes how far it has got; the UI draws the live waveform from what's below that line. When the take ends the Module hands it back (`TakeDone`) and only then does the Session touch it. If the Session goes away mid-take the buffer leaks rather than being freed under the audio thread.
+- **Taps.** Master: after the limiter, read `Limiter::kLookahead` (48) frames late, so a take of the master lines up with the bar exactly as a take of tracks does. Tracks, post-fx: after EQ and inserts, with fader and pan, but mute and solo ignored (you can record a track you've muted or soloed out). Tracks, pre-fx: the engine's dry output. Sends aren't in a track take; record the master for those. The browser's preview is held back while the master records. Audio input slots into `RecSource` later.
+- **Start.** Synced: on the downbeat tick (a tick landing on a multiple of 96 while the transport runs), at that tick's frame. A note the OXI sends with that tick lands at frame 0 of the take. Armed with the transport stopped, it waits. "Now": from the next 64-frame block.
+- **Length (refines D-09).** A synced take records every tick's frame and runs ~2048 frames past its last downbeat. The Session then fits a least-squares line through all the ticks and trims to `bars × 96 × frames-per-tick`. That's the tempo measured over the whole take, not the smoothed tempo at the start, so a jittery tick at either end can't make the loop the wrong length. "Now" with bars counts them at the current tempo (the clock's, else 120). "Until stopped" runs until `r` (synced: until the next downbeat after `r`), at most 3 minutes.
+- **Stopping early.** `r` during a synced take makes the bar under way the last. The transport stopping, or the clock going away, keeps the whole bars recorded (none: nothing is kept).
+- **Room.** Synced takes get room for their bars at 30 BPM. Below that a take runs out of room and keeps what fits. 16 bars is 49 MB.
+
+### D-52 · decided · Slicing
+All three are offline on the control thread, after the take (well under 100 ms for 16 bars).
+- **Equal:** 4, 8 or 16 (the handoff's 8 or 16, plus 4 for a 4-bar take).
+- **Chord changes:** 12-bin chroma from 4096-point frames (100 Hz–5 kHz), each frame normalised, near-silent frames dropped. With a tempo the candidates are the beats (the take starts on a downbeat). Each beat's novelty is 1 − cosine similarity between the mean chroma of the beat before and the beat after. A change counts if it clears 4× the 30th-percentile novelty (the in-chord noise floor), 10% of the biggest, and 0.06. Without a tempo the candidates are every 21 ms with ½ s each side, and peaks ¼ s apart win. Tested: C → Am → F → G struck on every beat lands exactly on the bars (Am → F shares two notes and scores only 0.15, which is why the threshold is relative to the floor and not the peak); one chord restruck gives one slice; a change on beat 3 is found there. Real pads with chorus are the open question; tune by ear with Michael.
+- **Transients:** log-magnitude spectral flux (1024/256), peaks over 1.5× the local median plus 10% of the biggest, at least 40 ms apart. Each is moved back to where its rise begins (20% of the way from the floor to the peak, in 32-sample chunks) and then to the zero crossing before it. Tested within 2 ms on noise bursts over silence and over tails.
+- At most as many slices as pads from the first pad; the strongest win.
+
+### D-53 · decided · Where a take goes, and undo
+- **Files:** `recordings/<what>_<tempo>bpm_<bars>bar.wav` in the project (48 kHz float, stereo) plus the D-49 sidecar. `<what>` is the sound's name for one track (the FM patch, the kit, the sample), `tracks-3-6`, or `mix`. The sidecar adds `frames`, `start_bar`, `tap`, `sent_to`, `slices`, and `settings`: each source track as it is saved in project.json (every track, for the master), so a bounced track can be rebuilt. Save-as copies `recordings/` with the project.
+- **Sampler:** the track becomes a sampler if it isn't one (other settings stay if it is), and plays the take from C3, looped forward over the whole take, no crossfade. Repitch.
+- **Drum pads:** the take waits for review. ↑↓ picks a slice, ← → nudges it 1 ms (Shift 10 ms), `a` splits, `x` merges, Space plays it, ⏎ commits. Each slice is written as `recordings/<take>/slice NN.wav`, with a 0.5 ms fade-in (except the first) and 2 ms fade-out, so a cut mid-waveform doesn't click. On the pads each slice starts from the pad defaults (the note stays), one-shot, in the first choke group no other loaded pad on the track uses. Esc keeps the recording and changes no pads.
+- **Mute sources** (on by default) mutes the recorded tracks, except the destination track itself. That way bouncing track 3 into a sampler on track 3 frees the track instead of silencing it.
+- **Undo** (`u`, the last take only, this session): the tracks the take changed come back from snapshots taken just before (the destination as project JSON, the sources' mute), and its files and slices are deleted.
+- **Project format 6:** the Rec setup is saved with the project (`"rec"`). Format 5 files read as they are, with the default setup. Editing the setup doesn't mark the project unsaved.
+
 ## Proposed (waiting for Michael)
 
 ### D-01 · implemented in Phase 0 · Direct ALSA sequencer instead of RtMidi
@@ -340,7 +365,7 @@ Real data (V-06): only 1 of 1,008 banks had a bad checksum, so this is minor. Fo
 ### D-08 · superseded by D-30 · Dedupe on normalised parameters, store raw bytes
 Hash the unpacked 155-byte voice minus the name (bytes 145–154), after masking unused bits and clamping out-of-range values. Otherwise junk bits in old carts defeat dedupe. Store the original packed bytes and export those, so export round-trips byte-exact.
 
-### D-09 · proposed · Exact-length recording by construction
+### D-09 · implemented as D-51 · Exact-length recording by construction
 The record start is the audio frame that matches the bar tick, mapped through timestamps. The length is `bars × 4 × 60 / bpm × 48000` frames from the smoothed tempo, captured in-engine. The loop is the right length without depending on the stop tick's jitter.
 
 ### D-10 · superseded by D-35 · Samples are converted to 48 kHz float at load (disk thread)

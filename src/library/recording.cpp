@@ -24,6 +24,8 @@ RecordingInfo readRecordingInfo(const std::filesystem::path& audio) {
     info.beatsPerBar = std::max(1, j.value("beats_per_bar", 4));
     info.sources = j.value("sources", std::string());
     info.recordedAt = j.value("recorded_at", std::string());
+    info.sentTo = j.value("sent_to", std::string());
+    info.sidecar = true;
     info.ok = info.tempo > 0;
   } catch (const nlohmann::json::exception&) {
     info = {};

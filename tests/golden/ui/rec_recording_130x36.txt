@@ -1,0 +1,36 @@
+ ion  Tracks Instr Mixer Fx Rec Library  resample ● ● REC 3/4  ▶ 120.0 ext clock  cpu 0%  no audio
+╭ Setup ───────────────────────────────╮╭ Recording ─────────────────────────────────────────────────────────────────────────────╮
+│source   tracks                       ││● RECORDING · bar 3 of 4                        started on bar 1 · stops on the downbeat│
+│tracks    1  2  3  4  5  6  7  8      ││                                                                                        │
+│tap      post-fx                      ││bar 1                 bar 2                 bar 3                 bar 4                 │
+│length   4 bars                       ││█████████████████████ █████████████████████ ██████████░░░░░░░░░░░ ░░░░░░░░░░░░░░░░░░░░░ │
+│start    next bar (clock)             ││                                                                                        │
+│send to  drum pads                    ││                      │                     │                     │                     │
+│track    track 2 · empty kit          ││▇▆▆▅▄▇▇▆▆▄▄▇▆▆▅▄▇▇▆▅▄▄│▆▆▅▄▇▇▆▅▅▄▇▇▆▅▄▇▇▆▅▅▄│▅▆▅▃█▇▅▅▅▃           │                     │
+│pads     from pad 13 (up to 4)        ││██████████████████████│█████████████████████│██████████           │                     │
+│slice    on chord changes             ││██████████████████████│█████████████████████│██████████▁▁▁▁▁▁▁▁▁▁▁│▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁│
+│after    mute the source tracks       ││slices land on chord changes · onto pads 13–16 of track 2 in a free choke group · you c…│
+│                                      │├────────────────────────────────────────────────────────────────────────────────────────┤
+│                                      ││recent recordings                                                                       │
+│                                      ││none yet in this project                                                                │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+├──────────────────────────────────────┤│                                                                                        │
+│r records 4 bars of the chosen tracks ││                                                                                        │
+│as you hear them (fader and pan, even ││                                                                                        │
+│if muted), from the next bar.         ││                                                                                        │
+│Then you check the slices and ⏎ puts  ││                                                                                        │
+│them on track 2.                      ││                                                                                        │
+╰──────────────────────────────────────╯╰────────────────────────────────────────────────────────────────────────────────────────╯
+ midi MIDI off  ·  last: note on   ch01 C3 vel 127
+ r  Stop on downbeat   Esc  Cancel   ↑↓  Option   ←→  Change

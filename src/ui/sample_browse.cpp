@@ -37,6 +37,7 @@ bool naturalLess(const std::string& a, const std::string& b) {
 
 bool SampleBrowse::isRoot(const Session& s, const fs::path& p) const {
   if (p == s.paths().kitsDir || p == expandHome("~")) return true;
+  if (!s.recordingsDir().empty() && p == s.recordingsDir()) return true;
   for (const std::string& r : s.config().sampleRoots)
     if (expandHome(r) == p) return true;
   return false;
@@ -52,6 +53,9 @@ void SampleBrowse::refresh(const Session& s) {
       e.missing = !fs::is_directory(p, ec);
       all_.push_back(e);
     }
+    // This project's takes (Rec screen), once there are any.
+    if (const fs::path rec = s.recordingsDir(); !rec.empty() && fs::is_directory(rec, ec))
+      all_.push_back({Entry::Kind::Root, "recordings (this project)", rec});
     all_.push_back({Entry::Kind::Root, "drum kits", s.paths().kitsDir});
     all_.push_back({Entry::Kind::Root, "~/ (home)", expandHome("~")});
   } else {

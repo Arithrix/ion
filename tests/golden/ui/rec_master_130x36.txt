@@ -1,0 +1,36 @@
+ ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
+╭ Setup ───────────────────────────────╮╭ Recording ─────────────────────────────────────────────────────────────────────────────╮
+│source   master mix                   ││READY                               no clock yet: waits for the OXI, or set start to now│
+│length   4 bars                       ││                                                                                        │
+│start    next bar (clock)             ││bar 1                 bar 2                 bar 3                 bar 4                 │
+│send to  library only                 ││░░░░░░░░░░░░░░░░░░░░░ ░░░░░░░░░░░░░░░░░░░░░ ░░░░░░░░░░░░░░░░░░░░░ ░░░░░░░░░░░░░░░░░░░░░ │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁│
+│                                      ││                                                                                        │
+│                                      ││goes to the project's recordings (the sample browser lists them)                        │
+│                                      │├────────────────────────────────────────────────────────────────────────────────────────┤
+│                                      ││recent recordings                                                                       │
+│                                      ││none yet in this project                                                                │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+├──────────────────────────────────────┤│                                                                                        │
+│r records 4 bars of the master mix,   ││                                                                                        │
+│from the next bar once the OXI's clock││                                                                                        │
+│runs.                                 ││                                                                                        │
+╰──────────────────────────────────────╯╰────────────────────────────────────────────────────────────────────────────────────────╯
+ midi MIDI off  ·  last: nothing yet
+ r  Record   ↑↓  Option   ←→  Change   Esc  Back

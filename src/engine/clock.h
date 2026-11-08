@@ -17,7 +17,7 @@ class ClockFollower {
  public:
   explicit ClockFollower(double sampleRate) : sr_(sampleRate) {}
 
-  void tick(int64_t frame);
+  bool tick(int64_t frame);      // false if it was ignored (out of order)
   void start(int64_t frame);     // FA: position back to 0, running
   void cont(int64_t frame);      // FB: running from the current position
   void stop(int64_t frame);      // FC

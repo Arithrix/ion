@@ -1,0 +1,36 @@
+ ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
+╭ Setup ───────────────────────────────╮╭ Recording ─────────────────────────────────────────────────────────────────────────────╮
+│source   tracks                       ││READY                               no clock yet: waits for the OXI, or set start to now│
+│tracks    1  2  3  4  5  6  7  8      ││                                                                                        │
+│tap      post-fx                      ││bar 1                 bar 2                 bar 3                 bar 4                 │
+│length   4 bars                       ││░░░░░░░░░░░░░░░░░░░░░ ░░░░░░░░░░░░░░░░░░░░░ ░░░░░░░░░░░░░░░░░░░░░ ░░░░░░░░░░░░░░░░░░░░░ │
+│start    next bar (clock)             ││                                                                                        │
+│send to  drum pads                    ││                                                                                        │
+│track    track 4 · Garage 02          ││                                                                                        │
+│pads     from pad 13 (up to 4)        ││                                                                                        │
+│slice    on chord changes             ││▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁│
+│after    mute the source tracks       ││                                                                                        │
+│                                      ││slices land on chord changes · onto pads 13–16 of track 4 in a free choke group · you c…│
+│                                      │├────────────────────────────────────────────────────────────────────────────────────────┤
+│                                      ││recent recordings                                                                       │
+│                                      ││none yet in this project                                                                │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+│                                      ││                                                                                        │
+├──────────────────────────────────────┤│                                                                                        │
+│r records 4 bars of the chosen tracks ││                                                                                        │
+│as you hear them (fader and pan, even ││                                                                                        │
+│if muted), from the next bar once the ││                                                                                        │
+│OXI's clock runs.                     ││                                                                                        │
+│Then you check the slices and ⏎ puts  ││                                                                                        │
+│them on track 4.                      ││                                                                                        │
+╰──────────────────────────────────────╯╰────────────────────────────────────────────────────────────────────────────────────────╯
+ midi MIDI off  ·  last: nothing yet
+ r  Record   ↑↓  Option   ←→  Change   ⏎  Toggle track   Esc  Back
