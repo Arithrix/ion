@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <memory>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -17,6 +18,7 @@
 #include "engine/drum/drum_engine.h"
 #include "engine/fm/fm_engine.h"
 #include "engine/fx/effects.h"
+#include "engine/module.h"
 #include "engine/plaits/plaits_engine.h"
 #include "library/syx.h"
 
@@ -211,6 +213,41 @@ int main(int argc, char** argv) {
                 r.realtimeFactor, r.usPerPeriod128, r.usPerPeriod128 / 2666.7 * 100.0, r.usPerPeriod128 / std::max(1.0, r.averageVoices));
   }
   std::printf("  worst model: %.1f µs per buffer for 6 voices (%.1f%% of a 128-frame buffer)\n", worst, worst / 2666.7 * 100.0);
+
+  // Modulation: the whole Module with no engines, without and then with all
+  // 64 routes (8 per track) moving faders and pans, all four sources running.
+  {
+    auto moduleCost = [&](bool routes) {
+      auto m = std::make_unique<ion::Module>();
+      if (routes)
+        for (int t = 0; t < ion::kTrackCount; ++t)
+          for (int r = 0; r < ion::kModRoutes; ++r) {
+            ion::Command c;
+            c.type = ion::Command::Type::SetModTarget;
+            c.track = static_cast<uint8_t>(t);
+            c.slot = r;
+            c.value = r % 2 ? ion::kPan : ion::kFader;
+            m->pushCommand(c);
+            c.type = ion::Command::Type::SetParam;
+            c.param = ion::routeRef(t, r, ion::kRouteSource);
+            c.value = static_cast<float>(1 + r % 4);
+            m->pushCommand(c);
+            c.param = ion::routeRef(t, r, ion::kRouteDepth);
+            c.value = 0.2f;
+            m->pushCommand(c);
+          }
+      std::vector<float> out(2 * 128);
+      const int periods = static_cast<int>(seconds * ion::kSampleRate / 128);
+      const auto start = std::chrono::steady_clock::now();
+      for (int i = 0; i < periods; ++i) m->process(out.data(), 128);
+      const std::chrono::duration<double> wall = std::chrono::steady_clock::now() - start;
+      return wall.count() * 1e6 / periods;
+    };
+    const double base = moduleCost(false), withMod = moduleCost(true);
+    std::printf("\nModulation (the Module, no engines; 8 tracks × 8 routes, 2 LFOs + 2 envelopes each)\n");
+    std::printf("  without routes %.1f µs, with %.1f µs per 128-frame buffer: modulation costs %.1f µs (%.2f%%)\n", base, withMod,
+                withMod - base, (withMod - base) / 2666.7 * 100.0);
+  }
 
   std::printf("\nEffects (stereo noise in; the time includes making the noise)\n");
   std::printf("  effect                    µs per 128-frame buffer   %% of 2.67 ms\n");

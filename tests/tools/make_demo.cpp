@@ -331,6 +331,19 @@ int main(int argc, char** argv) {
     s.addMapping(7, 20, engineParamRef(7, PlaitsEngine::kHarmonics));
     s.addMapping(7, 21, engineParamRef(7, PlaitsEngine::kTimbre));
     s.addMapping(7, 22, engineParamRef(7, PlaitsEngine::kMorph));
+    // Modulation (0.8.0): LFO 1, a triangle synced to two bars, sweeps timbre;
+    // envelope 1 opens morph on every note and settles back.
+    s.setModTarget(7, 0, engineParamRef(7, PlaitsEngine::kTimbre));
+    s.setParam(routeRef(7, 0, kRouteSource), kSrcLfo1);
+    s.setParam(routeRef(7, 0, kRouteDepth), 0.25f);
+    s.setParam(lfoRef(7, 0, kLfoShape), kLfoTriangle);
+    s.setParam(lfoRef(7, 0, kLfoSync), 1);
+    s.setParam(lfoRef(7, 0, kLfoDivision), 1);  // 2 bars
+    s.setModTarget(7, 1, engineParamRef(7, PlaitsEngine::kMorph));
+    s.setParam(routeRef(7, 1, kRouteSource), kSrcEnv1);
+    s.setParam(routeRef(7, 1, kRouteDepth), 0.35f);
+    s.setParam(modEnvRef(7, 0, kMEnvAttack), 30);
+    s.setParam(modEnvRef(7, 0, kMEnvDecay), 1500);
   }
 
   // cc 75 on channel 1: the reverb's size; cc 76: the delay's feedback.
