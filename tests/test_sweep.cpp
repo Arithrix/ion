@@ -571,3 +571,15 @@ TEST_CASE("regression: Plaits' speech model, moving from words back to vowels mi
     e.noteOff(static_cast<uint8_t>(40 + i % 20));
   }
 }
+
+TEST_CASE("regression: Plaits' 6-op FM at full velocity (read past its velocity table)") {
+  PlaitsEngine e;
+  e.setParam(PlaitsEngine::kModel, 18);  // 6-op FM a
+  e.setParam(PlaitsEngine::kVelLpg, 1);
+  std::vector<float> l(64), r(64);
+  for (int i = 0; i < 8; ++i) {
+    e.noteOn(static_cast<uint8_t>(48 + i), 127);
+    for (int b = 0; b < 30; ++b) e.render(l.data(), r.data(), 64);
+  }
+  for (float v : l) CHECK(std::isfinite(v));
+}
