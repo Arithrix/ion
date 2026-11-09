@@ -5,8 +5,8 @@
 │  ★ favourites      2 ││                                                          ││  1  kick_tight_03                          │
 │ Drum kits          1 ││                                                          ││  2  kick_sub_01                            │
 │                      ││                                                          ││  3  clap_room                              │
-│ Plaits · Phase 7     ││                                                          ││  4  snare_rim                              │
-│ Recordings · Phase 6 ││                                                          ││  5  hat_closed                             │
+│ Plaits presets     0 ││                                                          ││  4  snare_rim                              │
+│ Recordings         0 ││                                                          ││  5  hat_closed                             │
 │                      ││                                                          ││  6  hat_open                               │
 │                      ││                                                          ││  7  shaker                                 │
 │                      ││                                                          ││  8  rim                                    │

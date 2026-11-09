@@ -96,12 +96,14 @@ Module::~Module() {
     if (n->type == Notification::Type::EngineRetired) delete n->engine;
     if (n->type == Notification::Type::ProgramsRetired) delete n->programs;
     if (n->type == Notification::Type::EffectRetired) delete n->effect;
+    if (n->type == Notification::Type::BankRetired) delete n->plaitsBank;
   }
   // Engines and tables still in flight to the audio thread.
   while (auto c = commandQueue_.pop()) {
     if (c->type == Command::Type::SetEngine) delete c->engine;
     if (c->type == Command::Type::SetPrograms) delete c->programs;
     if (c->type == Command::Type::SetInsert) delete c->effect;
+    if (c->type == Command::Type::SetPlaitsBank) delete c->plaitsBank;
   }
 }
 

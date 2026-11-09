@@ -5,8 +5,8 @@
 │  ★ favourites      2 ││                                                          ││                                            │
 │ Drum kits          1 ││                                                          ││⏎ loads it · n starts a new one · w saves · │
 │                      ││                                                          ││W saves under a new name                    │
-│ Plaits · Phase 7     ││                                                          ││                                            │
-│ Recordings · Phase 6 ││                                                          ││                                            │
+│ Plaits presets     0 ││                                                          ││                                            │
+│ Recordings         0 ││                                                          ││                                            │
 │                      ││                                                          ││                                            │
 │                      ││                                                          ││                                            │
 │                      ││                                                          ││                                            │

@@ -1,6 +1,7 @@
 // Library (L): projects, the FM library and drum kits (mockups/Library).
 // Recordings join in Phase 6.
 
+#include <chrono>
 #include <cstdio>
 #include <ctime>
 #include <filesystem>
@@ -166,8 +167,15 @@ class LibraryScreen final : public Screen {
     rows.push_back(hbox({text("  ★ favourites") | flex, text(thousands(favourites) + " ")}) | color(palette::dim));
     rows.push_back(row(kKits, "Drum kits", std::to_string(kits_.size())));
     rows.push_back(text(""));
-    for (const char* later : {"Plaits · Phase 7", "Recordings · Phase 6"})
-      rows.push_back(text(" " + std::string(later)) | color(palette::faint));
+    // Kept elsewhere: presets are opened from the Plaits screen (o), recordings from the sample browser.
+    // Both read the disk: every couple of seconds, not every frame.
+    if (const auto now = std::chrono::steady_clock::now(); now - countedAt_ > std::chrono::seconds(2)) {
+      countedAt_ = now;
+      presetCount_ = s.listPlaitsPresets().size();
+      recordingCount_ = s.recordings(999).size();
+    }
+    rows.push_back(hbox({text(" Plaits presets") | flex, text(std::to_string(presetCount_) + " ")}) | color(palette::dim));
+    rows.push_back(hbox({text(" Recordings") | flex, text(std::to_string(recordingCount_) + " ")}) | color(palette::dim));
     rows.push_back(filler());
     return pane("Browse", vbox(rows), pane_ == 0);
   }
@@ -365,6 +373,8 @@ class LibraryScreen final : public Screen {
   int section_ = kProjects;
   int pane_ = 1;
   int sel_ = 0;
+  std::chrono::steady_clock::time_point countedAt_{};
+  std::size_t presetCount_ = 0, recordingCount_ = 0;
   Action pending_ = Action::None;
 };
 
