@@ -126,7 +126,9 @@ void randomEdit(Rig& r, std::mt19937& rng) {
       break;
     }
     case 7: s.setModTarget(t, pick(kModRoutes), std::nullopt); break;
-    case 8: s.addMapping(static_cast<uint8_t>(pick(16)), static_cast<uint8_t>(pick(128)), {static_cast<uint8_t>(t), static_cast<uint16_t>(pick(kMixerParamCount))}); break;
+    // CCs the test also plays (1, the mod wheel; 123, all notes off) aren't
+    // mapped: a CC move is playing, not an edit, and undo rightly leaves it.
+    case 8: s.addMapping(static_cast<uint8_t>(pick(16)), static_cast<uint8_t>(2 + pick(118)), {static_cast<uint8_t>(t), static_cast<uint16_t>(pick(kMixerParamCount))}); break;
     case 9:
       if (!s.ccMappings().empty()) s.removeMapping(s.ccMappings()[static_cast<std::size_t>(pick(static_cast<int>(s.ccMappings().size())))].slot);
       break;
@@ -262,9 +264,11 @@ TEST_CASE("sweep: every engine under random settings and notes stays finite, bou
           peak = std::max(peak, std::max(std::fabs(l[i]), std::fabs(rr[i])));
         }
       }
-      // Bounded: a runaway filter or envelope goes to hundreds or more. Heavy
-      // but legitimate settings (+24 dB of sampler level on 16 voices) reach ~20.
-      CHECK(peak < 48.0f);
+      // Bounded: a runaway filter or envelope goes to 1e6 and beyond (FM's
+      // voice-steal bug reached 1e19). Extreme but legitimate settings stack
+      // up a long way: +24 dB of sampler level, full resonance (+24 dB at its
+      // peak) and many voices reach ~100.
+      CHECK(peak < 1000.0f);
       // Every note off, then time to finish: nothing left sounding.
       for (int n = 0; n < 128; ++n) e->noteOff(static_cast<uint8_t>(n));
       e->setParam(static_cast<int>(table.size()) - 2, 200);  // a finite release where it's the amp release (most engines)
@@ -582,4 +586,29 @@ TEST_CASE("regression: Plaits' 6-op FM at full velocity (read past its velocity 
     for (int b = 0; b < 30; ++b) e.render(l.data(), r.data(), 64);
   }
   for (float v : l) CHECK(std::isfinite(v));
+}
+
+TEST_CASE("regression: Plaits switching to a 6-op model doesn't start on the last model's leftovers") {
+  // The deep sweep's sequence (seed 183158): random settings and notes until
+  // 6-op FM c starts on a buffer another model left behind, and plays NaN.
+  std::mt19937 rng(183158);
+  PlaitsEngine e;
+  const auto table = PlaitsEngine::paramTable();
+  std::vector<float> l(64), r(64);
+  for (int block = 0; block < 3000; ++block) {
+    if (block % 40 == 0)
+      for (int k = 0; k < 4; ++k) {
+        const int p = static_cast<int>(rng() % table.size());
+        const ParamInfo& pi = table[static_cast<std::size_t>(p)];
+        const float n = rng() % 5 == 0 ? (rng() % 2 ? 1.0f : 0.0f) : static_cast<float>(rng() % 1001) / 1000.0f;
+        e.setParam(p, clampValue(pi, fromNormalized(pi, n)));
+      }
+    if (block % 7 == 0) e.noteOn(static_cast<uint8_t>(24 + rng() % 80), static_cast<uint8_t>(1 + rng() % 127));
+    if (block % 5 == 0) e.noteOff(static_cast<uint8_t>(24 + rng() % 80));
+    if (block % 97 == 0) e.pitchBend(static_cast<int>(rng() % 16384) - 8192);
+    if (block == 1500) e.allNotesOff();
+    std::fill(l.begin(), l.end(), 0.0f);
+    e.render(l.data(), r.data(), 64);
+    for (float v : l) REQUIRE(std::isfinite(v));
+  }
 }

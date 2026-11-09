@@ -431,10 +431,10 @@ Measured first, changed second, measured again; anything that didn't help or cha
   - outside the suite: the real app through a pty at three sizes with PipeWire audio (every screen, piano on every track, overlays, undo, mouse, save, quit), a 90-second playing soak (memory flat, 0 dropouts), every command-line mode.
 - **Bugs found and fixed** (each with a regression test):
   - **Synth_Dexed:** a heap overflow when stealing a voice with all busy, plus the wrong voice stamped as newest; `monoMode` read uninitialised; a negative shift from an LFO delay byte over 99; built with `-fwrapv` (its accumulators wrap by design).
-  - **Plaits:** the wavetable model read past its wave map at the top of the quantised banks (a crash); the speech model read past its phoneme table twice (a struck consonant; a word's position surviving a move back to the vowels); the 6-op models read past their velocity table on every full-velocity note; output now clips at full scale as the module's own does.
+  - **Plaits:** the wavetable model read past its wave map at the top of the quantised banks (a crash); the speech model read past its phoneme table twice (a struck consonant; a word's position surviving a move back to the vowels); the 6-op models read past their velocity table on every full-velocity note, and could start on another model's leftovers in the RAM all models share (NaN; ion now clears it on a model switch); output now clips at full scale as the module's own does.
   - **Open303:** an array zeroed past its end.
   - **ion:** undo/redo of a step that changes what an effect slot holds or which engine a track runs could bring back a stale value (a moved, switched-off effect came back on); a removed master glue compressor came back after save and load; CHIP and Plaits glide ran away when the glide time was shortened mid-glide; the sampler's LP24 resonated in both stages (+49 dB at full resonance; now the second stage stops at Butterworth, unchanged below ~30%).
-- **Clean:** 213 test cases, all passing in the normal and Release builds and under AddressSanitizer + UBSan with no findings, vendored code included.
+- **Clean:** 214 test cases, all passing in the normal and Release builds and under AddressSanitizer + UBSan with no findings, vendored code included.
 
 ## Proposed (waiting for Michael)
 

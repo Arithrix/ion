@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <utility>
 
 #include "plaits/dsp/engine/additive_engine.h"
@@ -45,6 +46,7 @@ static_assert(PlaitsVoice::kBlock == plaits::kBlockSize);
 class VoiceImpl {
  public:
   void init(char* ram) {
+    ram_ = ram;
     allocator_.Init(ram, PlaitsVoice::kRam);
     registry_.Init();
     // Plaits' order and settings (already enveloped, out gain, aux gain):
@@ -103,6 +105,12 @@ class VoiceImpl {
     const int index = std::clamp(s.model, 0, registry_.size() - 1);
     Engine* e = registry_.get(index);
     if (index != previous_ || reload_) {
+      // The models share this RAM, and some keep state in it between blocks
+      // with a Reset() that doesn't clear it (the 6-op models' accumulator):
+      // a new model started on the last one's leftovers, sometimes NaN
+      // (found by the 0.10.1 deep sweep). Clear it; Reset() and
+      // LoadUserData() then set up what each model needs, as upstream intends.
+      if (index != previous_) std::memset(ram_, 0, PlaitsVoice::kRam);
       const uint8_t* data = nullptr;
       if (index >= 2 && index <= 4) data = banks_[index - 2] ? banks_[index - 2] : fm_patches_table[index - 2];
       e->LoadUserData(data);
@@ -217,6 +225,7 @@ class VoiceImpl {
 
   EngineRegistry<PlaitsVoice::kModels> registry_;
   stmlib::BufferAllocator allocator_;
+  char* ram_ = nullptr;
   const uint8_t* banks_[3] = {nullptr, nullptr, nullptr};
   int previous_ = -1;
   bool reload_ = false;
