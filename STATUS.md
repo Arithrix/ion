@@ -134,7 +134,7 @@
 
 ## Next
 - **Phase 8 (Comet) is on hold until Michael has the device** (his call, 2026-11-08): aarch64 build, ALSA tuning, narrow-layout polish, CPU guard, autostart, measured voice limits.
-- Until then: whatever Michael picks. Candidates: HANDOFF §12's "Later" list (time-stretch, audio input recording, multi-zone sampler / SFZ, more synths), or the known gaps below.
+- **Proposed next, discussing (PLAN.md):** Phase 8 modulation (LFOs and envelopes assignable to any value), Phase 9 a 303-style bass (Open303), Phase 10 a chip synth (which chip: Michael's call). Nothing started.
 
 ## Known gaps carried forward
 - Recording: no audio input yet; a take's source settings are saved in its sidecar but there's no "bring the sources back" command yet; editing the Rec setup doesn't mark the project unsaved.

@@ -68,15 +68,42 @@ Recorder tap at every source point, bar-quantised start, exact-length capture, W
 ### Phase 7 · Plaits — `v0.7.0` · M
 Port all 24 models (1.2 is public, confirmed), N-voice polyphony, per-model macro descriptions, 3×8 grid, FM-library link for the three 6-op models, presets.
 
-### Phase 8 · Comet — `v0.8.0` · M (mostly unknowns)
-Native aarch64 build and measurements, raw ALSA tuning at 256 frames, narrow layout polish, CPU guard with voice stealing, autostart service, measured voice limits.
+### Comet — when the device arrives · M (mostly unknowns)
+**On hold until Michael has the device** (2026-11-08). Native aarch64 build and measurements, raw ALSA tuning at 256 frames, narrow layout polish, CPU guard with voice stealing, autostart service, measured voice limits. It takes the next free version number when it starts.
+
+### Proposed (2026-11-08, discussing with Michael; nothing started)
+Order proposed: modulation first, because it's shared infrastructure and every engine after it gets it for free; then the 303 (well-defined, small); then the chip synth (needs a choice of chip first).
+
+**Phase 8 · Modulation — `v0.8.0` · M**
+- Per track: 4 modulators, each an **LFO** (sine, triangle, saw, square, S&H, smooth random; free in Hz or synced to the OXI's clock; restart free / on note / on bar; uni- or bipolar) or an **envelope** (the uniform AHDSR, D-50, fired by the track's notes: on every note, or only on the first of a legato phrase).
+- Plus fixed sources: velocity, mod wheel (cc 1), aftertouch, key (note number), random per note.
+- A **mod matrix** of 8 routes per track: source → any value on that track (engine, mixer, inserts, sends), depth ±100% in the value's own 0…1 range. Switches and choice values can't be targets, except Plaits' model, stepped.
+- Applied in the Module once per 64-frame block, on top of the value you set. The base value is what's saved, undone, CC-moved and shown; bars get a live marker for where modulation has it.
+- Per-track, not per-voice: one envelope moves every held note together. That's right for mono (the 303) and for sweeps; per-voice envelopes are already in the engines that need them (amp everywhere, the sampler's filter). Per-voice routing can follow engine by engine.
+- UI: assign from the value itself (focus it, press a key, as `l` learns a CC), and a Mod page per track for the modulators and routes. Routes are part of the project (undoable, D-54).
+- Cost: negligible next to any engine.
+
+**Phase 9 · 303-style bass — `v0.9.0` · S–M**
+- Engine: **Open303** (Robin Schmidt; C++; the engine is MIT according to its ports JC303 and esp32_open303: **verify at source**). Proven in JC303, Zynthian and on an ESP32, so it should be fine on the Comet.
+- Named "ACID" or "303-style" in the UI, not "TB-303" (Roland's trademark).
+- Mono, with 303 behaviour from the OXI: **slide** when notes overlap (the OXI's ties/glide), **accent** from velocity above a threshold (settable). To check against the OXI manual: how it sends accent and slide.
+- Controls: tune, cutoff, resonance, env mod, decay, accent, waveform (saw ↔ square), slide time, plus a **drive** after it (303s live through distortion). The drive could be a general insert effect, useful on every track.
+- The OXI is the sequencer: no pattern sequencer in ion.
+
+**Phase 10 · Chip synth — `v0.10.0` · M**
+Pick one sound first:
+- **C64 SID** via reSIDfp (GPL-2+, fits ion's GPL-3): the most characterful (its filter, ring mod, sync, PWM). 3 voices a chip, so 2–3 chips for polyphony; ion writes the note → register driver. Its cost needs measuring for the Comet.
+- **AY-3-8910 / YM2149** (Spectrum, Atari ST) via ayumi (MIT, tiny): squares, noise, the envelope "buzzer" bass.
+- **NES / Game Boy** (Blargg's APU emulators, LGPL): two pulses, triangle, noise.
+- **ion's own chip-style voice**: pulse at 12.5/25/50%, 4-bit triangle, LFSR noise, crush, fast arpeggios, pitch sweeps. Polyphonic and cheap, but not an emulation.
+Plaits' Chiptune model already covers NES-style chords and arpeggios, which is an argument for SID.
 
 ## Where the hard parts are
 
 1. **Chord-change slicing (Phase 6).** Spectral flux is weak on pads: chord changes on sustained sounds have soft onsets. I plan to use chroma-vector novelty, snapped to the beat grid we already know from the clock. Expect tuning by ear with Michael.
 2. **FM patch accuracy and live macros (Phase 2).** The DX7 engine itself is proven. The risks are in how we use it: changing a patch or macro while notes are held, macro sweeps over 0–99 integer DX7 params stepping audibly, and choosing the engine mode (Modern / Mark I).
 3. **Real-time discipline across threads (Phase 1 on).** Snapshots, queues, sample-buffer handover and reclaiming freed buffers without allocating on the audio thread. Not novel, but bugs here are intermittent and nasty, so the engine gets a debug-build "RT sanitiser" (malloc hooks that abort if called from the audio thread).
-4. **Comet performance (Phase 8).** Unknown hardware variant, and the A53 is slow for Plaits' string/modal models and reverb. Mitigation: `ion-bench` from Phase 0, qemu for correctness only, and a Raspberry Pi as a stand-in if Michael has one.
+4. **Comet performance (when the device arrives).** Unknown hardware variant, and the A53 is slow for Plaits' string/modal models and reverb. Mitigation: `ion-bench` from Phase 0, qemu for correctness only, and a Raspberry Pi as a stand-in if Michael has one.
 5. **Reverb that sounds good and runs on an A53 (Phase 4).**
 
 Lower risk than it looks: the Plaits port (portable C++, MIT, 1.2 is public), the syx format, the mixer and EQ.
