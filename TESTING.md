@@ -22,6 +22,7 @@ The speed-up comes from building ion for this laptop's CPU generation. A full re
 - **Plaits Wavetable** (green, 6th) with Harmonics, Timbre and Morph all at the top: it plays. (Before, it could crash ion.)
 - **Plaits Speech** (green, 8th): sweep Harmonics from the words back to the vowels while a word plays.
 - **Plaits 6-op FM** at full velocity: fine. (It read past a table on every such note.)
+- **Plaits Wave terrain** (orange, 6th): sweep all three knobs while playing; nothing changes in the sound, but it no longer reads outside its sine table.
 - **Glide** on CHIP or Plaits: set a long glide, play, and turn glide off mid-note: the pitch lands where it should.
 - **Sampler, LP24 filter, resonance at maximum:** strong, but no longer dangerous. Below about 30% resonance it's exactly as before.
 - **Master glue compressor:** remove it (`F`, the master's slot 1, `x`), save, quit, reopen: it stays removed.

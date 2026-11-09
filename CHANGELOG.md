@@ -16,6 +16,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 - **FM could corrupt memory** when you played more notes than its polyphony (a bug in Synth_Dexed's voice stealing). It also stole the wrong note sometimes; it now always steals the oldest.
 - **Plaits' Wavetable model could crash ion** with Harmonics turned right up, **its Speech model** could read outside its tables (a crash, depending on timing), and **its 6-op FM models** read past a table on every full-velocity note. All three bugs were in Plaits' own code.
 - **Plaits could go silent with a burst of noise or NaN** right after switching to a 6-op model: it started on what the previous model left in their shared memory. ion clears it on every model switch.
+- **Plaits' Wave terrain model read before a table** when its path swung negative (Plaits' shared interpolation helper didn't wrap negative positions). Harmless-sounding, but it was reading memory it shouldn't. Fixed in the helper, so anything else in Plaits that uses it is covered too.
 - **Plaits** no longer gets painfully loud at extreme settings (Chords with Env→pitch at −100%): it clips at full scale, as the real module does.
 - **Undo/redo** could switch an effect back on that you had switched off, after moving it between slots.
 - **Removing the master's glue compressor** didn't survive saving and reopening the project. It does now.

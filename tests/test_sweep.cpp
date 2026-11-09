@@ -27,6 +27,7 @@
 #include "project/config.h"
 #include "project/session.h"
 #include "ui/app.h"
+#include "stmlib/dsp/dsp.h"
 
 using namespace ion;
 namespace fs = std::filesystem;
@@ -610,5 +611,25 @@ TEST_CASE("regression: Plaits switching to a 6-op model doesn't start on the las
     std::fill(l.begin(), l.end(), 0.0f);
     e.render(l.data(), r.data(), 64);
     for (float v : l) REQUIRE(std::isfinite(v));
+  }
+}
+
+TEST_CASE("regression: a negative position wraps into the table (stmlib InterpolateWrap; Plaits' wave terrain)") {
+  // A 4-step ramp with the guard entry; -0.25 wraps to 0.75.
+  const float table[] = {0.0f, 1.0f, 2.0f, 3.0f, 4.0f};
+  CHECK(stmlib::InterpolateWrap(table, -0.25f, 4.0f) == doctest::Approx(3.0f));
+  CHECK(stmlib::InterpolateWrap(table, 1.25f, 4.0f) == doctest::Approx(1.0f));
+  PlaitsEngine e;
+  e.setParam(PlaitsEngine::kModel, 21);  // Wave terrain
+  std::vector<float> l(64), r(64);
+  for (int i = 0; i <= 20; ++i) {
+    e.setParam(PlaitsEngine::kHarmonics, static_cast<float>(i) / 20.0f);
+    e.setParam(PlaitsEngine::kTimbre, static_cast<float>(20 - i) / 20.0f);
+    e.setParam(PlaitsEngine::kMorph, static_cast<float>(i % 5) / 4.0f);
+    e.noteOn(static_cast<uint8_t>(36 + i), 127);
+    for (int b = 0; b < 10; ++b) {
+      e.render(l.data(), r.data(), 64);
+      for (float v : l) REQUIRE(std::isfinite(v));
+    }
   }
 }

@@ -27,7 +27,7 @@ add_executable(ion-tests
   test_ui.cpp
   test_version.cpp
 )
-target_link_libraries(ion-tests PRIVATE ion_ui ion_engine ion_warnings doctest PkgConfig::ALSA)
+target_link_libraries(ion-tests PRIVATE ion_ui ion_engine plaits ion_warnings doctest PkgConfig::ALSA)
 target_compile_definitions(ion-tests PRIVATE ION_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden")
 add_test(NAME ion-tests COMMAND ion-tests)
 
