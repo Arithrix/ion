@@ -1,4 +1,4 @@
-# Testing ion 0.7.0 — Phase 7: Plaits, undo and redo, the mouse
+# Testing ion 0.7.1 — Phase 7: Plaits, undo and redo, the mouse
 
 This checkpoint should show:
 - **every Plaits model playing** from the OXI, polyphonic, with Harmonics, Timbre and Morph doing what the screen says they do;
@@ -8,10 +8,10 @@ This checkpoint should show:
 Allow about 30 minutes. **Wired headphones or speakers please.** The OXI is useful for Plaits (chords and CCs) but not needed: piano mode (`` ` ``) plays any track from the laptop keys.
 
 ## 0. Before you start
-1. Run `ion --version`. It should print `ion 0.7.0 (…)`.
+1. Run `ion --version`. It should print `ion 0.7.1 (…)`.
 2. Open the demo project:
    ```
-   ion --project "demo v0.7.0"
+   ion --project "demo v0.7.1"
    ```
 3. Use your usual terminal (xfce4-terminal is fine). The mouse needs nothing set up.
 
@@ -24,7 +24,7 @@ Allow about 30 minutes. **Wired headphones or speakers please.** The OXI is usef
 4. **The LPG.** Tab to the right-hand pane and set **LPG**:
    - **gate** (default): notes sustain while held and close when you let go. LPG decay sets how slowly.
    - **ping:** every note is struck and dies away by itself, held or not. This is the classic Plaits pluck. Try it on Virtual analog or Waveshaper with LPG decay low.
-   - **off:** the raw model, shaped only by the amp envelope.
+   - **off:** the raw model, shaped only by the amp envelope (drawn as "amp" right under the macros, as on FM).
 5. **Voices:** set Voices to 1 for mono, then back to 6. Play more notes than voices: the oldest goes.
 6. **Your favourites in 6-op FM:** press `f`. The list fills from your FM favourites (★ on an FM track's library) and the model jumps to 6-op FM a. `x` puts Plaits' bank back. (The demo starts with ROM1A as its list.)
 7. **Presets:** `a` saves the track's Plaits settings under a name; change some things; `o` lists the presets, ⏎ loads one.
