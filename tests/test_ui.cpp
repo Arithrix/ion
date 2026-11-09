@@ -11,6 +11,7 @@
 #include "core/version.h"
 #include "engine/drum/drum_engine.h"
 #include "engine/fx/effects.h"
+#include "engine/acid/acid_engine.h"
 #include "engine/plaits/plaits_engine.h"
 #include "engine/sampler/sampler_engine.h"
 #include "engine/fm/fm_engine.h"
@@ -230,6 +231,13 @@ struct SnapshotRig {
     session.addMapping(3, 71, engineParamRef(3, DrumEngine::param(0, DrumEngine::kDecay)));
     REQUIRE(session.saveKit(3, "Garage 02", error));
 
+    // Track 5: ACID, squelchy, a CC on cutoff.
+    session.setEngine(4, EngineType::Acid);
+    session.setParam(engineParamRef(4, AcidEngine::kCutoff), 620);
+    session.setParam(engineParamRef(4, AcidEngine::kResonance), 0.85f);
+    session.setParam(engineParamRef(4, AcidEngine::kEnvMod), 0.7f);
+    session.addMapping(4, 74, engineParamRef(4, AcidEngine::kCutoff));
+
     // Track 7: Plaits on String machine (the Plaits mockup), CCs 20-22 on the macros.
     session.setEngine(6, EngineType::Plaits);
     auto pl = [&](int p, float value) { session.setParam(engineParamRef(6, p), value); };
@@ -373,6 +381,9 @@ TEST_CASE("ui snapshots: every screen at the handoff's sizes") {
       {"plaits_params_60x35", ui::ScreenId::Instrument, 60, 35, false, false, 6, {"Tab", "Down"}},
       {"plaits_6op_130x36", ui::ScreenId::Instrument, 130, 36, false, false, 6, {"Up", "Up", "Up", "Up"}},
       {"tracks_plaits_130x36", ui::ScreenId::Tracks, 130, 36, false, false, 6},
+      {"acid_130x36", ui::ScreenId::Instrument, 130, 36, false, false, 4},
+      {"acid_80x24", ui::ScreenId::Instrument, 80, 24, false, false, 4, {"Down", "Down", "Down", "Down", "Down", "Down", "Down", "Down"}},
+      {"acid_60x35", ui::ScreenId::Instrument, 60, 35, false, false, 4},
       {"mod_130x36", ui::ScreenId::Mod, 130, 36, false, false, 6},
       {"mod_80x24", ui::ScreenId::Mod, 80, 24, false, false, 6},
       {"mod_60x35", ui::ScreenId::Mod, 60, 35, false, false, 6, {"Tab", "Down", "Down"}},

@@ -1,0 +1,35 @@
+ ion Trk Ins Mod Mix Fx Rec Lib ↶ ↷             0% no audio
+╭ Track 5 · ACID · 303-style bass ─────────────────────────╮
+│  Waveform   ░░░░░░░░░░░░░░░░ saw      saw ↔ square       │
+│▸ Cutoff     █████▋░░░░░░░░░░ 620 Hz   where the filte…   │
+│  Resonance  █████████████▋░░ 85%      the squelch        │
+│  Env mod    ███████████▎░░░░ 70%      how far each no…   │
+│  Decay      ████▉░░░░░░░░░░░ 400 ms   how fast it clo…   │
+│  Accent     █████████▋░░░░░░ 60%      how much harder…   │
+│overlapping notes slide · velocity 100 and up is an acc…  │
+│                                                          │
+│amp █████████████████████    play                         │
+│  Attack      0                Slide       60.0 ms        │
+│  Hold        full             Accent at   100            │
+│  Decay       1.00 s           Tune        +0 st          │
+│  Sustain     100%             Fine        0 ct           │
+│  Release     off              Bend range  2              │
+│  Vel→amp     0%               Level       0.0 dB         │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+├──────────────────────────────────────────────────────────┤
+│from the OXI: cc 74 → cutoff                              │
+╰──────────────────────────────────────────────────────────╯
+ midi MIDI off · nothing yet
+ ↑↓  Knob   ←→  Turn   l  Learn   v  Modulate   ⏎  Play

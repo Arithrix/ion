@@ -20,6 +20,7 @@
 #include "engine/drum/drum_engine.h"
 #include "engine/envelope_params.h"
 #include "engine/fm/fm_engine.h"
+#include "engine/acid/acid_engine.h"
 #include "engine/plaits/plaits_engine.h"
 #include "engine/sampler/sampler_engine.h"
 
@@ -82,6 +83,8 @@ ParamRef engineRef(int track, int index) {
 //   5 → 6: the Rec setup ("rec"), optional: older files get the defaults.
 //   6 → 7: Plaits tracks ("plaits", with its patch list). Nothing to convert.
 //   7 → 8: each track's modulation ("mod"), optional: older tracks keep the defaults, routed nowhere.
+//   8 → 9: ACID tracks and Drive inserts. Nothing to convert; the bump stops
+//          0.8 from opening a file it would load with those tracks and slots empty.
 // A drum pad's settings from before the uniform envelope (0.3, 0.4), in place.
 // `prefix` is "padN." in a project, "" in a kit.
 void upgradePadParams(json& params, const std::string& prefix) {
@@ -141,6 +144,7 @@ std::unique_ptr<Engine> createEngine(EngineType type) {
     case EngineType::Drum: return std::make_unique<DrumEngine>();
     case EngineType::Sampler: return std::make_unique<SamplerEngine>();
     case EngineType::Plaits: return std::make_unique<PlaitsEngine>();
+    case EngineType::Acid: return std::make_unique<AcidEngine>();
     default: return nullptr;
   }
 }

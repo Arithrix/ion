@@ -34,6 +34,43 @@ class Compressor final : public Effect {
   float gr_ = 0;  // smoothed gain reduction, dB
 };
 
+// Drive (DECISIONS D-60): gain into a waveshaper (soft: tanh; hard: clip;
+// fold: a sine folder), run at twice the sample rate (47-tap half-band
+// filters each way) with first-order antiderivative anti-aliasing, so heavy
+// drive doesn't fold harmonics back down as grit. Bias makes it
+// asymmetric (even harmonics, a DC blocker after); Tone is a low-pass after it.
+class Drive final : public Effect {
+ public:
+  enum Param : int { kDrive, kShape, kBias, kTone, kLevel, kMix, kParamCount };
+  enum Shape : int { kSoft, kHard, kFold };
+  static std::span<const ParamInfo> paramTable();
+  Drive();
+  EffectType type() const override { return EffectType::Drive; }
+  void setParam(int index, float value) override;
+  void process(float* left, float* right, std::size_t frames) override;
+  void reset() override;
+
+ private:
+  // A 47-tap half-band filter: every other tap is zero except the middle one,
+  // so each way it's 24 multiplies on one phase and a plain delay on the other.
+  static constexpr int kTaps = 47, kPhase = 24, kMid = 11;
+  struct Channel {
+    float x1 = 0, f1 = 0;  // the last input to the shaper and its antiderivative (ADAA)
+    float tone = 0;        // one-pole low-pass state
+    float dcIn = 0, dcOut = 0;
+    // Histories, written twice (at i and i + kPhase) so a window is always contiguous.
+    std::array<float, 2 * kPhase> up{}, downEven{}, downOdd{};
+    int pos = 0;
+  };
+  float shapeOne(Channel& c, float x) const;  // one sample at 2× rate
+  float oversampled(Channel& c, float in) const;
+  std::array<float, kPhase> h_{};  // the half-band's non-zero outer taps (×2 for the upsampler's gain where used)
+  float gain_ = 4, bias_ = 0, level_ = 0.5f, mix_ = 1;
+  float toneCoeff_ = 0.5f;
+  int shape_ = kSoft;
+  Channel l_, r_;
+};
+
 // Stereo chorus (HANDOFF §7.2): two modulated delay taps, the right one's LFO
 // offset by up to half a cycle (Width), 4-point Hermite reads.
 class Chorus final : public Effect {

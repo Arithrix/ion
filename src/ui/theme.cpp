@@ -15,6 +15,7 @@ Color engineColor(EngineType type) {
     case EngineType::Fm: return palette::value;
     case EngineType::Sampler: return palette::lilac;
     case EngineType::Plaits: return palette::green;
+    case EngineType::Acid: return palette::acid;
     case EngineType::None: break;
   }
   return palette::faint;

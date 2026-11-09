@@ -12,6 +12,7 @@
 #include <string>
 
 #include "audio/wav.h"
+#include "engine/acid/acid_engine.h"
 #include "engine/drum/drum_engine.h"
 #include "engine/fm/fm_engine.h"
 #include "engine/fx/effects.h"
@@ -141,12 +142,30 @@ int main(int argc, char** argv) {
   set(0, kB1Gain, 2.5f);
   set(0, kB1Q, 0.8f);
 
-  fm(1, 14, 1);  // BASS 1 on ch 2
-  set(1, kFader, -2.0f);
-  set(1, kLsFreq, 90.0f);
-  set(1, kLsGain, 3.0f);
-  set(1, kLpOn, 1.0f);
-  set(1, kLpFreq, 6000.0f);
+  // Track 2 (ch 2): ACID (0.9.0), squelchy, through a Drive insert. cc 74
+  // on ch 2 is the cutoff, cc 71 the resonance; LFO 1 (synced, 1 bar) moves
+  // the cutoff a little too.
+  s.setEngine(1, EngineType::Acid);
+  s.setChannel(1, 1);
+  {
+    auto ac = [&](int p, float v) { s.setParam(engineParamRef(1, p), v); };
+    ac(AcidEngine::kCutoff, 650);
+    ac(AcidEngine::kResonance, 0.82f);
+    ac(AcidEngine::kEnvMod, 0.65f);
+    ac(AcidEngine::kDecay, 380);
+    ac(AcidEngine::kAccent, 0.7f);
+    s.setInsert(1, 0, EffectType::Drive);
+    s.setParam(insertParamRef(1, 0, Drive::kDrive), 14);
+    s.setParam(insertParamRef(1, 0, Drive::kTone), 6000);
+    s.addMapping(1, 74, engineParamRef(1, AcidEngine::kCutoff));
+    s.addMapping(1, 71, engineParamRef(1, AcidEngine::kResonance));
+    s.setModTarget(1, 0, engineParamRef(1, AcidEngine::kCutoff));
+    s.setParam(routeRef(1, 0, kRouteSource), kSrcLfo1);
+    s.setParam(routeRef(1, 0, kRouteDepth), 0.12f);
+    s.setParam(lfoRef(1, 0, kLfoSync), 1);
+    s.setParam(lfoRef(1, 0, kLfoDivision), 2);  // 1 bar
+  }
+  set(1, kFader, -4.0f);
 
   fm(2, 0, 2);  // BRASS 1 on ch 3
   set(2, kFader, -8.0f);

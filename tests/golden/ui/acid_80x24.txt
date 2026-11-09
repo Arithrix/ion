@@ -1,0 +1,24 @@
+ ion  Tracks Instr Mod Mixer Fx Rec Library  ↶ ↷   no clock   cpu 0%   no audio
+╭ Track 5 · ACID · 303-style bass ─────────────────────────────────────────────╮
+│  Waveform   ░░░░░░░░░░░░░░░░ saw      saw ↔ square                           │
+│  Cutoff     █████▋░░░░░░░░░░ 620 Hz   where the filter sits                  │
+│  Resonance  █████████████▋░░ 85%      the squelch                            │
+│  Env mod    ███████████▎░░░░ 70%      how far each note opens it             │
+│  Decay      ████▉░░░░░░░░░░░ 400 ms   how fast it closes                     │
+│  Accent     █████████▋░░░░░░ 60%      how much harder accents hit            │
+│overlapping notes slide · velocity 100 and up is an accent                    │
+│                                                                              │
+│amp ███████████████████████████████    play                                   │
+│  Attack      0                          Slide       60.0 ms                  │
+│  Hold        full                       Accent at   100                      │
+│  Decay       1.00 s                     Tune        +0 st                    │
+│▸ Sustain     100%                       Fine        0 ct                     │
+│  Release     off                        Bend range  2                        │
+│  Vel→amp     0%                         Level       0.0 dB                   │
+│                                                                              │
+│                                                                              │
+├──────────────────────────────────────────────────────────────────────────────┤
+│from the OXI: cc 74 → cutoff                                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+ midi MIDI off  ·  last: nothing yet
+ ↑↓  Knob   ←→  Turn   l  Learn   v  Modulate   ⏎  Play   Esc  Back   ?  Help

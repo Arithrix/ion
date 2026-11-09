@@ -11,8 +11,8 @@ namespace ion {
 
 // Insert and bus effects (HANDOFF §7). Like engines, effects are pure DSP:
 // built and freed off the audio thread, everything below runs on it.
-enum class EffectType : uint8_t { None, Compressor, Chorus, Delay, Reverb };
-inline constexpr int kEffectTypes = 5;
+enum class EffectType : uint8_t { None, Compressor, Chorus, Delay, Reverb, Drive };
+inline constexpr int kEffectTypes = 6;
 
 const char* effectKey(EffectType type);    // "compressor", in files
 const char* effectLabel(EffectType type);  // "COMP", in the UI

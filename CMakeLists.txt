@@ -63,6 +63,7 @@ add_library(ion_engine STATIC
   src/engine/fm/fm_engine.cpp
   src/engine/fx/effects.cpp
   src/engine/sampler/sampler_engine.cpp
+  src/engine/acid/acid_engine.cpp
   src/engine/plaits/plaits_engine.cpp
   src/engine/plaits/plaits_voice.cpp
   src/engine/module.cpp
@@ -82,10 +83,11 @@ add_dependencies(ion_engine ion_version_header)
 target_include_directories(ion_engine PUBLIC src ${ION_GENERATED_DIR})
 target_link_libraries(ion_engine
   PUBLIC Threads::Threads nlohmann_json
-  PRIVATE ion_warnings synth_dexed plaits sqlite3 samplerate tomlplusplus dr_libs PkgConfig::PIPEWIRE PkgConfig::ALSA)
+  PRIVATE ion_warnings synth_dexed plaits open303 sqlite3 samplerate tomlplusplus dr_libs PkgConfig::PIPEWIRE PkgConfig::ALSA)
 
 # ---- executables -----------------------------------------------------------
 add_library(ion_ui STATIC
+  src/ui/acid_screen.cpp
   src/ui/algorithm_diagram.cpp
   src/ui/app.cpp
   src/ui/drum_screen.cpp

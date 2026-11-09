@@ -598,10 +598,11 @@ class App {
         return true;
       case Overlay::EnginePicker: {
         static const EngineType options[] = {EngineType::Fm, EngineType::Drum, EngineType::Sampler, EngineType::Plaits,
-                                             EngineType::None};
+                                             EngineType::Acid, EngineType::None};
+        constexpr int kOptions = static_cast<int>(sizeof options / sizeof options[0]);
         if (e == Event::Escape) overlay_ = Overlay::None;
-        else if (e == Event::ArrowUp) picker_ = (picker_ + 4) % 5;
-        else if (e == Event::ArrowDown) picker_ = (picker_ + 1) % 5;
+        else if (e == Event::ArrowUp) picker_ = (picker_ + kOptions - 1) % kOptions;
+        else if (e == Event::ArrowDown) picker_ = (picker_ + 1) % kOptions;
         else if (e == Event::Return) {
           const EngineType t = options[picker_];
           s.setEngine(ctx_.track, t);
@@ -666,9 +667,10 @@ class App {
       case Overlay::EnginePicker: {
         static const char* labels[] = {"FM      DX7-compatible 6-operator", "DRUM    16-pad drum sampler",
                                        "SMPL    keymapped sampler", "PLTS    Plaits: 24 models",
+                                       "ACID    303-style bass",
                                        "empty   clear the track"};
         Elements rows;
-        for (int i = 0; i < 5; ++i) {
+        for (int i = 0; i < static_cast<int>(sizeof labels / sizeof labels[0]); ++i) {
           const bool available = true;
           Element row = text(" " + std::string(labels[i]) + " ");
           if (i == picker_) row = row | color(palette::bg) | bgcolor(available ? palette::accent : palette::faint);

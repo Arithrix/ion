@@ -389,6 +389,18 @@ All three are offline on the control thread, after the take (well under 100 ms f
 ### D-59 · decided with Michael · The chip synth will be ion's own, in the spirit of the M8's WavSynth
 Michael wants "something like what Dirtywave uses on the M8". As far as I can tell from the M8 manuals, that's the WavSynth: Dirtywave's own deliberately 8-bit wavetable synth, not an emulation of a real chip. So Phase 10 is an ion-native lo-fi wave synth (simple waves and our own wavetables, low bit depth and rate, ion's filter, envelopes and modulation), not reSIDfp, ayumi or an APU emulator. No vendored library; polyphonic and cheap. Read the M8 manual closely at the start of that phase; take the idea, not its tables.
 
+## Decided during Phase 9
+
+### D-60 · decided · ACID: a 303-style bass on Open303, and a Drive insert
+- **Engine:** Open303 (Robin Schmidt), MIT, **verified at source** (`License.txt` in github.com/RobinSchmidt/Open303 @ `313bf0d`). Proven in JC303, Zynthian and on an ESP32. Four local changes (third_party/README.md): an allocation-free note list (upstream's `std::list` allocated on the audio thread), a settable accent threshold, the slide-back tuning bug, two includes.
+- **Name:** ACID ("303-style bass"), not TB-303 (Roland's trademark). Engine colour: a pale yellow.
+- **Playing from the OXI:** mono, last-note priority. **Overlapping notes slide** (the 303 convention; the OXI's own glide is CV-only, so a slide is a note held into the next: tie or note length over 100%). **Velocity ≥ "Accent at" (default 100) is an accent:** a harder filter and amp hit. Both conventions confirmed against the TD-3's MIDI behaviour; the OXI manual doesn't say how it sends accents, hence the settable threshold.
+- **Controls:** the 303's front panel in its order (waveform saw ↔ square, cutoff 200 Hz–5 kHz, resonance, env mod, decay 200–2000 ms, accent), then slide time (10–500 ms), accent threshold, tune ±24, fine ±50 ct, bend range, level. After the voice, the uniform amp envelope (D-50), wide open by default, as on FM and Plaits. Open303's square-wave shaping settings aren't exposed: changing them rebuilds wavetables with an FFT, too heavy for the audio thread.
+- **Level:** Open303's accents add a lot (≈ +9 dB on an accented note with no resonance). The engine sits 16 dB down so a typical squelchy line peaks around −15 dBFS and accents around −7; the extreme case can still reach the master limiter.
+- **Cost:** one voice, 4× oversampled inside, ≈ 15 µs per 128-frame buffer (0.6%). Open303 never idles by itself; ion stops calling it after 200 ms of silence with no key down, so a resting ACID track costs nothing.
+- **Drive** (a new insert effect, for any track; a 303 lives through distortion): soft (tanh), hard (clip) or fold, 0–48 dB, bias (asymmetry, with a DC blocker), tone (a low-pass after it), level and mix. 2× oversampled with a 47-tap half-band, done polyphase (24 multiplies each way), plus first-order antiderivative anti-aliasing: a hard-clipped 4.7 kHz sine's aliases are 40 dB under its harmonics. ≈ 17 µs per buffer.
+- **Project format 9.** Nothing to convert, but 0.8 would load an ACID track as empty and a Drive slot as empty, and lose them on save; the bump makes it refuse the file instead ("saved by a newer ion").
+
 ## Proposed (waiting for Michael)
 
 ### D-01 · implemented in Phase 0 · Direct ALSA sequencer instead of RtMidi

@@ -55,6 +55,16 @@ const std::array<ParamInfo, Compressor::kParamCount> kCompressor = {{
     {"mix", "Mix", 0, 1, 1, Curve::Linear, Unit::Percent, 0.05f, 0.25f},
 }};
 
+const char* const kDriveShapes[] = {"soft", "hard", "fold"};
+const std::array<ParamInfo, Drive::kParamCount> kDriveTable = {{
+    {"drive", "Drive", 0, 48, 12, Curve::Linear, Unit::Db, 0.5f, 3},
+    {"shape", "Shape", 0, 2, 0, Curve::Choice, Unit::None, 1, 1, kDriveShapes},
+    {"bias", "Bias", 0, 1, 0, Curve::Linear, Unit::Percent, 0.02f, 0.1f},
+    {"tone", "Tone", 500, 20000, 9000, Curve::Log, Unit::Hz, kLogFine * 2, kLogCoarse * 2},
+    {"level", "Level", -36, 6, -6, Curve::Linear, Unit::Db, 0.5f, 3},
+    {"mix", "Mix", 0, 1, 1, Curve::Linear, Unit::Percent, 0.05f, 0.25f},
+}};
+
 const std::array<ParamInfo, Chorus::kParamCount> kChorus = {{
     {"rate", "Rate", 0.05f, 5, 0.4f, Curve::Log, Unit::Hz, kTimeFine, kTimeCoarse},
     {"depth", "Depth", 0, 1, 0.5f, Curve::Linear, Unit::Percent, 0.05f, 0.25f},
@@ -102,6 +112,7 @@ const char* effectKey(EffectType type) {
     case EffectType::Chorus: return "chorus";
     case EffectType::Delay: return "delay";
     case EffectType::Reverb: return "reverb";
+    case EffectType::Drive: return "drive";
     case EffectType::None: break;
   }
   return "none";
@@ -113,6 +124,7 @@ const char* effectLabel(EffectType type) {
     case EffectType::Chorus: return "CHORUS";
     case EffectType::Delay: return "DELAY";
     case EffectType::Reverb: return "REVERB";
+    case EffectType::Drive: return "DRIVE";
     case EffectType::None: break;
   }
   return "—";
@@ -130,6 +142,7 @@ std::span<const ParamInfo> effectParams(EffectType type) {
     case EffectType::Chorus: return kChorus;
     case EffectType::Delay: return kDelay;
     case EffectType::Reverb: return kReverb;
+    case EffectType::Drive: return kDriveTable;
     case EffectType::None: break;
   }
   return {};
@@ -141,6 +154,7 @@ std::unique_ptr<Effect> createEffect(EffectType type) {
     case EffectType::Chorus: return std::make_unique<Chorus>();
     case EffectType::Delay: return std::make_unique<Delay>();
     case EffectType::Reverb: return std::make_unique<Reverb>();
+    case EffectType::Drive: return std::make_unique<Drive>();
     case EffectType::None: break;
   }
   return nullptr;
@@ -148,6 +162,123 @@ std::unique_ptr<Effect> createEffect(EffectType type) {
 
 std::span<const ParamInfo> Compressor::paramTable() { return kCompressor; }
 std::span<const ParamInfo> Chorus::paramTable() { return kChorus; }
+std::span<const ParamInfo> Drive::paramTable() { return kDriveTable; }
+
+// ---- drive ---------------------------------------------------------------------------------
+
+namespace {
+
+// The shapes and their antiderivatives (for ADAA).
+float shapeF(int s, float x) {
+  switch (s) {
+    case Drive::kHard: return std::clamp(x, -1.0f, 1.0f);
+    case Drive::kFold: return std::sin(x * std::numbers::pi_v<float> * 0.5f);
+    default: return std::tanh(x);
+  }
+}
+float shapeAnti(int s, float x) {
+  switch (s) {
+    case Drive::kHard: return std::fabs(x) <= 1.0f ? 0.5f * x * x : std::fabs(x) - 0.5f;
+    case Drive::kFold: return -std::cos(x * std::numbers::pi_v<float> * 0.5f) * (2.0f / std::numbers::pi_v<float>);
+    default: {
+      // log(cosh(x)), stable for large |x|
+      const float a = std::fabs(x);
+      return a + std::log1p(std::exp(-2.0f * a)) - 0.69314718f;
+    }
+  }
+}
+
+}  // namespace
+
+Drive::Drive() {
+  // A windowed-sinc half-band low-pass (cutoff at a quarter of the 2× rate),
+  // Blackman window. Taps k = 0, 2, 4 … 46 are the non-zero outer ones; tap 23
+  // (the middle) is ½ and every other odd tap is 0.
+  constexpr int m = kTaps / 2;
+  for (int j = 0; j < kPhase; ++j) {
+    const int n = 2 * j;
+    const double k = n - m;
+    const double sinc = std::sin(0.5 * std::numbers::pi * k) / (std::numbers::pi * k);
+    const double w = 0.42 - 0.5 * std::cos(2 * std::numbers::pi * n / (kTaps - 1)) + 0.08 * std::cos(4 * std::numbers::pi * n / (kTaps - 1));
+    h_[static_cast<std::size_t>(j)] = static_cast<float>(sinc * w);
+  }
+  applyDefaults(*this, kDriveTable);
+}
+
+// Polyphase 2× around the shaper. Up: the even output is the 24 outer taps
+// over the input history (×2 for the zero-stuffing), the odd one the input
+// 11 samples ago (the middle tap). Down, keeping the odd sample: the outer
+// taps over the shaped odd samples, plus ½ the shaped even sample from the middle.
+float Drive::oversampled(Channel& c, float in) const {
+  auto push = [&](std::array<float, 2 * kPhase>& h, float v) {
+    h[static_cast<std::size_t>(c.pos)] = v;
+    h[static_cast<std::size_t>(c.pos + kPhase)] = v;
+  };
+  push(c.up, in);
+  const float* x = c.up.data() + c.pos + 1;  // oldest … newest
+  float even = 0;
+  for (int j = 0; j < kPhase; ++j) even += h_[static_cast<std::size_t>(j)] * x[kPhase - 1 - j];
+  even *= 2.0f;
+  const float odd = x[kPhase - 1 - kMid];
+  push(c.downEven, shapeOne(c, even));
+  push(c.downOdd, shapeOne(c, odd));
+  const float* se = c.downEven.data() + c.pos + 1;
+  const float* so = c.downOdd.data() + c.pos + 1;
+  // Keeping the odd (latest) sample: the outer taps fall on odd samples, the middle one on an even.
+  float out = 0;
+  for (int j = 0; j < kPhase; ++j) out += h_[static_cast<std::size_t>(j)] * so[kPhase - 1 - j];
+  out += 0.5f * se[kPhase - 1 - kMid];
+  c.pos = (c.pos + 1) % kPhase;
+  return out;
+}
+
+void Drive::setParam(int index, float v) {
+  switch (index) {
+    case kDrive: gain_ = std::pow(10.0f, v / 20.0f); break;
+    case kShape:
+      shape_ = std::clamp(static_cast<int>(std::lround(v)), 0, 2);
+      l_.f1 = shapeAnti(shape_, l_.x1);  // the cached antiderivative belongs to the old shape
+      r_.f1 = shapeAnti(shape_, r_.x1);
+      break;
+    case kBias: bias_ = v * 0.5f; break;
+    case kTone: toneCoeff_ = 1.0f - std::exp(-2.0f * std::numbers::pi_v<float> * v / kSr); break;
+    case kLevel: level_ = std::pow(10.0f, v / 20.0f); break;
+    case kMix: mix_ = v; break;
+    default: break;
+  }
+}
+
+void Drive::reset() {
+  l_ = {};
+  r_ = {};
+}
+
+float Drive::shapeOne(Channel& c, float in) const {
+  const float x = in * gain_ + bias_;
+  const float d = x - c.x1;
+  const float f = shapeAnti(shape_, x);
+  // First-order ADAA: the average of the shape between this sample and the last.
+  const float y = std::fabs(d) > 1e-4f ? (f - c.f1) / d : shapeF(shape_, 0.5f * (x + c.x1));
+  c.x1 = x;
+  c.f1 = f;
+  return y;
+}
+
+void Drive::process(float* left, float* right, std::size_t frames) {
+  auto post = [this](Channel& c, float y) {
+    // DC blocker (bias leaves an offset), then the tone low-pass.
+    const float hp = y - c.dcIn + 0.9995f * c.dcOut;
+    c.dcIn = y;
+    c.dcOut = hp;
+    c.tone += toneCoeff_ * (hp - c.tone);
+    return c.tone * level_;
+  };
+  for (std::size_t i = 0; i < frames; ++i) {
+    const float wl = post(l_, oversampled(l_, left[i])), wr = post(r_, oversampled(r_, right[i]));
+    left[i] += mix_ * (wl - left[i]);
+    right[i] += mix_ * (wr - right[i]);
+  }
+}
 std::span<const ParamInfo> Delay::paramTable() { return kDelay; }
 std::span<const ParamInfo> Reverb::paramTable() { return kReverb; }
 

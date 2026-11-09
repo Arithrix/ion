@@ -5,6 +5,21 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-09
+
+### Added (Phase 9: 303-style bass)
+- **ACID tracks: a 303-style bass**, on Robin Schmidt's Open303. Choose ACID in the engine picker.
+  - **Play it from the OXI like a 303:** a note held into the next one **slides** to it (use a tie, or a note length over 100%); a note at velocity **100 or more is an accent** (a harder, brighter hit). "Accent at" changes the threshold if the OXI's velocities sit differently.
+  - **The front panel, in the 303's order:** waveform (saw ↔ square), cutoff, resonance, env mod, decay, accent. Then slide time, tune, fine, bend range and level.
+  - The same **amp envelope** as every other instrument, after the voice, wide open by default: laid out under the knobs as on FM and Plaits.
+  - Everything can be MIDI-learned (`l`) and modulated (`v`), like the rest of ion.
+  - A resting ACID track costs no CPU at all.
+- **Drive: a new insert effect** for any track. Soft (warm), hard (clipped) or fold (wavefolding), up to 48 dB, with bias (asymmetric, more even harmonics), tone, level and mix. It's oversampled, so heavy settings stay clean rather than gritty.
+- **The demo** ("demo v0.9.0"): **track 2 is now ACID** on channel 2 (it was FM BASS 1), through a Drive, with cc 74 on cutoff, cc 71 on resonance, and a slow synced LFO nudging the cutoff.
+
+### Changed (Phase 9)
+- Projects are now format 9; 0.8.x can't open projects saved by 0.9.0 (it would lose ACID tracks and Drive inserts).
+
 ## [0.8.0] - 2026-11-08
 
 ### Added (Phase 8: modulation)

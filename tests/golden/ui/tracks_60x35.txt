@@ -5,7 +5,7 @@
 │ 2  02  —       — empty —                       ░░░░░░ ·  │
 │ 3  03  FM      SYN-BAS 4                       ░░░░░░ · M│
 │ 4  04  DRUM    Garage 02                       ░░░░░░ ·  │
-│ 5  05  —       — empty —                       ░░░░░░ ·  │
+│ 5  05  ACID    303-style bass                  ░░░░░░ ·  │
 │ 6  06  SMPL    chords_124bpm_4bar              ░░░░░░ ·  │
 │ 7  07  PLTS    String machine                  ░░░░░░ ·  │
 │ 8  08  —       — empty —                       ░░░░░░ ·  │
@@ -29,7 +29,7 @@
 │                                                          │
 │                                                          │
 ├──────────────────────────────────────────────────────────┤
-│ 5 of 8 tracks in use · 0 voices                          │
+│ 6 of 8 tracks in use · 0 voices                          │
 ╰──────────────────────────────────────────────────────────╯
  midi MIDI off · nothing yet
  1-8  Track   ↑↓  Move   ←→  Fader   Tab  Pane   ⏎  Edit

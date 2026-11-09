@@ -28,7 +28,8 @@ namespace ion {
 // 1: Phase 1. 2: FM macros, the program list, library ids (v0.2.0). 3: drum kits (v0.3.0).
 // 4: inserts, sends, the returns and the master chain (v0.4.0). 5: sampler tracks (v0.5.0).
 // 6: the Rec screen's setup (v0.6.0). 7: Plaits tracks (v0.7.0). 8: modulation (v0.8.0).
-inline constexpr int kProjectFormat = 8;
+// 9: ACID tracks and Drive inserts (v0.9.0).
+inline constexpr int kProjectFormat = 9;
 
 struct PadState {
   // As saved: an absolute path, or one relative to the project folder
