@@ -553,3 +553,21 @@ TEST_CASE("regression: Plaits' speech model, struck at every address (read past 
     e.noteOff(static_cast<uint8_t>(30 + i));
   }
 }
+
+TEST_CASE("regression: Plaits' speech model, moving from words back to vowels mid-word") {
+  PlaitsEngine e;
+  e.setParam(PlaitsEngine::kModel, 7);  // Speech
+  std::vector<float> l(64), r(64);
+  for (int i = 0; i < 60; ++i) {
+    e.setParam(PlaitsEngine::kHarmonics, 0.95f);  // a word bank
+    e.setParam(PlaitsEngine::kMorph, static_cast<float>(i % 10) / 9.0f);
+    e.noteOn(static_cast<uint8_t>(40 + i % 20), 100);
+    for (int b = 0; b < 1 + i % 9; ++b) e.render(l.data(), r.data(), 64);
+    e.setParam(PlaitsEngine::kHarmonics, 0.3f);  // back to the vowels, mid-word
+    for (int b = 0; b < 4; ++b) {
+      e.render(l.data(), r.data(), 64);
+      for (float v : l) REQUIRE(std::isfinite(v));
+    }
+    e.noteOff(static_cast<uint8_t>(40 + i % 20));
+  }
+}

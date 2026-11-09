@@ -258,6 +258,15 @@ void LPCSpeechSynthController::Render(
   const LPCSpeechSynth::Frame* frames = bank == -1
       ? phonemes_
       : word_bank_->frames();
+
+  // ion: a word's frame position carried over when Harmonics moves from the
+  // word banks back to the vowels (bank -1, 15 frames): it read far past the
+  // phoneme table. Out of range for what's loaded now, go back to scanning.
+  if (playback_frame_ >= num_frames || last_playback_frame_ > num_frames) {
+    playback_frame_ = -1;
+    last_playback_frame_ = -1;
+    remaining_frame_samples_ = 0;
+  }
   
   if (trigger) {
     if (bank == -1) {
