@@ -1,4 +1,4 @@
- ion  Tracks Instr Mixer Fx Rec Library  ↶ ↷       no clock   cpu 0%   no audio
+ ion  Tracks Instr Mod Mixer Fx Rec Library  ↶ ↷   no clock   cpu 0%   no audio
 ╭─────╮╭─────╮╭─────╮╭─────╮╭─────╮╭─────╮╭─────╮╭─────╮╭─────╮╭─────╮╭─────╮
 │1 FM ││2 —  ││3 FM ││4 DRU││5 —  ││6 SMP││7 PLT││8 —  ││D RTN││R RTN││M OUT│
 │SNA… ││emp… ││SYN… ││Gar… ││emp… ││cho… ││Str… ││emp… ││del… ││rev… ││mas… │

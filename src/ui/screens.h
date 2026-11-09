@@ -178,6 +178,10 @@ std::unique_ptr<Screen> makeDrumScreen();     // the Instrument screen for DRUM 
 std::unique_ptr<Screen> makeSamplerScreen();  // …and for SAMPLER tracks
 std::unique_ptr<Screen> makePlaitsScreen();   // …and for PLAITS tracks
 std::unique_ptr<Screen> makeRecScreen();       // Rec (R): resampling
+std::unique_ptr<Screen> makeModScreen();       // Mod (O): modulation
+
+// Where modulation has a value now (0…1 of its range), or −1 if no route is moving it (D-58).
+float modulatedAt(Context& ctx, ParamRef ref);
 std::unique_ptr<Screen> makeSettingsScreen();
 std::unique_ptr<Screen> makeLibraryScreen();
 std::unique_ptr<Screen> makePlaceholderScreen(std::string title, std::string message);

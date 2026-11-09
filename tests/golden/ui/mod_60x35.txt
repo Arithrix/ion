@@ -1,0 +1,35 @@
+ ion Trk Ins Mod Mix Fx Rec Lib ↶ ↷             0% no audio
+╭ Track 7 · modulators · Tab ⇄ ────────────────────────────╮
+│LFO 1 ▅▇█▆▅▃▁▂▄ ░░░░░░       LFO 2 ▆██▇▅▂▁▁▃ ░░░░░░       │
+│  Shape     triangle           Shape     sine             │
+│  Rate      1.00 Hz            Rate      1.00 Hz          │
+│▸ Sync      on                 Sync      off              │
+│  Division  1/4                Division  1/4              │
+│  Restart   free               Restart   free             │
+│  Phase     0                  Phase     0                │
+│                                                          │
+│env 1 ▆▃▃▂▂▂▂▂  ░░░░░░       env 2 ▄▁        ░░░░░░       │
+│  Attack    40.0 ms            Attack    0                │
+│  Hold      0                  Hold      0                │
+│  Decay     800 ms             Decay     500 ms           │
+│  Sustain   30%                Sustain   0%               │
+│  Release   200 ms             Release   200 ms           │
+│  Trigger   every note         Trigger   every note       │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│LFOs run all the time; envelopes fire on the track's no…  │
+╰──────────────────────────────────────────────────────────╯
+ midi MIDI off · nothing yet
+ ↑↓  Row   ←→  Change   l  Learn   Tab  Routes

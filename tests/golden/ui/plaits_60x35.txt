@@ -1,4 +1,4 @@
- ion Trk Ins Mix Fx Rec Lib ↶ ↷                 0% no audio
+ ion Trk Ins Mod Mix Fx Rec Lib ↶ ↷             0% no audio
 ╭ Models ──────────────────────────────────────────────────╮
 │● green            ● red              ● orange            │
 │1 Virtual analog   1 Swarm            1 VA + filter       │

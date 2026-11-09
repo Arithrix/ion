@@ -5,6 +5,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-08
+
+### Added (Phase 8: modulation)
+- **Modulation on every track.** Two **LFOs**, two **envelopes**, and **8 routes** that send them to any value on the track: a filter cutoff, a Plaits macro, a pad's tune, the fader, pan, a send, an EQ band, an effect's setting.
+  - **LFOs:** sine, triangle, saw up and down, square, sample & hold, smooth random. Free in Hz, or **synced to the OXI** from 4 bars down to 1/32 (with triplets and dotted). They can restart on every note or every bar, from a start phase you choose.
+  - **Envelopes:** the same envelope as every instrument, fired by the track's notes: on every note, or only the first note of a phrase (legato).
+  - Velocity, the mod wheel, aftertouch, key and a random value per note can drive routes too.
+- **`v` on any value, on any screen,** sends LFO 1 to it at 25%: hear it straight away, then go to **Mod** (`O`, in the header between Instr and Mixer) to change the source, depth or LFO.
+- **The Mod screen (`O`):** the LFOs and envelopes with their shapes and what they're doing right now; the routes with source, target, depth and where the target has got to. ⏎ picks a target from a list of the track's values (type to narrow it); `[ ]` changes the source; ← → the depth; `x` clears a route.
+- **You can see it move:** value bars on Tracks, FX, the drum pads and Plaits show a **lilac marker** where modulation has the value now. The value you set stays put: that's what's saved and what Ctrl+Z goes back to.
+- Route depth (and every LFO or envelope setting) can be MIDI-learned (`l`): a modulation amount on an OXI knob.
+- **The demo** ("demo v0.8.0"): track 8's Plaits has LFO 1 sweeping timbre over two bars, and envelope 1 opening morph on every note.
+
+### Changed (Phase 8)
+- Projects are now format 8 (they keep modulation); 0.7.x can't open projects saved by 0.8.0.
+- A new engine on a track drops routes onto the old engine's settings; replacing an effect drops routes onto it; moving an effect takes its routes along. Ctrl+Z puts them back.
+
 ## [0.7.1] - 2026-11-08
 
 ### Changed

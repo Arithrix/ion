@@ -302,7 +302,7 @@ class DrumScreen final : public Screen {
       } else if (p == DrumEngine::kPan) {
         bar = centredBar(v, barW, on);
       } else {
-        bar = valueBar(toNormalized(pi, v), barW, inactive ? palette::faint : palette::value);
+        bar = valueBar(toNormalized(pi, v), barW, inactive ? palette::faint : palette::value, false, modulatedAt(ctx, ref));
       }
     }
     Element row_e = hbox({text(on ? "▸ " : "  ") | color(palette::accent),

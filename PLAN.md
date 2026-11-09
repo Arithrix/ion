@@ -71,32 +71,18 @@ Port all 24 models (1.2 is public, confirmed), N-voice polyphony, per-model macr
 ### Comet — when the device arrives · M (mostly unknowns)
 **On hold until Michael has the device** (2026-11-08). Native aarch64 build and measurements, raw ALSA tuning at 256 frames, narrow layout polish, CPU guard with voice stealing, autostart service, measured voice limits. It takes the next free version number when it starts.
 
-### Proposed (2026-11-08, discussing with Michael; nothing started)
-Order proposed: modulation first, because it's shared infrastructure and every engine after it gets it for free; then the 303 (well-defined, small); then the chip synth (needs a choice of chip first).
+### Phase 8 · Modulation — `v0.8.0` · M (agreed with Michael 2026-11-08)
+Per track: 2 LFOs, 2 envelopes, velocity / mod wheel / aftertouch / key / random, and 8 routes onto any continuous value on the track. Applied in the Module each block over the value set. Mod screen (`O`), `v` on any value, live markers on bars. See D-58.
 
-**Phase 8 · Modulation — `v0.8.0` · M**
-- Per track: 4 modulators, each an **LFO** (sine, triangle, saw, square, S&H, smooth random; free in Hz or synced to the OXI's clock; restart free / on note / on bar; uni- or bipolar) or an **envelope** (the uniform AHDSR, D-50, fired by the track's notes: on every note, or only on the first of a legato phrase).
-- Plus fixed sources: velocity, mod wheel (cc 1), aftertouch, key (note number), random per note.
-- A **mod matrix** of 8 routes per track: source → any value on that track (engine, mixer, inserts, sends), depth ±100% in the value's own 0…1 range. Switches and choice values can't be targets, except Plaits' model, stepped.
-- Applied in the Module once per 64-frame block, on top of the value you set. The base value is what's saved, undone, CC-moved and shown; bars get a live marker for where modulation has it.
-- Per-track, not per-voice: one envelope moves every held note together. That's right for mono (the 303) and for sweeps; per-voice envelopes are already in the engines that need them (amp everywhere, the sampler's filter). Per-voice routing can follow engine by engine.
-- UI: assign from the value itself (focus it, press a key, as `l` learns a CC), and a Mod page per track for the modulators and routes. Routes are part of the project (undoable, D-54).
-- Cost: negligible next to any engine.
+### Phase 9 · 303-style bass — `v0.9.0` · S–M (agreed)
+- Engine: **Open303** (Robin Schmidt; C++; the engine is MIT according to its ports JC303 and esp32_open303: **verify at source**). Proven in JC303, Zynthian and on an ESP32.
+- Named "ACID" / "303-style", not "TB-303" (Roland's trademark).
+- Mono; **slide** when notes overlap (the OXI's ties), **accent** from velocity over a settable threshold. Check the OXI manual for how it sends both.
+- Tune, cutoff, resonance, env mod, decay, accent, saw ↔ square, slide time; a **drive** after it, probably as a general insert effect.
+- The OXI is the sequencer. Modulation (Phase 8) works on it from day one.
 
-**Phase 9 · 303-style bass — `v0.9.0` · S–M**
-- Engine: **Open303** (Robin Schmidt; C++; the engine is MIT according to its ports JC303 and esp32_open303: **verify at source**). Proven in JC303, Zynthian and on an ESP32, so it should be fine on the Comet.
-- Named "ACID" or "303-style" in the UI, not "TB-303" (Roland's trademark).
-- Mono, with 303 behaviour from the OXI: **slide** when notes overlap (the OXI's ties/glide), **accent** from velocity above a threshold (settable). To check against the OXI manual: how it sends accent and slide.
-- Controls: tune, cutoff, resonance, env mod, decay, accent, waveform (saw ↔ square), slide time, plus a **drive** after it (303s live through distortion). The drive could be a general insert effect, useful on every track.
-- The OXI is the sequencer: no pattern sequencer in ion.
-
-**Phase 10 · Chip synth — `v0.10.0` · M**
-Pick one sound first:
-- **C64 SID** via reSIDfp (GPL-2+, fits ion's GPL-3): the most characterful (its filter, ring mod, sync, PWM). 3 voices a chip, so 2–3 chips for polyphony; ion writes the note → register driver. Its cost needs measuring for the Comet.
-- **AY-3-8910 / YM2149** (Spectrum, Atari ST) via ayumi (MIT, tiny): squares, noise, the envelope "buzzer" bass.
-- **NES / Game Boy** (Blargg's APU emulators, LGPL): two pulses, triangle, noise.
-- **ion's own chip-style voice**: pulse at 12.5/25/50%, 4-bit triangle, LFSR noise, crush, fast arpeggios, pitch sweeps. Polyphonic and cheap, but not an emulation.
-Plaits' Chiptune model already covers NES-style chords and arpeggios, which is an argument for SID.
+### Phase 10 · Chip synth — `v0.10.0` · M (agreed; direction D-59)
+An ion-native lo-fi wave synth in the spirit of the M8's WavSynth: pulse (12.5/25/50/75%), triangle, saw, sine, noise, and a set of our own small wavetables; low bit depth and sample rate as character controls; wave shaping ideas (size, multiply, warp, scan through a table); ion's filter and the uniform envelope; polyphonic. No chip emulator. Read the M8 manual at the start; take the idea, not its tables.
 
 ## Where the hard parts are
 

@@ -369,6 +369,26 @@ All three are offline on the control thread, after the take (well under 100 ms f
 - **The screen** (Instrument, on a PLTS track): the 3 × 8 model grid by bank (↑ ↓ ← →; moving selects, as browsing FM patches does), the model's description and what each macro does on it; the three macros with what they do (and, on chord models, the chord; on 6-op models, the patch); then the voice, the decay envelope's amounts and the amp envelope. Below 110 columns it's one pane at a time (Tab swaps).
 - **Project format 7** adds Plaits tracks. Format 6 files read as they are.
 
+## Decided during Phase 8
+
+### D-58 · decided with Michael · Modulation: per track, assignable to any value
+- **Per track, not per voice** (Michael's call, 2026-11-08). One envelope moves every held note together; that's right for mono, sweeps and the coming 303. Per-voice envelopes stay inside the engines that have them (amp everywhere, the sampler's filter).
+- **Sources, on each track:**
+  - **2 LFOs:** sine, triangle, saw up, saw down, square, sample & hold, smooth random. Free (0.01–50 Hz) or synced to the OXI (4 bars … 1/32, triplets, dotted). Restart free, on every note, or on every bar; a start phase. A synced free-running LFO is lined up with the bar at each downbeat, so it stays locked however long it runs. Without a clock, synced LFOs follow 120 BPM.
+  - **2 envelopes:** the uniform AHDSR (D-50), fired by the track's notes, on every note or only the first of a phrase (legato), released when the last note comes up.
+  - **Velocity, mod wheel (cc 1), aftertouch, key, random-per-note.**
+  - This is 2 LFOs + 2 envelopes rather than PLAN's "4 modulators, each either": simpler to show and to learn, and nothing is lost in practice.
+- **8 routes per track:** source → target → depth (±100% of the target's own range). Routes onto one target add up. Targets: any continuous value on the same track (mixer, EQ, sends, insert settings, engine settings). Not: switches, choices (a stepping model or filter type would be more surprise than use), another track's values, or modulation's own settings.
+- **Where it runs:** in the Module, once per 64-frame block (1.3 ms), after commands and before the engines render. A note-on updates its track's modulation before the engine hears the note, so an envelope's attack is already on the targets for the note's first sample. The ParamStore keeps the value you set (what's saved, undone, CC-moved and shown); the DSP gets value set + modulation. When a route stops, its target goes back to the value set. A CC or edit on a modulated value takes effect at once, modulated from its new setting.
+- **Model in files and undo:** LFO, envelope and route settings are ordinary values (`track3.lfo1.rate`, `track3.env2.decay`, `track3.mod4.depth`), so they're saved, undone (D-54) and CC-learnable like anything else (route depth on a knob is the useful one). Route targets are part of the track: saved as keys within the track (`"target": "plaits.timbre"`), undone as part of the document.
+- **Keeping routes valid:** a new engine on a track lets go of routes onto the old engine's values; replacing an insert lets go of routes onto it; moving an insert takes its routes along. All of it is one undo step with the change that caused it.
+- **UI:** the Mod screen (`O`, between Instr and Mixer in the header): the two LFOs and two envelopes with their shapes and live output; the routes with source, target, depth and where the target is now. ⏎ picks a target from a list of the track's values (type to filter); `[ ]` changes the source; ← → the depth; `x` clears. **`v` on any value, on any screen**, adds a route from LFO 1 at 25% on the first free route. Value bars (Tracks, FX, drum pads, Plaits macros) show a lilac marker where modulation has the value now.
+- **Project format 8.** Format 7 files read as they are, with nothing routed.
+- **Cost:** 2.1 µs per 128-frame buffer for all 64 routes with every source running (`ion-bench`): 0.08%.
+
+### D-59 · decided with Michael · The chip synth will be ion's own, in the spirit of the M8's WavSynth
+Michael wants "something like what Dirtywave uses on the M8". As far as I can tell from the M8 manuals, that's the WavSynth: Dirtywave's own deliberately 8-bit wavetable synth, not an emulation of a real chip. So Phase 10 is an ion-native lo-fi wave synth (simple waves and our own wavetables, low bit depth and rate, ion's filter, envelopes and modulation), not reSIDfp, ayumi or an APU emulator. No vendored library; polyphonic and cheap. Read the M8 manual closely at the start of that phase; take the idea, not its tables.
+
 ## Proposed (waiting for Michael)
 
 ### D-01 · implemented in Phase 0 · Direct ALSA sequencer instead of RtMidi

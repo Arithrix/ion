@@ -27,8 +27,8 @@ namespace ion {
 
 // 1: Phase 1. 2: FM macros, the program list, library ids (v0.2.0). 3: drum kits (v0.3.0).
 // 4: inserts, sends, the returns and the master chain (v0.4.0). 5: sampler tracks (v0.5.0).
-// 6: the Rec screen's setup (v0.6.0). 7: Plaits tracks (v0.7.0).
-inline constexpr int kProjectFormat = 7;
+// 6: the Rec screen's setup (v0.6.0). 7: Plaits tracks (v0.7.0). 8: modulation (v0.8.0).
+inline constexpr int kProjectFormat = 8;
 
 struct PadState {
   // As saved: an absolute path, or one relative to the project folder
@@ -52,6 +52,12 @@ struct TrackState {
   std::string kit;  // the kit's name, if it was loaded from or saved as one
   // Plaits: the patches "6-op FM a" plays, up to 32 (D-57). Harmonics picks among them.
   std::vector<syx::Voice> plaitsPatches;
+  // Modulation routes' targets (D-58): an index within this track's values, or −1.
+  std::array<int16_t, kModRoutes> modTargets = [] {
+    std::array<int16_t, kModRoutes> a{};
+    a.fill(-1);
+    return a;
+  }();
   bool operator==(const TrackState&) const = default;
 };
 
@@ -227,6 +233,17 @@ class Session {
   bool waitForSamples(int timeoutMs = 10000);
   int pinnedSamples() const { return static_cast<int>(pinned_.size()); }  // for tests
 
+  // ---- modulation (D-58) ----
+  // Whether a value can be modulated: a continuous value on a track (not a
+  // switch, a choice, or modulation's own settings).
+  bool modulatable(ParamRef ref) const;
+  // Points route `route` of track t at `target` (one of that track's values), or nothing.
+  void setModTarget(int t, int route, std::optional<ParamRef> target);
+  std::optional<ParamRef> modTarget(int t, int route) const;
+  // A new route onto `target`: the first route with nothing to move, set to
+  // LFO 1 at 25% so it's heard at once. Returns the route, or −1 if all eight are in use.
+  int addModRoute(ParamRef target);
+
   // ---- Plaits (HANDOFF §6.4, D-56, D-57) ----
   static constexpr int kMaxPlaitsPatches = 32;
   // The patch list for "6-op FM a" on Plaits track t (at most 32 kept). Empty:
@@ -339,6 +356,7 @@ class Session {
   nlohmann::json insertsJson(int scope) const;
   nlohmann::json trackJson(int t) const;  // as saved in project.json
   void trackFromJson(int t, const nlohmann::json& jt);
+  void modFromJson(int t, const nlohmann::json& jt);
   void insertsFromJson(int scope, const nlohmann::json& arr);
   void mixerFromJson(int scope, const nlohmann::json& mixer);
   void setIfDifferent(ParamRef ref, float value);
@@ -347,6 +365,9 @@ class Session {
   void recFromJson(const nlohmann::json& j);
   void sendToSampler(int t, const std::string& stored);
   void sendPlaitsBank(int t);
+  void sendModTarget(int t, int route);
+  // Routes onto values that are going away (an engine or an insert changing) let go of them.
+  void dropModTargets(int t, bool engine, int insertSlot);
   std::string soundSlug(int t) const;
 
   Module& module_;
@@ -422,6 +443,7 @@ class Session {
   Doc doc() const;
   bool docUnchanged() const;  // the document is still undoDoc_
   void restoreDoc(const Doc& d);
+  void syncModTargets(int t, const TrackState& want);
   void applyStep(const Step& step, bool forward);
   void clearHistory();
   // Names the step being made ("Track 3 · patch BRASS 1"); the first name wins until commitEdit().

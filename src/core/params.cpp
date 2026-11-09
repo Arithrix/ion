@@ -54,6 +54,55 @@ const ParamInfo kInsertOn = {"on", "On", 0, 1, 1, Curve::Toggle, Unit::None, 1, 
 std::span<const ParamInfo> mixerParams() { return kMixer; }
 const ParamInfo& insertOnInfo() { return kInsertOn; }
 
+// ---- modulation (D-58) ----
+
+namespace {
+
+const char* const kLfoShapes[] = {"sine", "triangle", "saw up", "saw down", "square", "S&H", "smooth"};
+const char* const kDivisions[] = {"4 bars", "2 bars", "1 bar", "1/2", "1/4", "1/8", "1/16", "1/32",
+                                  "1/2 T", "1/4 T", "1/8 T", "1/16 T", "1/4 D", "1/8 D", "1/16 D"};
+constexpr double kDivisionBeats[] = {16, 8, 4, 2, 1, 0.5, 0.25, 0.125, 4.0 / 3, 2.0 / 3, 1.0 / 3, 1.0 / 6, 1.5, 0.75, 0.375};
+const char* const kRestarts[] = {"free", "every note", "every bar"};
+const char* const kEnvTriggers[] = {"every note", "first note"};
+const char* const kSources[] = {"none", "LFO 1", "LFO 2", "env 1", "env 2", "velocity", "mod wheel", "aftertouch", "key", "random"};
+static_assert(sizeof kSources / sizeof kSources[0] == kModSourceCount);
+static_assert(sizeof kLfoShapes / sizeof kLfoShapes[0] == kLfoShapeCount);
+
+constexpr float kTimeFine = 1.0f / 60.0f, kTimeCoarse = 1.0f / 12.0f;
+
+#define ION_LFO(n)                                                                                                         \
+  {"lfo" #n ".shape", "Shape", 0, kLfoShapeCount - 1, 0, Curve::Choice, Unit::None, 1, 1, kLfoShapes},                     \
+      {"lfo" #n ".rate", "Rate", 0.01f, 50, 1, Curve::Log, Unit::Hz, 1.0f / 60, 1.0f / 12},                                 \
+      {"lfo" #n ".sync", "Sync", 0, 1, 0, Curve::Toggle, Unit::None, 1, 1},                                                \
+      {"lfo" #n ".division", "Division", 0, 14, 4, Curve::Choice, Unit::None, 1, 3, kDivisions},                           \
+      {"lfo" #n ".restart", "Restart", 0, 2, 0, Curve::Choice, Unit::None, 1, 1, kRestarts},                               \
+      {"lfo" #n ".phase", "Phase", 0, 360, 0, Curve::Linear, Unit::None, 15, 90}
+#define ION_ENV(n)                                                                                                         \
+  {"env" #n ".attack", "Attack", 0.1f, 10000, 0.1f, Curve::Log, Unit::Ms, kTimeFine, kTimeCoarse, nullptr, nullptr, "0"},    \
+      {"env" #n ".hold", "Hold", 1, 10000, 1, Curve::Log, Unit::Ms, kTimeFine, kTimeCoarse, nullptr, "full", "0"},           \
+      {"env" #n ".decay", "Decay", 1, 20000, 500, Curve::Log, Unit::Ms, kTimeFine, kTimeCoarse},                             \
+      {"env" #n ".sustain", "Sustain", 0, 1, 0, Curve::Linear, Unit::Percent, 0.02f, 0.1f},                                  \
+      {"env" #n ".release", "Release", 1, 20000, 200, Curve::Log, Unit::Ms, kTimeFine, kTimeCoarse, nullptr, "off"},         \
+      {"env" #n ".trigger", "Trigger", 0, 1, 0, Curve::Choice, Unit::None, 1, 1, kEnvTriggers}
+#define ION_ROUTE(n)                                                                                                       \
+  {"mod" #n ".source", "Source", 0, kModSourceCount - 1, 0, Curve::Choice, Unit::None, 1, 1, kSources},                     \
+      {"mod" #n ".depth", "Depth", -1, 1, 0, Curve::Linear, Unit::Percent, 0.01f, 0.1f}
+
+const ParamInfo kModTable[kModParamCount] = {
+    ION_LFO(1),   ION_LFO(2),   ION_ENV(1),   ION_ENV(2),   ION_ROUTE(1), ION_ROUTE(2),
+    ION_ROUTE(3), ION_ROUTE(4), ION_ROUTE(5), ION_ROUTE(6), ION_ROUTE(7), ION_ROUTE(8),
+};
+#undef ION_LFO
+#undef ION_ENV
+#undef ION_ROUTE
+
+}  // namespace
+
+std::span<const ParamInfo> modParams() { return kModTable; }
+const char* modSourceName(int source) { return kSources[std::clamp(source, 0, kModSourceCount - 1)]; }
+bool modSourceBipolar(int source) { return source == kSrcLfo1 || source == kSrcLfo2 || source == kSrcRandom; }
+double lfoDivisionBeats(int division) { return kDivisionBeats[std::clamp(division, 0, 14)]; }
+
 std::string scopeLabel(int scope) {
   if (scope == kMasterScope) return "Master";
   if (scope == kDelayScope) return "Delay return";

@@ -65,7 +65,8 @@ class PeakHold {
 ftxui::Element levelBar(float linear, int width, bool selected = false);
 ftxui::Element levelBar(const MeterReading& m, int width, bool selected = false);
 // A value bar for a normalized 0…1 value.
-ftxui::Element valueBar(float normalized, int width, ftxui::Color fill, bool selected = false);
+// `marker` (0…1, or −1 for none) marks where modulation has the value now (D-58).
+ftxui::Element valueBar(float normalized, int width, ftxui::Color fill, bool selected = false, float marker = -1);
 // Vertical meter column (`height` rows), −48…+6 dB: RMS solid, peak shaded,
 // held peak as a marker.
 ftxui::Element verticalMeter(const MeterReading& m, int height);

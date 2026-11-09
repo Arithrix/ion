@@ -1,0 +1,24 @@
+ ion  Tracks Instr Mod Mixer Fx Rec Library  ↶ ↷   no clock   cpu 0%   no audio
+╭ Track 7 · routes · Tab ⇄ ────────────────────────────────────────────────────╮
+│ #  source        target                                 depth   now          │
+│ 1  LFO 1       → PLTS Timbre                            +30%    ████████▍░░░ │
+│ 2  env 1       → PLTS Morph                             -40%    ████▊░░░░░░░ │
+│ 3  none        → —                                      +0%                  │
+│ 4  none        → —                                      +0%                  │
+│ 5  none        → —                                      +0%                  │
+│ 6  none        → —                                      +0%                  │
+│ 7  none        → —                                      +0%                  │
+│ 8  none        → —                                      +0%                  │
+│                                                                              │
+│v on any value, on any screen, sends LFO 1 to it at 25% on the first free     │
+│route. Depth is in the value's own range; routes onto one value add up. The   │
+│value you set stays what's saved.                                             │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+ midi MIDI off  ·  last: nothing yet
+ ↑↓  Route   ⏎  Target   [ ]  Source   ←→  Depth   x  Clear   Tab  Modulators

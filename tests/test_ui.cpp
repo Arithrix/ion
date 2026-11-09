@@ -242,6 +242,18 @@ struct SnapshotRig {
     session.addMapping(6, 20, engineParamRef(6, PlaitsEngine::kHarmonics));
     session.addMapping(6, 21, engineParamRef(6, PlaitsEngine::kTimbre));
     session.addMapping(6, 22, engineParamRef(6, PlaitsEngine::kMorph));
+    // …and its modulation: LFO 1 (synced triangle) on timbre, envelope 1 on morph.
+    session.setModTarget(6, 0, engineParamRef(6, PlaitsEngine::kTimbre));
+    session.setParam(routeRef(6, 0, kRouteSource), kSrcLfo1);
+    session.setParam(routeRef(6, 0, kRouteDepth), 0.3f);
+    session.setParam(lfoRef(6, 0, kLfoShape), kLfoTriangle);
+    session.setParam(lfoRef(6, 0, kLfoSync), 1);
+    session.setModTarget(6, 1, engineParamRef(6, PlaitsEngine::kMorph));
+    session.setParam(routeRef(6, 1, kRouteSource), kSrcEnv1);
+    session.setParam(routeRef(6, 1, kRouteDepth), -0.4f);
+    session.setParam(modEnvRef(6, 0, kMEnvAttack), 40);
+    session.setParam(modEnvRef(6, 0, kMEnvDecay), 800);
+    session.setParam(modEnvRef(6, 0, kMEnvSustain), 0.3f);
 
     // Track 6: a sampler with a 4-bar resampled loop that knows its tempo (the Sampler mockup).
     {
@@ -361,6 +373,10 @@ TEST_CASE("ui snapshots: every screen at the handoff's sizes") {
       {"plaits_params_60x35", ui::ScreenId::Instrument, 60, 35, false, false, 6, {"Tab", "Down"}},
       {"plaits_6op_130x36", ui::ScreenId::Instrument, 130, 36, false, false, 6, {"Up", "Up", "Up", "Up"}},
       {"tracks_plaits_130x36", ui::ScreenId::Tracks, 130, 36, false, false, 6},
+      {"mod_130x36", ui::ScreenId::Mod, 130, 36, false, false, 6},
+      {"mod_80x24", ui::ScreenId::Mod, 80, 24, false, false, 6},
+      {"mod_60x35", ui::ScreenId::Mod, 60, 35, false, false, 6, {"Tab", "Down", "Down"}},
+      {"mod_picker_130x36", ui::ScreenId::Mod, 130, 36, false, false, 6, {"Down", "Down", "Return", "e", "n", "v"}},
       {"library_kits_130x36", ui::ScreenId::Library, 130, 36, false, false, 3, {"Tab", "Down", "Down", "Right"}},
       {"rec_130x36", ui::ScreenId::Rec, 130, 36, false, false, 0, kRecSetup},
       {"rec_80x24", ui::ScreenId::Rec, 80, 24, false, false, 0, kRecSetup},
@@ -516,6 +532,28 @@ TEST_CASE("mouse: tabs, rows, double-click, wheel and drag do what their keys do
   const float pan = s.param({0, kPan});
   ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {at("wheelup", cellOf(detail, "pan "))});
   CHECK(s.param({0, kPan}) > pan);
+}
+
+TEST_CASE("modulation: v on a value routes LFO 1 to it; the Mod screen edits it") {
+  SnapshotRig r;
+  Session& s = r.session;
+  // Track 7's Plaits: Tab to the settings (Harmonics is first), v.
+  const std::string frame = ui::snapshot(s, *r.module, ui::ScreenId::Instrument, 130, 36, false, false, 6, {"Tab", "v"});
+  CHECK(frame.find("LFO 1 → Track 7 · PLTS Harmonics +25% (route 3)") != std::string::npos);
+  CHECK(s.modTarget(6, 2) == engineParamRef(6, PlaitsEngine::kHarmonics));
+  // A switch can't be modulated.
+  const std::string no = ui::snapshot(s, *r.module, ui::ScreenId::Instrument, 130, 36, false, false, 6, {"Tab", "Down", "Down", "Down", "Down", "Down", "Down", "Down", "Down", "Down", "v"});
+  CHECK(no.find("can't be modulated") != std::string::npos);
+  // On the Mod screen: route 3 is selected with ↓↓; ] picks the next source, → adds depth, x clears it.
+  ui::snapshot(s, *r.module, ui::ScreenId::Mod, 130, 36, false, false, 6, {"Down", "Down", "]", "Right"});
+  CHECK(s.param(routeRef(6, 2, kRouteSource)) == static_cast<float>(kSrcLfo2));
+  CHECK(s.param(routeRef(6, 2, kRouteDepth)) == doctest::Approx(0.26f));
+  ui::snapshot(s, *r.module, ui::ScreenId::Mod, 130, 36, false, false, 6, {"Down", "Down", "x"});
+  CHECK_FALSE(s.modTarget(6, 2));
+  // The picker: ⏎ on an empty route, type to filter, ⏎ to choose.
+  ui::snapshot(s, *r.module, ui::ScreenId::Mod, 130, 36, false, false, 6, {"Down", "Down", "Down", "Return", "f", "a", "d", "e", "r", "Return"});
+  CHECK(s.modTarget(6, 3) == ParamRef{6, static_cast<uint16_t>(kFader)});
+  CHECK(s.param(routeRef(6, 3, kRouteDepth)) == doctest::Approx(0.25f));
 }
 
 TEST_CASE("undo: Ctrl+Z and Ctrl+Y, and the header's buttons") {

@@ -1,0 +1,36 @@
+ ion  Tracks Instr Mod Mixer Fx Rec Library  ↶ undo ↷ redo                                snapshot ● no clock   cpu 0%   no audio
+╭ Track 7 · modulators ──────────────────────────────────────╮╭ Route 3 → which value? ──────────────────────────────────────────╮
+│LFO 1 ▅▇█▇▅▄▂▁▂▄ ░░░░░░       LFO 2 ▆▇█▇▆▃▂▁▂▃ ░░░░░░       ││filter env                                                        │
+│  Shape     triangle            Shape     sine              ││ PLTS Env→pitch                                                   │
+│  Rate      1.00 Hz             Rate      1.00 Hz           ││ PLTS Env→timbre                                                  │
+│  Sync      on                  Sync      off               ││ PLTS Env→morph                                                   │
+│  Division  1/4                 Division  1/4               ││                                                                  │
+│  Restart   free                Restart   free              ││                                                                  │
+│  Phase     0                   Phase     0                 ││                                                                  │
+│                                                            ││                                                                  │
+│env 1 ▇▄▃▂▂▂▂▂▂  ░░░░░░       env 2 ▄▁         ░░░░░░       ││                                                                  │
+│  Attack    40.0 ms             Attack    0                 ││                                                                  │
+│  Hold      0                   Hold      0                 ││                                                                  │
+│  Decay     800 ms              Decay     500 ms            ││                                                                  │
+│  Sustain   30%                 Sustain   0%                ││                                                                  │
+│  Release   200 ms              Release   200 ms            ││                                                                  │
+│  Trigger   every note          Trigger   every note        ││                                                                  │
+│                                                            ││                                                                  │
+│                                                            ││                                                                  │
+│                                                            ││                                                                  │
+│                                                            ││                                                                  │
+│                                                            ││                                                                  │
+│                                                            ││                                                                  │
+│                                                            ││                                                                  │
+│                                                            ││                                                                  │
+│                                                            ││                                                                  │
+│                                                            ││                                                                  │
+│                                                            ││                                                                  │
+│                                                            ││                                                                  │
+│                                                            ││                                                                  │
+│                                                            ││                                                                  │
+│                                                            ││                                                                  │
+│LFOs run all the time; envelopes fire on the track's notes  ││                                                                  │
+╰────────────────────────────────────────────────────────────╯╰──────────────────────────────────────────────────────────────────╯
+ midi MIDI off  ·  last: nothing yet
+ type  Filter   ↑↓  Value   ⏎  Choose   Esc  Cancel

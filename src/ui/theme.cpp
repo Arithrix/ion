@@ -60,12 +60,34 @@ std::string bars(int eighths, int width, std::string& rest) {
 }  // namespace
 
 
-Element valueBar(float n, int width, Color fill, bool selected) {
+Element valueBar(float n, int width, Color fill, bool selected, float marker) {
   std::string off;
   const std::string on =
       bars(static_cast<int>(std::lround(std::clamp(n, 0.0f, 1.0f) * static_cast<float>(width * 8))), width, off);
-  return hbox({text(on) | ftxui::color(selected ? palette::bg : fill),
-               text(off) | ftxui::color(selected ? palette::selectedOff : palette::border)});
+  if (marker < 0 || width < 2)
+    return hbox({text(on) | ftxui::color(selected ? palette::bg : fill),
+                 text(off) | ftxui::color(selected ? palette::selectedOff : palette::border)});
+  // Where modulation has the value now: one cell, in the modulation colour (D-58).
+  std::vector<std::string> cells;
+  for (const std::string* part : std::initializer_list<const std::string*>{&on, &off})
+    for (std::size_t i = 0; i < part->size();) {
+      const std::size_t len = (static_cast<unsigned char>((*part)[i]) & 0xE0) == 0xE0 ? 3 : 1;
+      cells.push_back(part->substr(i, len));
+      i += len;
+    }
+  const int onCells = static_cast<int>(cells.size()) - static_cast<int>(off.size() / 3);
+  const int m = std::clamp(static_cast<int>(std::lround(std::clamp(marker, 0.0f, 1.0f) * static_cast<float>(width - 1))), 0, width - 1);
+  Elements row;
+  for (int i = 0; i < static_cast<int>(cells.size()); ++i) {
+    if (i == m) {
+      row.push_back(text("┃") | ftxui::color(palette::lilac));
+      continue;
+    }
+    const bool lit = i < onCells;
+    row.push_back(text(cells[static_cast<std::size_t>(i)]) |
+                  ftxui::color(lit ? (selected ? palette::bg : fill) : (selected ? palette::selectedOff : palette::border)));
+  }
+  return hbox(row);
 }
 
 namespace {

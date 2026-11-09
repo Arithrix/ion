@@ -1,4 +1,4 @@
- ion  Tracks Instr Mixer Fx Rec Library  ↶ ↷       no clock   cpu 0%   no audio
+ ion  Tracks Instr Mod Mixer Fx Rec Library  ↶ ↷   no clock   cpu 0%   no audio
 ╭ Tracks ──────────────────────────────────╮╭ Track 1 · FM ────────────────────╮
 │ #  ch  engine  sounlevel       dB        ││SNAP TEST                         │
 │ 1  01  FM      SNAP ░░░░░░░░░░   0.0  ·  ││from unit                         │

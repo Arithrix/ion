@@ -68,6 +68,17 @@ Module::Module() : clock_(kSampleRate) {
     strips_[static_cast<std::size_t>(s)].gainRight = g.right;
   }
   master_.gainLeft = master_.gainRight = 1.0f;
+  // Every track's modulation starts at its defaults, routed nowhere.
+  for (int t = 0; t < kTrackCount; ++t) {
+    for (int i = 0; i < kModParamCount; ++i) {
+      const ParamRef ref{static_cast<uint8_t>(t), static_cast<uint16_t>(kModBase + i)};
+      values_[static_cast<std::size_t>(t)][ref.index] = modParams()[static_cast<std::size_t>(i)].def;
+      store_.publish(ref, modParams()[static_cast<std::size_t>(i)].def);
+    }
+    modTarget_[static_cast<std::size_t>(t)].fill(-1);
+    modApplied_[static_cast<std::size_t>(t)].fill(-1);
+    for (auto& v : status_.modLive[static_cast<std::size_t>(t)]) v.store(-1.0f, std::memory_order_relaxed);
+  }
   // The send buses' own effects: wet only, always in.
   for (const auto& [scope, type] : {std::pair{kDelayScope, EffectType::Delay}, std::pair{kReverbScope, EffectType::Reverb}}) {
     Effect* e = createEffect(type).release();
@@ -195,6 +206,16 @@ void Module::renderBlock() noexcept {
   clock_.update(frames_);
   if (!clock_.present()) takeClockStopped();
   FmEngine::setClock(static_cast<uint64_t>(frames_));
+
+  // Modulation (D-58): move the sources on a block, then put the routes on their targets.
+  const double bpm = clock_.present() && clock_.bpm() > 0 ? clock_.bpm() : 120.0;
+  for (int t = 0; t < kTrackCount; ++t) {
+    const auto ti = static_cast<std::size_t>(t);
+    mod_[ti].advance(&values_[ti][kModBase], bpm, kBlockSize);
+    modulate(t);
+    for (int s = 0; s < kLfos + kModEnvs; ++s)
+      status_.modSources[ti][static_cast<std::size_t>(s)].store(mod_[ti].source(kSrcLfo1 + s), std::memory_order_relaxed);
+  }
 
   for (int t = 0; t < kTrackCount; ++t) {
     std::memset(trackLeft_[t], 0, sizeof trackLeft_[t]);
@@ -625,7 +646,12 @@ void Module::dispatch(const MidiMessage& m, int64_t frame) noexcept {
     case 0xF8: {
       // A downbeat is a tick landing on a multiple of 96 (four 24-tick beats) while running.
       const bool downbeat = clock_.running() && clock_.ticks() % 96 == 0;
-      if (clock_.tick(frame)) takeTick(frame, downbeat);
+      if (clock_.tick(frame)) {
+        takeTick(frame, downbeat);
+        if (downbeat)
+          for (int t = 0; t < kTrackCount; ++t)
+            mod_[static_cast<std::size_t>(t)].downbeat(&values_[static_cast<std::size_t>(t)][kModBase], clock_.bar());
+      }
       return;
     }
     case 0xFA: clock_.start(frame); return;
@@ -667,6 +693,19 @@ void Module::dispatch(const MidiMessage& m, int64_t frame) noexcept {
     const auto ti = static_cast<std::size_t>(t);
     Engine* e = engines_[ti];
     if (!e || channels_[ti] != ch) continue;
+    // The track's modulation hears its notes and controllers first, so a note
+    // starts with its envelope's value already on the targets.
+    TrackModulation& md = mod_[ti];
+    if (type == 0x90 && m.data2 > 0) {
+      md.noteOn(&values_[ti][kModBase], m.data1, m.data2);
+      modulate(t);
+    } else if (type == 0x80 || type == 0x90) {
+      md.noteOff(m.data1);
+    } else if (type == 0xB0 && m.data1 == 1) {
+      md.modWheel(m.data2);
+    } else if (type == 0xD0) {
+      md.aftertouch(m.data1);
+    }
     switch (type) {
       case 0x90:
         if (m.data2 > 0) {
@@ -709,6 +748,10 @@ const ParamInfo* Module::info(ParamRef ref) const noexcept {
     const std::size_t i = static_cast<std::size_t>(ref.slotIndex() - 1);
     return i < table.size() ? &table[i] : nullptr;
   }
+  if (ref.isMod()) {
+    const std::size_t i = ref.index - kModBase;
+    return ref.scope < kTrackCount && i < static_cast<std::size_t>(kModParamCount) ? &modParams()[i] : nullptr;
+  }
   if (!ref.isEngine()) return ref.index < kMixerParamCount ? &mixerParams()[ref.index] : nullptr;
   if (ref.scope >= kTrackCount) return nullptr;
   const Engine* e = engines_[ref.scope];
@@ -726,6 +769,79 @@ void Module::applyParam(ParamRef ref, float value) noexcept {
   store_.publish(ref, value);
   if (ref.isEngine()) engines_[ref.scope]->setParam(ref.index - kEngineParamBase, value);
   else if (ref.isInsert() && ref.slotIndex() > 0) fx_[ref.scope][static_cast<std::size_t>(ref.slot())]->setParam(ref.slotIndex() - 1, value);
+  // A value modulation is moving: modulate from its new setting now, not a block later.
+  if (ref.scope < kTrackCount)
+    for (int16_t was : modApplied_[ref.scope])
+      if (was == ref.index) {
+        modulate(ref.scope);
+        break;
+      }
+}
+
+void Module::applyEffective(ParamRef ref, float value) noexcept {
+  values_[ref.scope][ref.index] = value;
+  if (ref.isEngine()) {
+    if (Engine* e = engines_[ref.scope]) e->setParam(ref.index - kEngineParamBase, value);
+  } else if (ref.isInsert() && ref.slotIndex() > 0) {
+    if (Effect* e = fx_[ref.scope][static_cast<std::size_t>(ref.slot())]) e->setParam(ref.slotIndex() - 1, value);
+  }
+}
+
+// Each route adds depth × source to its target's value, in the target's own
+// 0…1 range, over the value set (which stays in the ParamStore: what's
+// saved, undone and shown). Routes onto one target add up. A target no route
+// moves any more goes back to the value set.
+void Module::modulate(int t) noexcept {
+  const auto ti = static_cast<std::size_t>(t);
+  const auto& v = values_[ti];
+  std::array<int16_t, kModRoutes> targets{};
+  std::array<float, kModRoutes> offsets{};
+  int n = 0;
+  for (int r = 0; r < kModRoutes; ++r) {
+    const int target = modTarget_[ti][static_cast<std::size_t>(r)];
+    const ParamRef src = routeRef(t, r, kRouteSource), dep = routeRef(t, r, kRouteDepth);
+    const int source = static_cast<int>(std::lround(v[src.index]));
+    const float depth = v[dep.index];
+    status_.modLive[ti][static_cast<std::size_t>(r)].store(-1.0f, std::memory_order_relaxed);
+    if (target < 0 || source == kSrcNone || depth == 0.0f) continue;
+    int k = 0;
+    while (k < n && targets[static_cast<std::size_t>(k)] != target) ++k;
+    if (k == n) {
+      targets[static_cast<std::size_t>(n)] = static_cast<int16_t>(target);
+      offsets[static_cast<std::size_t>(n)] = 0;
+      ++n;
+    }
+    offsets[static_cast<std::size_t>(k)] += depth * mod_[ti].source(source);
+  }
+  // Put back what isn't moved any more.
+  for (int16_t& was : modApplied_[ti]) {
+    if (was < 0) continue;
+    bool still = false;
+    for (int k = 0; k < n; ++k) still |= targets[static_cast<std::size_t>(k)] == was;
+    if (!still) {
+      const ParamRef ref{static_cast<uint8_t>(t), static_cast<uint16_t>(was)};
+      if (info(ref)) applyEffective(ref, store_.get(ref));
+      was = -1;
+    }
+  }
+  for (int k = 0; k < n; ++k) {
+    const ParamRef ref{static_cast<uint8_t>(t), static_cast<uint16_t>(targets[static_cast<std::size_t>(k)])};
+    const ParamInfo* pi = info(ref);
+    if (!pi || pi->curve == Curve::Toggle || pi->curve == Curve::Choice || ref.isMod()) continue;
+    const float norm = std::clamp(toNormalized(*pi, store_.get(ref)) + offsets[static_cast<std::size_t>(k)], 0.0f, 1.0f);
+    applyEffective(ref, fromNormalized(*pi, norm));
+    for (int r = 0; r < kModRoutes; ++r)
+      if (modTarget_[ti][static_cast<std::size_t>(r)] == targets[static_cast<std::size_t>(k)])
+        status_.modLive[ti][static_cast<std::size_t>(r)].store(norm, std::memory_order_relaxed);
+    bool known = false;
+    for (int16_t was : modApplied_[ti]) known |= was == targets[static_cast<std::size_t>(k)];
+    if (!known)
+      for (int16_t& slot : modApplied_[ti])
+        if (slot < 0) {
+          slot = targets[static_cast<std::size_t>(k)];
+          break;
+        }
+  }
 }
 
 void Module::handleCommand(const Command& c) noexcept {
@@ -867,6 +983,9 @@ void Module::handleCommand(const Command& c) noexcept {
       break;
     case Command::Type::CancelRecord:
       endTake(Take::State::Cancelled);
+      break;
+    case Command::Type::SetModTarget:
+      if (c.slot >= 0 && c.slot < kModRoutes) modTarget_[track][static_cast<std::size_t>(c.slot)] = static_cast<int16_t>(std::clamp(static_cast<int>(c.value), -1, ParamStore::kPerScope - 1));
       break;
     case Command::Type::SetPlaitsBank: {
       PlaitsBank* old = c.plaitsBank;  // no Plaits on the track: the bank goes straight back

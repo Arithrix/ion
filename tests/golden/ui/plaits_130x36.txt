@@ -1,8 +1,8 @@
- ion  Tracks Instr Mixer Fx Rec Library  ↶ undo ↷ redo                                    snapshot ● no clock   cpu 0%   no audio
+ ion  Tracks Instr Mod Mixer Fx Rec Library  ↶ undo ↷ redo                                snapshot ● no clock   cpu 0%   no audio
 ╭ Models ─────────────────────────────────────────────────╮╭ Track 7 · PLTS · String machine ────────────────────────────────────╮
 │● green            ● red              ● orange           ││  Harmonics  ██████▏░░░░░░░░░ m7        chord                        │
-│1 Virtual analog   1 Swarm            1 VA + filter      ││  Timbre     ██████████▉░░░░░ 68%       chorus · filter              │
-│2 Waveshaper       2 Filtered noise   2 Phase dist.      ││  Morph      ██████▍░░░░░░░░░ 40%       waveform                     │
+│1 Virtual analog   1 Swarm            1 VA + filter      ││  Timbre     ██████████┃░░░░░ 68%       chorus · filter              │
+│2 Waveshaper       2 Filtered noise   2 Phase dist.      ││  Morph      ██████┃░░░░░░░░░ 40%       waveform                     │
 │3 2-op FM          3 Particles        3 6-op FM a        ││LPG gate: opens while the key is held, closes after it               │
 │4 Formant          4 String           4 6-op FM b        ││                                                                     │
 │5 Harmonic         5 Modal            5 6-op FM c        ││amp ██████████████████████████    low-pass gate                      │

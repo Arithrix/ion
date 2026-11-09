@@ -66,6 +66,7 @@ add_library(ion_engine STATIC
   src/engine/plaits/plaits_engine.cpp
   src/engine/plaits/plaits_voice.cpp
   src/engine/module.cpp
+  src/engine/modulation.cpp
   src/audio/pipewire_out.cpp
   src/audio/wav.cpp
   src/midi/alsa_seq_in.cpp
@@ -94,6 +95,7 @@ add_library(ion_ui STATIC
   src/ui/instrument_screen.cpp
   src/ui/library_screen.cpp
   src/ui/mixer_screen.cpp
+  src/ui/mod_screen.cpp
   src/ui/piano.cpp
   src/ui/plaits_screen.cpp
   src/ui/rec_screen.cpp

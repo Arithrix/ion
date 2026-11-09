@@ -11,6 +11,7 @@
 #include "core/spsc_queue.h"
 #include "engine/channel_eq.h"
 #include "engine/clock.h"
+#include "engine/modulation.h"
 #include "engine/engine.h"
 #include "engine/fx/effects.h"
 #include "engine/midi_types.h"
@@ -73,6 +74,7 @@ struct Command {
     StopRecord,    // armed: disarm; synced: stop on the next downbeat; otherwise stop now
     CancelRecord,  // drop the take (it comes back as TakeDone, Cancelled)
     SetPlaitsBank, // `plaitsBank` (may be null: Plaits' own) for the Plaits engine on `track`; the old one comes back as BankRetired
+    SetModTarget,  // route `slot` of `track` now moves the value at index `value` in that track (−1: nothing; D-58)
   };
   Type type = Type::Panic;
   uint8_t track = 0;
@@ -143,6 +145,11 @@ struct ModuleStatus {
   std::array<std::atomic<int>, kTrackCount> trackVoices{};
   std::array<std::atomic<uint8_t>, kTrackCount> trackEngine{};  // EngineType
   std::array<std::array<std::atomic<uint32_t>, 16>, kTrackCount> padHits{};  // drum pad trigger counters
+  // Modulation, for the UI: each route's target as modulation has it now
+  // (0…1 of its range; −1 when the route isn't moving anything), and the
+  // LFOs' and envelopes' outputs (LFOs −1…1, envelopes 0…1).
+  std::array<std::array<std::atomic<float>, kModRoutes>, kTrackCount> modLive{};
+  std::array<std::array<std::atomic<float>, kLfos + kModEnvs>, kTrackCount> modSources{};
   std::atomic<bool> previewing{false};
   std::atomic<float> bpm{0};
   std::atomic<bool> clockPresent{false};
@@ -188,6 +195,10 @@ class Module {
   void dispatch(const MidiMessage& m, int64_t frame) noexcept;
   void handleCommand(const Command& c) noexcept;
   void applyParam(ParamRef ref, float value) noexcept;
+  // Modulation (D-58): puts track t's routes onto their targets, over the values set.
+  void modulate(int t) noexcept;
+  // Sets the value the DSP uses without touching the value set (the ParamStore's).
+  void applyEffective(ParamRef ref, float value) noexcept;
   const ParamInfo* info(ParamRef ref) const noexcept;
   void notify(const Notification& n) noexcept;
   void releaseSample(const Sample* s) noexcept;
@@ -212,6 +223,9 @@ class Module {
   std::optional<ParamRef> learn_;
   MidiTiming timing_ = MidiTiming::Tight;
   ProgramTable* programs_ = nullptr;
+  std::array<TrackModulation, kTrackCount> mod_{};
+  std::array<std::array<int16_t, kModRoutes>, kTrackCount> modTarget_{};  // −1: none
+  std::array<std::array<int16_t, kModRoutes>, kTrackCount> modApplied_{};  // targets moved last block (to put back)
 
   // The sample browser's preview: plays once into the master. A new preview
   // fades the previous one out over 5 ms instead of cutting it.

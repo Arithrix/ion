@@ -1,8 +1,23 @@
 # Status
 
-**Phase:** 7 done · 0.7.1 released (0.7.0: Plaits, undo/redo, mouse; 0.7.1: Plaits' envelope laid out like FM's). Waiting at the checkpoint.
+**Phase:** 8 done · 0.8.0 (modulation) released; waiting at its checkpoint. Then Phase 9 (303-style bass), Phase 10 (chip synth).
 **Branch:** `main`
 **Updated:** 2026-11-08
+
+## Done (Phase 8)
+- **Modulation** (D-58, Michael's request; per track by his choice):
+  - per track: 2 LFOs (7 shapes; free or synced, locked to the bar; restart on note/bar; phase), 2 envelopes (uniform AHDSR; every note or legato), velocity, mod wheel, aftertouch, key, random per note;
+  - 8 routes per track onto any continuous value on the track, applied in the Module each block over the value set; note-ons update modulation before the engine hears them;
+  - values in files and undo like any other (and CC-learnable); route targets in the track, kept valid through engine and insert changes;
+  - project format 8.
+- **UI:** the Mod screen (`O`) with live sources and routes, a filterable target picker; `v` on any value; lilac live markers on value bars (Tracks, FX, drum pads, Plaits).
+- **Demo:** track 8's Plaits has an LFO on timbre and an envelope on morph.
+- **ion-bench:** modulation costs 2.1 µs per buffer with all 64 routes running.
+- **Tests:** 177 cases, all passing (normal, Release, ASan + UBSan).
+  - LFO shapes, rate, phase, sync, restarts; envelopes on every note and legato, release on the last note; sources.
+  - The Module moving a target over the value set and letting go; an envelope on a Plaits macro fired by notes; CC on route depth.
+  - Save/load, undo, engine and insert changes dropping, moving and restoring routes; keys and labels.
+  - UI: `v` on a value (and refused on a switch), editing a route, the target picker; snapshots of the Mod screen at three sizes and its picker.
 
 ## Done (Phase 7)
 - **Plaits** (D-56, D-57):
@@ -127,14 +142,14 @@
   - Clean under AddressSanitizer and UBSan, apart from Synth_Dexed's own upstream warnings.
 
 ## Waiting on Michael
-- Try 0.7.0 (Plaits: "plays every model"; undo/redo; the mouse).
+- Try 0.8.0 (modulation) and 0.7.x (Plaits; undo/redo; the mouse).
 - Say whether FM without its old Attack/Release macros is OK, or bring them back (D-50; revert is possible).
 - Chord-change slicing on real material (D-52).
 - Still open from earlier: the reverb by ear (D-42), the 1 ms limiter latency (D-45), drum defaults by ear, real-time priority (`no RT`, V-10), latency feel, `ion --list-midi` with the OXI, macro ranges.
 
 ## Next
 - **Phase 8 (Comet) is on hold until Michael has the device** (his call, 2026-11-08): aarch64 build, ALSA tuning, narrow-layout polish, CPU guard, autostart, measured voice limits.
-- **Proposed next, discussing (PLAN.md):** Phase 8 modulation (LFOs and envelopes assignable to any value), Phase 9 a 303-style bass (Open303), Phase 10 a chip synth (which chip: Michael's call). Nothing started.
+- **Phase 9: a 303-style bass** on Open303 (PLAN.md), after the 0.8.0 checkpoint. Then **Phase 10: the chip synth**, ion's own in the spirit of the M8's WavSynth (D-59).
 
 ## Known gaps carried forward
 - Recording: no audio input yet; a take's source settings are saved in its sidecar but there's no "bring the sources back" command yet; editing the Rec setup doesn't mark the project unsaved.

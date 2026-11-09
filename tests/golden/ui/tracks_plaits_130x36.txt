@@ -1,12 +1,12 @@
- ion  Tracks Instr Mixer Fx Rec Library  ↶ undo ↷ redo                                    snapshot ● no clock   cpu 0%   no audio
+ ion  Tracks Instr Mod Mixer Fx Rec Library  ↶ undo ↷ redo                                snapshot ● no clock   cpu 0%   no audio
 ╭ Tracks ───────────────────────────────────────────────────────────────────────╮╭ Track 7 · PLTS ───────────────────────────────╮
 │ #  ch  engine  sound                                    level       dB        ││String machine                                 │
 │ 1  01  FM      SNAP TEST                                 ░░░░░░░░░░   0.0  ·  ││                                               │
 │ 2  02  —       — empty —                                 ░░░░░░░░░░        ·  ││engine     PLTS                                │
 │ 3  03  FM      SYN-BAS 4                                 ░░░░░░░░░░  -9.0  · M││model      String machine                      │
 │ 4  04  DRUM    Garage 02                                 ░░░░░░░░░░   0.0  ·  ││harmonics  ███▊░░░░░░ 38%                      │
-│ 5  05  —       — empty —                                 ░░░░░░░░░░        ·  ││timbre     ██████▊░░░ 68%                      │
-│ 6  06  SMPL    chords_124bpm_4bar                        ░░░░░░░░░░   0.0  ·  ││morph      ████░░░░░░ 40%                      │
+│ 5  05  —       — empty —                                 ░░░░░░░░░░        ·  ││timbre     ██████┃░░░ 68%                      │
+│ 6  06  SMPL    chords_124bpm_4bar                        ░░░░░░░░░░   0.0  ·  ││morph      ████┃░░░░░ 40%                      │
 │ 7  07  PLTS    String machine                            ░░░░░░░░░░   0.0  ·  ││LPG decay  █████▌░░░░ 55%                      │
 │ 8  08  —       — empty —                                 ░░░░░░░░░░        ·  ││                                               │
 │                                                                               ││mixer                                          │
