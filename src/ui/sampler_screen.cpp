@@ -190,6 +190,7 @@ class SamplerScreen final : public Screen {
   BrowserTarget target(Context& ctx) {
     BrowserTarget bt;
     const int t = ctx.track;
+    bt.focus = [](Context&) {};
     bt.loadHint = "⏎ onto track " + std::to_string(t + 1);
     bt.load = [this, t](Context& cx, const SampleBrowse::Entry& e) {
       if (e.kind == SampleBrowse::Entry::Kind::Kit) {
@@ -462,7 +463,10 @@ class SamplerScreen final : public Screen {
                                color(on ? palette::accent : dim ? palette::faint : palette::text),
                            text(" "), text(fit(valueText(s, t, p), inner - labelW - 2)) | color(on ? palette::text : dim ? palette::faint : palette::dim),
                            filler()});
-      out.push_back(on ? line | bgcolor(palette::raised) : line);
+      out.push_back(ctx.value(on ? line | bgcolor(palette::raised) : line, [this, index, r](Context&) {
+        section_ = index;
+        row_[static_cast<std::size_t>(index)] = r;
+      }));
     }
     if (index == 3) {
       // CCs mapped onto this sampler (the mockup's "cc 74 → cutoff").

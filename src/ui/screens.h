@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <deque>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -23,6 +24,30 @@ namespace ion::ui {
 
 class FmBrowse;
 class SampleBrowse;
+struct Context;
+
+// Something the mouse can act on (DECISIONS D-55). Screens mark these as they
+// draw; the app looks up what's under the pointer in the last frame drawn and
+// turns the click, double-click, wheel or drag into what the keys would do,
+// so every mouse action is also a key and screens keep one code path.
+struct Hit {
+  ftxui::Box box;
+  // Click: put the cursor here (the row, the pane). May be empty.
+  std::function<void(Context&)> focus;
+  // Click, for targets where it matters where in the box: the cell clicked,
+  // from the box's top left (a waveform). Called after `focus`.
+  std::function<void(Context&, int x, int y)> at;
+  // After focusing, a click presses this (a button, a tab, a hint).
+  std::optional<ftxui::Event> click;
+  // A double-click presses this (open, load, play).
+  std::optional<ftxui::Event> open = ftxui::Event::Return;
+  // The wheel: List presses ↑ ↓ (after `pane`, so it scrolls the list under
+  // the pointer); Value focuses and presses → ←.
+  enum class Wheel : uint8_t { None, List, Value } wheel = Wheel::List;
+  std::function<void(Context&)> pane;
+  // Dragging with the button held presses → ← once per cell sideways, or ↑ ↓ once per row.
+  enum class Drag : uint8_t { None, Horizontal, Vertical } drag = Drag::None;
+};
 
 // What every screen can see and do.
 struct Context {
@@ -60,7 +85,47 @@ struct Context {
 
   // The outcome of the last FM import, kept for the Library screen.
   std::string importMessage;
+
+  // ---- mouse (D-55): this frame's targets, rebuilt by every render ----
+  std::deque<Hit> hits;  // a deque, so each box stays put while the frame lays out
+  // Marks `e` as a mouse target.
+  ftxui::Element hit(ftxui::Element e, Hit h) {
+    hits.push_back(std::move(h));
+    return e | ftxui::reflect(hits.back().box);
+  }
+  // A row in a list: click selects, double-click opens, the wheel scrolls.
+  ftxui::Element item(ftxui::Element e, std::function<void(Context&)> focus, std::function<void(Context&)> pane = {},
+                      std::optional<ftxui::Event> open = ftxui::Event::Return) {
+    Hit h;
+    h.focus = std::move(focus);
+    h.pane = std::move(pane);
+    h.open = std::move(open);
+    return hit(std::move(e), std::move(h));
+  }
+  // A value: click focuses it, the wheel or a drag changes it.
+  ftxui::Element value(ftxui::Element e, std::function<void(Context&)> focus,
+                       std::optional<ftxui::Event> open = ftxui::Event::Return) {
+    Hit h;
+    h.focus = std::move(focus);
+    h.wheel = Hit::Wheel::Value;
+    h.drag = Hit::Drag::Horizontal;
+    h.open = std::move(open);
+    return hit(std::move(e), std::move(h));
+  }
+  // A button: a click presses `key`.
+  ftxui::Element button(ftxui::Element e, ftxui::Event key, std::function<void(Context&)> focus = {}) {
+    Hit h;
+    h.focus = std::move(focus);
+    h.click = std::move(key);
+    h.open.reset();
+    h.wheel = Hit::Wheel::None;
+    return hit(std::move(e), std::move(h));
+  }
 };
+
+// The key a hint names ("⏎", "Esc", "Tab", "Spc", "x"), or nothing for the
+// ones that stand for several keys ("↑↓", "1-8").
+std::optional<ftxui::Event> hintKey(const std::string& key);
 
 // Shift+Arrow: FTXUI 7 has no named events for them; they arrive as raw CSI.
 inline const ftxui::Event kShiftLeft = ftxui::Event::Special("\x1B[1;2D");

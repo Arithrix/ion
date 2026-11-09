@@ -431,6 +431,94 @@ TEST_CASE("mixer: m and s act on the selected strip; returns mute but don't solo
   CHECK(r.session.param({1, kMute}) == 1.0f);
 }
 
+// ---- the mouse (D-55) and undo (D-54) ----
+
+// Where `needle` is drawn in a frame: its first cell (column, row).
+std::pair<int, int> cellOf(const std::string& frame, const std::string& needle) {
+  int y = 0;
+  std::size_t start = 0;
+  while (start < frame.size()) {
+    const std::size_t nl = frame.find('\n', start);
+    const std::string line = frame.substr(start, nl - start);
+    if (const std::size_t at = line.find(needle); at != std::string::npos) {
+      int x = 0;
+      for (std::size_t i = 0; i < at; ++i) x += (static_cast<unsigned char>(line[i]) & 0xC0) != 0x80;
+      return {x, y};
+    }
+    if (nl == std::string::npos) break;
+    start = nl + 1;
+    ++y;
+  }
+  FAIL("not on screen: " << needle);
+  return {-1, -1};
+}
+
+std::string at(const char* what, std::pair<int, int> c, int dx = 0) {
+  return std::string(what) + ":" + std::to_string(c.first + dx) + "," + std::to_string(c.second);
+}
+
+TEST_CASE("mouse: tabs, rows, double-click, wheel and drag do what their keys do") {
+  SnapshotRig r;
+  Session& s = r.session;
+  const std::string tracks = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36);
+
+  // A header tab is a button.
+  const std::string mixer = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {at("click", cellOf(tracks, "Mixer"))});
+  CHECK(mixer.find("EQ · Track 1") != std::string::npos);
+
+  // A click on a track row selects it (the mixer's EQ follows the selected track).
+  const auto row3 = cellOf(tracks, " 3  03");
+  const std::string sel = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {at("click", row3)});
+  CHECK(sel.find("Track 3 · FM") != std::string::npos);
+
+  // Dragging sideways on a row moves its fader one step per cell; the wheel on a value changes it.
+  const float before = s.param({2, kFader});
+  ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {at("drag", row3, 0) + "," + std::to_string(row3.first + 3)});
+  CHECK(s.param({2, kFader}) > before);
+  const float dragged = s.param({2, kFader});
+  CHECK(s.undo() == "Track 3 · Fader");  // one drag, one step
+  CHECK(s.param({2, kFader}) == before);
+  (void)dragged;
+
+  // Double-click on an empty track opens the engine picker; a click outside closes it.
+  const auto row8 = cellOf(tracks, " 8  08");
+  const std::string picker = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {at("dclick", row8)});
+  CHECK(picker.find("Engine for track 8") != std::string::npos);
+
+  // A hint is a button: "? Help".
+  const std::string help = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {at("click", cellOf(tracks, " ? "))});
+  CHECK(help.find("╭ Help") != std::string::npos);
+  CHECK(help.find("double-click") != std::string::npos);
+
+  // The wheel over a value in the detail pane changes it.
+  const std::string detail = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {"Tab"});
+  const float pan = s.param({0, kPan});
+  ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {at("wheelup", cellOf(detail, "pan "))});
+  CHECK(s.param({0, kPan}) > pan);
+}
+
+TEST_CASE("undo: Ctrl+Z and Ctrl+Y, and the header's buttons") {
+  SnapshotRig r;
+  Session& s = r.session;
+  const float fader = s.param({0, kFader});
+  ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {"Right", "Right", "m"});
+  CHECK(s.param({0, kMute}) == 1.0f);
+  CHECK(s.undoSteps() >= 2);
+  std::string frame = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {"^Z"});
+  CHECK(frame.find("undid Track 1 · Mute") != std::string::npos);
+  CHECK(s.param({0, kMute}) == 0.0f);
+  frame = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {at("click", cellOf(frame, "↶ undo"))});
+  CHECK(frame.find("undid Track 1 · Fader") != std::string::npos);
+  CHECK(s.param({0, kFader}) == fader);
+  frame = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {at("click", cellOf(frame, "↷ redo"))});
+  CHECK(frame.find("redid Track 1 · Fader") != std::string::npos);
+  CHECK(s.param({0, kFader}) != fader);
+  frame = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {"^Y"});
+  CHECK(s.param({0, kMute}) == 1.0f);
+  frame = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {"^Y"});
+  CHECK(frame.find("nothing to redo") != std::string::npos);
+}
+
 // ---- the Rec screen with a take running, and its slices ----
 
 // This test runs real audio first, so the DSP load in the header can reach two

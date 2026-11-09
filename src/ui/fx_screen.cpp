@@ -291,7 +291,16 @@ class FxScreen final : public Screen {
                           text(fit(summary, inner - nameW - 6)) | color(selected ? palette::bg : (empty ? palette::faint : palette::dim)), filler(),
                           text(on + " ") | color(selected ? palette::bg : onColor)});
       if (selected) row = row | bgcolor(focused ? palette::accent : palette::raised);
-      rows.push_back(row);
+      Hit h;
+      h.focus = [this, i](Context&) {
+        if (picking_) return;
+        pane_ = 0;
+        if (sel_ != i) row_ = 0;
+        sel_ = i;
+      };
+      h.pane = [this](Context&) { if (!picking_) pane_ = 0; };
+      h.drag = Hit::Drag::Horizontal;  // a send's level
+      rows.push_back(ctx.hit(row, std::move(h)));
     }
     rows.push_back(filler());
     return pane(ctx.narrow() ? "Chain · Tab ⇄" : "Signal chain", vbox(rows),
@@ -321,7 +330,11 @@ class FxScreen final : public Screen {
                            text(pi->label) | size(WIDTH, EQUAL, labelW) | color(on ? palette::accent : palette::text), text(" "),
                            bar | size(WIDTH, EQUAL, barW), text(" "), text(formatValue(*pi, v)) | color(on ? palette::text : palette::dim),
                            filler()});
-      out.push_back(on ? line | bgcolor(palette::raised) : line);
+      out.push_back(ctx.value(on ? line | bgcolor(palette::raised) : line, [this, r](Context&) {
+        if (picking_) return;
+        pane_ = 1;
+        row_ = r;
+      }, std::nullopt));
     }
     return vbox(out);
   }
@@ -357,7 +370,7 @@ class FxScreen final : public Screen {
     return vbox(rowsOut);
   }
 
-  Element picker(const Item& it) {
+  Element picker(Context& ctx, const Item& it) {
     Elements rows = {text("put an effect in " + scopeLabel(it.scope) + " slot " + std::to_string(it.slot + 1)) | color(palette::dim),
                      text("")};
     static const char* about[] = {"", "level control: threshold, ratio, knee, attack, release", "width and movement: two modulated voices",
@@ -366,7 +379,7 @@ class FxScreen final : public Screen {
       const auto type = static_cast<EffectType>(i + 1);
       const bool on = i == pick_;
       Element r = hbox({text(on ? " ▸ " : "   "), text(effectLabel(type)) | size(WIDTH, EQUAL, 9), text(about[i + 1]) | color(on ? palette::bg : palette::dim)});
-      rows.push_back(on ? r | color(palette::bg) | bgcolor(palette::accent) : r);
+      rows.push_back(ctx.item(on ? r | color(palette::bg) | bgcolor(palette::accent) : r, [this, i](Context&) { pick_ = i; }));
     }
     rows.push_back(text(""));
     rows.push_back(text("⏎ adds it · Esc cancels") | color(palette::faint));
@@ -377,7 +390,7 @@ class FxScreen final : public Screen {
   Element detail(Context& ctx, const Item& it) {
     const Session& s = ctx.session;
     const ModuleStatus& st = ctx.module.status();
-    if (picking_) return picker(it);
+    if (picking_) return picker(ctx, it);
     const int width = ctx.narrow() ? ctx.width : ctx.width - std::clamp(ctx.width * 42 / 100, 36, 60);
     const bool focused = pane_ == 1;
     const Color border = ctx.piano ? palette::value : (focused ? palette::accent : palette::border);

@@ -223,8 +223,30 @@ class MixerScreen final : public Screen {
                      center,
     };
     const Color border = sel && pane_ == 0 ? palette::accent : (master ? palette::value : palette::border);
-    (void)ret;
-    return vbox(col) | size(WIDTH, EQUAL, width) | borderStyled(ROUNDED, border) | (sel ? bgcolor(palette::raised) : nothing);
+    // Mute and solo are buttons; the rest of the strip selects it, and the
+    // wheel or an up-down drag moves its fader.
+    auto pick = [this, index](Context& c) {
+      pane_ = 0;
+      strip_ = index;
+      syncTrack(c);
+    };
+    if (!master) {
+      Element& ms = col.back();
+      if (ret) ms = ctx.button(ms, Event::Character('m'), pick);
+      else
+        ms = hbox({ctx.button(text(compact ? "M" : " M ") | color(muted ? palette::bg : palette::faint) | bgcolor(muted ? palette::record : palette::bg),
+                              Event::Character('m'), pick),
+                   text(" "),
+                   ctx.button(text(compact ? "S" : " S ") | color(solo ? palette::bg : palette::faint) | bgcolor(solo ? palette::accent : palette::bg),
+                              Event::Character('s'), pick)}) |
+             center;
+    }
+    Hit h;
+    h.focus = pick;
+    h.pane = pick;
+    h.open = std::nullopt;
+    h.drag = Hit::Drag::Vertical;
+    return ctx.hit(vbox(col) | size(WIDTH, EQUAL, width) | borderStyled(ROUNDED, border) | (sel ? bgcolor(palette::raised) : nothing), std::move(h));
   }
 
   Element stripRow(Context& ctx) {
@@ -262,7 +284,16 @@ class MixerScreen final : public Screen {
           text(" " + ms) | bold,
           filler(),
       });
-      rows.push_back(sel ? row | color(palette::bg) | bgcolor(palette::accent) : row);
+      Hit h;
+      h.focus = [this, i](Context& c) {
+        pane_ = 0;
+        strip_ = i;
+        syncTrack(c);
+      };
+      h.pane = [this](Context&) { pane_ = 0; };
+      h.open = std::nullopt;
+      h.drag = Hit::Drag::Horizontal;
+      rows.push_back(ctx.hit(sel ? row | color(palette::bg) | bgcolor(palette::accent) : row, std::move(h)));
     }
     return pane("Channels", vbox(rows), pane_ == 0 ? palette::accent : palette::border);
   }
@@ -308,13 +339,19 @@ class MixerScreen final : public Screen {
         if (focused) cell = cell | color(palette::bg) | bgcolor(palette::accent);
         else if (f == 0) cell = cell | color(value == "●" ? palette::value : palette::faint);
         else cell = cell | color(palette::text);
+        if (p >= 0)
+          cell = ctx.value(cell, [this, b, f](Context&) {
+            pane_ = 1;
+            band_ = b;
+            field_ = f;
+          }, std::nullopt);
         cells.push_back(cell);
       }
       rows.push_back(hbox(cells));
     }
     rows.push_back(text(""));
     const bool bypass = s.param({tt, kEqBypass}) >= 0.5f;
-    rows.push_back(hbox({text("eq "), text(bypass ? "bypassed" : "● on") | color(bypass ? palette::record : palette::value),
+    rows.push_back(hbox({text("eq "), ctx.button(text(bypass ? "bypassed" : "● on") | color(bypass ? palette::record : palette::value), Event::Character('b')),
                          text("   b compares") | color(palette::dim)}));
     rows.push_back(text("eq sits before inserts") | color(palette::faint));
     return vbox(rows);

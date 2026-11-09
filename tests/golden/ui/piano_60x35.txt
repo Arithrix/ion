@@ -1,4 +1,4 @@
- ion Trk Ins Mix Fx Rec Lib                     0% no audio
+ ion Trk Ins Mix Fx Rec Lib ↶ ↷                 0% no audio
 ╭ Tracks ──────────────────────────────────────────────────╮
 │ #  ch  engine  sound                          level      │
 │ 1  01  FM      SNAP TEST                       ░░░░░░ ·  │

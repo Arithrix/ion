@@ -163,9 +163,10 @@ class DrumScreen final : public Screen {
  private:
   // ---- the browser ----
 
-  BrowserTarget target(Context& ctx) const {
+  BrowserTarget target(Context& ctx) {
     const int t = ctx.track, pad = ctx.pad[static_cast<std::size_t>(t)];
     BrowserTarget bt;
+    bt.focus = [this](Context&) { pane_ = 0; };
     bt.loadHint = "⏎ onto pad " + std::to_string(pad + 1);
     bt.kitHint = "⏎ loads all 16 pads onto track " + std::to_string(t + 1);
     bt.load = [t, pad](Context& cx, const SampleBrowse::Entry& e) {
@@ -243,7 +244,11 @@ class DrumScreen final : public Screen {
       lines.push_back(hbox({text(on) | color(palette::value), text(off) | color(palette::borderSubtle)}));
     }
     Element cell = vbox(lines) | size(WIDTH, EQUAL, width);
-    return selected ? cell | bgcolor(palette::raised) : cell;
+    // A click selects the pad and plays it, like hitting it.
+    return ctx.button(selected ? cell | bgcolor(palette::raised) : cell, Event::Character(" "), [this, p](Context& c) {
+      pane_ = 1;
+      c.pad[static_cast<std::size_t>(c.track)] = p;
+    });
   }
 
   Element pads(Context& ctx, int width, bool compact) {
@@ -304,7 +309,10 @@ class DrumScreen final : public Screen {
                           text(fit(pi.label, labelW)) | size(WIDTH, EQUAL, labelW) | color(on ? palette::accent : inactive ? palette::faint : palette::text),
                           text(" "), bar | size(WIDTH, EQUAL, std::max(0, barW)), text(" "),
                           text(value) | color(on ? palette::text : inactive ? palette::faint : palette::dim), filler()});
-    return on ? row_e | bgcolor(palette::raised) : row_e;
+    return ctx.value(on ? row_e | bgcolor(palette::raised) : row_e, [this, row](Context&) {
+      pane_ = 2;
+      row_ = row;
+    });
   }
 
   Element params(Context& ctx, int width, int height) {

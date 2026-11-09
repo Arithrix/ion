@@ -155,7 +155,11 @@ class LibraryScreen final : public Screen {
     auto row = [&](int index, const std::string& name, const std::string& count) {
       const bool on = section_ == index;
       Element r = hbox({text(" " + name) | flex, text(count + " ") | color(on ? palette::accent : palette::dim)});
-      return on ? r | color(palette::accent) | bgcolor(palette::raised) : r;
+      return ctx.item(on ? r | color(palette::accent) | bgcolor(palette::raised) : r, [this, index](Context&) {
+        pane_ = 0;
+        if (section_ != index) sel_ = 0;
+        section_ = index;
+      }, [this](Context&) { pane_ = 0; });
     };
     Elements rows = {row(kProjects, "Projects", std::to_string(projects_.size())),
                      row(kFm, "FM patches", lib ? thousands(lib->patches().size()) : "—")};
@@ -166,6 +170,18 @@ class LibraryScreen final : public Screen {
       rows.push_back(text(" " + std::string(later)) | color(palette::faint));
     rows.push_back(filler());
     return pane("Browse", vbox(rows), pane_ == 0);
+  }
+
+  // Mouse: a click on a row of the middle list selects it.
+  std::function<void(Context&)> pick(int i) {
+    return [this, i](Context&) {
+      pane_ = 1;
+      if (sel_ != i) pending_ = Action::None;
+      sel_ = i;
+    };
+  }
+  std::function<void(Context&)> toList() {
+    return [this](Context&) { pane_ = 1; };
   }
 
   Element middle(Context& ctx) {
@@ -191,7 +207,7 @@ class LibraryScreen final : public Screen {
         if (v.kind == FmBrowse::View::Kind::Programs) n = s.programs().size();
         const bool on = i == sel_;
         Element r = hbox({text("   " + v.label) | flex, text(thousands(n) + " ") | color(on ? palette::bg : palette::dim)});
-        rows.push_back(on ? r | color(palette::bg) | bgcolor(focused ? palette::accent : palette::raised) : r);
+        rows.push_back(ctx.item(on ? r | color(palette::bg) | bgcolor(focused ? palette::accent : palette::raised) : r, pick(i), toList()));
       }
       rows.push_back(filler());
       rows.push_back(text(" categories come from patch names and are rough: tags (t) are better") | color(palette::faint));
@@ -209,7 +225,7 @@ class LibraryScreen final : public Screen {
         const bool current = s.track(ctx.track).engine == EngineType::Drum && s.track(ctx.track).kit == name;
         Element row = hbox({text(current ? " ● " : "   ") | color(on ? palette::bg : palette::accent), text(name) | flex,
                             text(std::to_string(pads) + "     ") | color(on ? palette::bg : palette::dim)});
-        rows.push_back(on ? row | color(palette::bg) | bgcolor(focused ? palette::accent : palette::raised) : row);
+        rows.push_back(ctx.item(on ? row | color(palette::bg) | bgcolor(focused ? palette::accent : palette::raised) : row, pick(i), toList()));
       }
       if (kits_.empty()) rows.push_back(text("   no kits yet: k on a drum track saves one") | color(palette::faint));
       rows.push_back(filler());
@@ -230,7 +246,7 @@ class LibraryScreen final : public Screen {
       Element row = hbox({text(current ? " ● " : "   ") | color(on ? palette::bg : palette::accent), text(name) | flex,
                           text(s.hasRecovery(name) ? "autosave " : "") | color(on ? palette::bg : palette::record),
                           text(std::to_string(used) + "       ") | color(on ? palette::bg : palette::dim)});
-      rows.push_back(on ? row | color(palette::bg) | bgcolor(focused ? palette::accent : palette::raised) : row);
+      rows.push_back(ctx.item(on ? row | color(palette::bg) | bgcolor(focused ? palette::accent : palette::raised) : row, pick(i), toList()));
     }
     if (projects_.empty()) rows.push_back(text("   no saved projects yet: w saves this one") | color(palette::faint));
     rows.push_back(filler());

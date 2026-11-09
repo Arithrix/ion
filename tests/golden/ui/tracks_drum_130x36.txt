@@ -1,4 +1,4 @@
- ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
+ ion  Tracks Instr Mixer Fx Rec Library  ↶ undo ↷ redo                                    snapshot ● no clock   cpu 0%   no audio
 ╭ Tracks ───────────────────────────────────────────────────────────────────────╮╭ Track 4 · DRUM ───────────────────────────────╮
 │ #  ch  engine  sound                                    level       dB        ││Garage 02                                      │
 │ 1  01  FM      SNAP TEST                                 ░░░░░░░░░░   0.0  ·  ││11 of 16 pads loaded                           │

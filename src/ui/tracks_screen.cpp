@@ -83,7 +83,15 @@ class TracksScreen final : public Screen {
       Element row = hbox(cells);
       if (inverse) row = row | bgcolor(palette::accent);
       else if (sel) row = row | bgcolor(palette::raised);
-      rows.push_back(row);
+      // Click selects, double-click opens, drag sideways moves the fader.
+      Hit h;
+      h.focus = [this, t](Context& c) {
+        pane_ = 0;
+        c.track = t;
+      };
+      h.pane = [this](Context&) { pane_ = 0; };
+      h.drag = Hit::Drag::Horizontal;
+      rows.push_back(ctx.hit(row, std::move(h)));
     }
     rows.push_back(filler());
     rows.push_back(separatorLight() | color(palette::borderSubtle));
@@ -288,7 +296,10 @@ class TracksScreen final : public Screen {
         out.push_back(text(""));
         out.push_back(text("voice") | color(palette::dim));
       }
-      out.push_back(paramRow(r.label, value, f, 10, bar));
+      out.push_back(ctx.value(paramRow(r.label, value, f, 10, bar), [this, i](Context&) {
+        pane_ = 1;
+        row_ = static_cast<int>(i);
+      }));
     }
     out.push_back(filler());
     out.push_back(separatorLight() | color(palette::borderSubtle));

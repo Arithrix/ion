@@ -1,4 +1,4 @@
- ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
+ ion  Tracks Instr Mixer Fx Rec Library  ↶ undo ↷ redo                                    snapshot ● no clock   cpu 0%   no audio
 ╭ Library · FM ────────────────────────────────────────────────────────╮╭ Patch ─────────────────────────────────────────────────╮
 │/ filter by name, tag, category or bank                               ││SYN-BAS 4                                           bass│
 │17 of 17                                                       ◀ all ▶││from cart_17                                            │

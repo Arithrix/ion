@@ -136,7 +136,15 @@ Element sampleBrowserPane(Context& ctx, int width, int height, bool focused, con
     Element row = hbox({text(fit(e.name, nameW)) | color(on ? palette::bg : c), filler(),
                         text(right) | color(on ? palette::bg : palette::dim)});
     if (on) row = row | bgcolor(focused ? palette::accent : palette::raised);
-    rows.push_back(row);
+    // Click moves there (previewing, as ↑ ↓ do); double-click opens or loads, as ⏎.
+    rows.push_back(ctx.item(row, [i, focus = target.focus](Context& cx) {
+      if (focus) focus(cx);
+      SampleBrowse& sb = *cx.samples;
+      const int at = sb.cursor(cx.session);
+      if (at == i) return;
+      sb.move(cx.session, i - at);
+      moved(cx);
+    }, target.focus));
   }
   if (list.empty() || (n == 1 && list[0].kind == SampleBrowse::Entry::Kind::Parent))
     rows.push_back(text(b.filter.empty() ? "  no folders or audio files here" : "  nothing matches") | color(palette::faint));

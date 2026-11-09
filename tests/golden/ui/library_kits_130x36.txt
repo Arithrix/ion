@@ -1,4 +1,4 @@
- ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
+ ion  Tracks Instr Mixer Fx Rec Library  ↶ undo ↷ redo                                    snapshot ● no clock   cpu 0%   no audio
 ╭ Browse ──────────────╮╭ Drum kits ───────────────────────────────────────────────╮╭ Kit ───────────────────────────────────────╮
 │ Projects           0 ││   name                                             pads  ││Garage 02                                   │
 │ FM patches        17 ││ ● Garage 02                                       11     ││                                            │

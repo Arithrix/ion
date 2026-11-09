@@ -1,4 +1,4 @@
- ion  Tracks Instr Mixer Fx Rec Library            no clock   cpu 0%   no audio
+ ion  Tracks Instr Mixer Fx Rec Library  ↶ ↷       no clock   cpu 0%   no audio
 ╭ Signal chain ────────────────────╮╭ COMP · Track 3 slot 1 ───────────────────╮
 │track 3 · SYN-BAS 4               ││  On                           on         │
 │   EQ       flat                ● ││  Threshold   ███████████▎░░░░ -18.0 dB   │

@@ -324,7 +324,13 @@ class InstrumentScreen final : public Screen {
                           text(narrow ? "" : alg) | color(on ? palette::bg : palette::dim),
                           text(narrow ? "" : pcText) | color(on ? palette::bg : palette::value), filler()});
       if (on) row = row | color(palette::bg) | bgcolor(focused ? palette::accent : palette::raised);
-      rows.push_back(row);
+      // A click loads it, like moving there; a double-click plays it.
+      rows.push_back(ctx.item(row, [this, i](Context& c) {
+        pane_ = 0;
+        if (c.fm->cursor(c.session, c.track) == i) return;
+        c.fm->loadAt(c.session, c.track, i);
+        if (c.session.config().previewOnMove) c.request = Context::Request::Audition;
+      }, [this](Context&) { pane_ = 0; }));
     }
     if (items.empty())
       rows.push_back(text(view.kind == FmBrowse::View::Kind::Programs ? "  empty: + adds the highlighted patch"
@@ -434,7 +440,10 @@ class InstrumentScreen final : public Screen {
       }
       cells.push_back(filler());
       Element e = hbox(cells);
-      return on ? e | bgcolor(palette::raised) : e;
+      return ctx.value(on ? e | bgcolor(palette::raised) : e, [this, r](Context&) {
+        pane_ = 1;
+        row_ = r;
+      });
     };
     const float* amp = nullptr;
     std::array<float, kAmpRows> ampValues{};

@@ -17,6 +17,7 @@ struct BrowserTarget {
   std::string loadHint = "⏎ loads it";  // "⏎ onto pad 1"
   std::string kitHint = "kits are for drum tracks";
   std::function<void(Context&, const SampleBrowse::Entry&)> load;
+  std::function<void(Context&)> focus;  // a click in the browser focuses its pane
 };
 
 // ↑ ↓ (previewing), ⏎ / → into folders, ← up, / filter; ⏎ on a file calls target.load.

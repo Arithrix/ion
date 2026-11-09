@@ -1,4 +1,4 @@
- ion Trk Ins Mix Fx Rec Lib  ▶ 120.0 0% no audio
+ ion Trk Ins Mix Fx Rec Lib ↶ ↷  ▶ 120.0 0% no audio
 ╭ Recording ───────────────────────────────────────────────╮
 │SLICES · 4 · ⏎ puts them on pads 13–16             track 2│
 │                                                          │
@@ -11,7 +11,7 @@
 ├──────────────────────────────────────────────────────────┤
 │recent recordings                                         │
 │chords_120bpm_4bar.wav       4 bars    library (slicing)  │
-│u undoes chords_120bpm_4bar                               │
+│^Z undoes take chords_120bpm_4bar                         │
 │                                                          │
 │                                                          │
 │                                                          │

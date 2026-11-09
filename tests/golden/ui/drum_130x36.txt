@@ -1,4 +1,4 @@
- ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
+ ion  Tracks Instr Mixer Fx Rec Library  ↶ undo ↷ redo                                    snapshot ● no clock   cpu 0%   no audio
 ╭ Samples ───────────────────────────────────╮╭ Track 4 · Garage 02 ─────────────────────────────────────────────────────────────╮
 │/tmp/ion-ui-snapshot/samples/garage/kicks/  ││01 C1               02 C#1              03 D1               04 D#1                │
 │/ filter                                    ││kick_tight_03       kick_sub_01         clap_room           snare_rim             │

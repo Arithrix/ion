@@ -1,4 +1,4 @@
- ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
+ ion  Tracks Instr Mixer Fx Rec Library  ↶ undo ↷ redo                                    snapshot ● no clock   cpu 0%   no audio
 ╭ Tracks ───────────────────────────────────────────────────────────────────────╮╭ Track 6 · SMPL ───────────────────────────────╮
 │ #  ch  engine  sound                                    level       dB        ││chords_124bpm_4bar                             │
 │ 1  01  FM      SNAP TEST                                 ░░░░░░░░░░   0.0  ·  ││                                               │
