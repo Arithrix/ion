@@ -183,10 +183,13 @@ class VoiceImpl {
     const float g = gain < 0.0f ? 1.0f : gain;
     if (!bypass) {
       lpg.Process(g * lpgEnvelope_.gain(), lpgEnvelope_.frequency(), lpgEnvelope_.hf_bleed(), in, kBlockSize);
-      std::copy(in, in + kBlockSize, out);
+      for (std::size_t i = 0; i < kBlockSize; ++i) out[i] = std::clamp(in[i], -1.0f, 1.0f);
     } else {
-      for (std::size_t i = 0; i < kBlockSize; ++i) out[i] = in[i] * g;
+      for (std::size_t i = 0; i < kBlockSize; ++i) out[i] = std::clamp(in[i] * g, -1.0f, 1.0f);
     }
+    // The clamp is the module's own: its 16-bit output (Clip16) clips at full
+    // scale. A few models go far past it at extreme settings (Chords with the
+    // envelope dragging pitch four octaves down).
   }
 
   VirtualAnalogEngine virtualAnalog_;

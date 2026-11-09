@@ -252,7 +252,7 @@ void PlaitsEngine::render(float* left, float* right, std::size_t frames) {
         if (v.glideLeft > 0) {
           // Linear in semitones over the glide time, a block at a time.
           const float total = values_[kGlide] * kSampleRate / 1000.0f;
-          pitch = v.pitch + (v.glideFrom - v.pitch) * static_cast<float>(v.glideLeft) / std::max(1.0f, total);
+          pitch = v.pitch + (v.glideFrom - v.pitch) * std::min(1.0f, static_cast<float>(v.glideLeft) / std::max(1.0f, total));
           v.glideLeft = std::max(0, v.glideLeft - static_cast<int>(kBlock));
         }
         v.plaits->render(settings_, pitch + bendSemis, v.gate, v.level, v.out.data(), v.aux.data());

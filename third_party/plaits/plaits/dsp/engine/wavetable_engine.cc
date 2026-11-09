@@ -138,12 +138,15 @@ void WavetableEngine::Render(
   y_fractional += quantization * (Clamp(y_fractional, 16.0f) - y_fractional);
   z_fractional += quantization * (Clamp(z_fractional, 16.0f) - z_fractional);
   
+  // ion: the quantisation above can push a fractional part to exactly 1.0,
+  // so a coordinate reached 7.0 and the reads below went one row (x, y) or
+  // bank (z) past the 256-entry wave map. Keep each just under 7.
   ParameterInterpolator x_modulation(
-      &previous_x_, static_cast<float>(x_integral) + x_fractional, size);
+      &previous_x_, min(static_cast<float>(x_integral) + x_fractional, 6.9999f), size);
   ParameterInterpolator y_modulation(
-      &previous_y_, static_cast<float>(y_integral) + y_fractional, size);
+      &previous_y_, min(static_cast<float>(y_integral) + y_fractional, 6.9999f), size);
   ParameterInterpolator z_modulation(
-      &previous_z_, static_cast<float>(z_integral) + z_fractional, size);
+      &previous_z_, min(static_cast<float>(z_integral) + z_fractional, 6.9999f), size);
 
   ParameterInterpolator f0_modulation(&previous_f0_, f0, size);
   

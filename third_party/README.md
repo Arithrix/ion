@@ -34,7 +34,12 @@ Two upstream changes, marked `ion:` in the source:
   - `rosic_MipMappedWaveTable.cpp`, `initPrototypeTable`: zeroed 4 entries past the end of the 2048-entry table (into the next member); found by UBSan in the 0.10.1 test sweep.
   Only `Source/DSPCode/` is copied (no VST plug-in), with `License.txt` as `LICENSE`. Open303 never sets itself idle; ion's engine stops calling it after 200 ms of silence with no key down.
 
-- **Synth_Dexed: two small fixes found by UBSan in the 0.10.1 sweep** (marked `ion:`): `dexed.h` initialises `monoMode` (setMonoMode read it uninitialised); `lfo.cpp` clamps the LFO delay byte to 99 (above that it made a negative shift). Synth_Dexed is also built with `-fwrapv`: MSFA's phase accumulators wrap by design.
+- **Plaits `plaits/dsp/engine/wavetable_engine.cc`: the wave coordinates are kept under 7.0** (marked `ion:`). With Harmonics high (the quantised banks), the quantisation could make a coordinate exactly 7.0, and the reads went past the end of the 256-entry wave map: garbage pointers. Silent on the module, a crash on a computer. Found by the 0.10.1 sweep (random settings, AddressSanitizer).
+
+- **Synth_Dexed: fixes from the 0.10.1 sweep** (marked `ion:`):
+  - `dexed.cpp`, `Dexed::keydown`: the new note's time stamp was written to `voices[i]` (the loop counter) instead of `voices[note]`. When every voice was busy and one was stolen, `i` was one past the end of the voice array: a heap overflow (found by AddressSanitizer under random playing). Otherwise it stamped the wrong voice, so the next steal could take a note that wasn't the oldest.
+  - `dexed.h` initialises `monoMode` (setMonoMode read it uninitialised); `lfo.cpp` clamps the LFO delay byte to 99 (above that it made a negative shift).
+  - Built with `-fwrapv`: MSFA's phase accumulators wrap by design.
 
 Two other things are worked around from our side instead:
 - **Synth_Dexed** includes `<arm_math.h>` and expects Teensy/Circle helpers (`millis`, `constrain`, `signed_saturate_rshift`). `src/engine/fm/dexed_port/arm_math.h` provides them.

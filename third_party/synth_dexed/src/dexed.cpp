@@ -361,7 +361,7 @@ void Dexed::keydown(uint8_t pitch, uint8_t velo) {
       voices[note].dx7_note->init(data, pitch, velo, srcnote, porta, &controllers);
       if ( data[136] )
         voices[note].dx7_note->oscSync();
-      voices[i].key_pressed_timer = millis();
+      voices[note].key_pressed_timer = millis();  // ion: was voices[i], one past the end when a voice was stolen
       keydown_counter++;
       break;
     }
