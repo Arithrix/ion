@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-08
+
+### Changed
+- **Plaits' amp envelope is laid out like FM's:** its shape is drawn ("amp ▁▄█▇▅"), and it comes straight after the macros (↓ from Morph is Attack), beside the low-pass gate. The voice settings and the decay envelope's amounts sit below. Everything fits on an 80 × 24 screen now without scrolling.
+
 ## [0.7.0] - 2026-11-08
 
 ### Added (Phase 7: Plaits)

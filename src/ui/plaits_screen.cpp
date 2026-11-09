@@ -3,6 +3,7 @@
 // presets. Right: the three macros, described for the model, then the voice,
 // the LPG and the envelope.
 
+#include <array>
 #include <cmath>
 #include <cstdio>
 
@@ -10,6 +11,8 @@
 #include "engine/plaits/plaits_engine.h"
 #include "library/fm_library.h"
 #include "project/session.h"
+#include "engine/envelope_params.h"
+#include "ui/envelope_view.h"
 #include "ui/screens.h"
 
 namespace ion::ui {
@@ -27,19 +30,22 @@ const Bank kBanks[3] = {{"green", "the originals", palette::green},
                         {"red", "noise and physical models", palette::record},
                         {"orange", "firmware 1.2", palette::accent}};
 
-// The right pane's rows, in order. Groups start with a heading.
-struct Row {
-  int param;
-  const char* group;  // a heading drawn above it, or null
+// The right pane's rows, in ↑↓ order: the macros, the amp envelope (D-50,
+// placed as on FM: straight after the macros, with its shape), the LPG, the
+// voice, and the decay envelope's amounts.
+const int kRows[] = {
+    P::kHarmonics, P::kTimbre,   P::kMorph,
+    P::kAmpAttack, P::kAmpHold,  P::kAmpDecay,   P::kAmpSustain, P::kAmpRelease, P::kVelAmp,
+    P::kLpgMode,   P::kLpgDecay, P::kLpgColour,  P::kVelLpg,
+    P::kPoly,      P::kGlide,    P::kBendRange,  P::kAux,
+    P::kEnvPitch,  P::kEnvTimbre, P::kEnvMorph,
 };
-const Row kRows[] = {
-    {P::kHarmonics, nullptr}, {P::kTimbre, nullptr},      {P::kMorph, nullptr},
-    {P::kLpgMode, "voice"},   {P::kLpgDecay, nullptr},    {P::kLpgColour, nullptr}, {P::kAux, nullptr},
-    {P::kVelLpg, nullptr},    {P::kPoly, nullptr},        {P::kGlide, nullptr},     {P::kBendRange, nullptr},
-    {P::kEnvPitch, "decay envelope →"}, {P::kEnvTimbre, nullptr}, {P::kEnvMorph, nullptr},
-    {P::kAmpAttack, "amp envelope (after the LPG)"}, {P::kAmpHold, nullptr}, {P::kAmpDecay, nullptr},
-    {P::kAmpSustain, nullptr}, {P::kAmpRelease, nullptr}, {P::kVelAmp, nullptr},
+// Where each group starts in kRows, and its heading (the amp's is its shape).
+struct Group {
+  int first, count;
+  const char* heading;
 };
+const Group kGroups[] = {{3, 6, "amp"}, {9, 4, "low-pass gate"}, {13, 4, "voice"}, {17, 3, "decay envelope →"}};
 constexpr int kRowCount = static_cast<int>(sizeof kRows / sizeof kRows[0]);
 
 Element signedBar(float v, int width, bool focused) {
@@ -110,7 +116,7 @@ class PlaitsScreen final : public Screen {
     if (e == Event::ArrowDown) { row_ = (row_ + 1) % kRowCount; return true; }
     if (e == Event::Return) { ctx.request = Context::Request::Audition; return true; }
     if (const Nudge n = nudgeOf(e); n.direction) {
-      s.nudgeParam(engineParamRef(t, kRows[row_].param), n.direction, n.coarse);
+      s.nudgeParam(engineParamRef(t, kRows[row_]), n.direction, n.coarse);
       return true;
     }
     return false;
@@ -131,7 +137,7 @@ class PlaitsScreen final : public Screen {
 
   std::optional<ParamRef> focusedParam(Context& ctx) override {
     if (pane_ == 0) return engineParamRef(ctx.track, P::kModel);
-    return engineParamRef(ctx.track, kRows[row_].param);
+    return engineParamRef(ctx.track, kRows[row_]);
   }
 
  private:
@@ -279,23 +285,23 @@ class PlaitsScreen final : public Screen {
     const int t = ctx.track, m = model(ctx);
     const bool focused = pane_ == 1;
     const int inner = std::max(20, width - 4);
-    const int labelW = 11, barW = std::clamp(inner - labelW - 30, 8, 16);
+    const bool tall = ctx.height >= 30;
     const auto table = P::paramTable();
     Elements lines;
     std::vector<int> rowLine(kRowCount, 0);  // which line each row is on, for scrolling
-    for (int r = 0; r < kRowCount; ++r) {
-      const Row& row = kRows[r];
-      if (row.group) {
-        lines.push_back(text(""));
-        lines.push_back(text(row.group) | color(palette::dim));
-      }
-      const ParamInfo& pi = table[static_cast<std::size_t>(row.param)];
-      const float v = s.param(engineParamRef(t, row.param));
+
+    // One row: its label, a bar where it helps, its value.
+    auto cell = [&](int r, int w) {
+      const int param = kRows[r];
+      const ParamInfo& pi = table[static_cast<std::size_t>(param)];
+      const float v = s.param(engineParamRef(t, param));
       const bool on = focused && r == row_;
+      const bool macro = r < 3;
+      const int labelW = macro ? 11 : std::min(11, std::max(8, w - 12));
       Elements cells = {text(on ? "▸ " : "  ") | color(palette::accent),
                         text(fit(pi.label, labelW)) | size(WIDTH, EQUAL, labelW) | color(on ? palette::accent : palette::text)};
-      const bool macro = r < 3;
       if (macro) {
+        const int barW = std::clamp(w - labelW - 30, 8, 16);
         cells.push_back(valueBar(v, barW, on ? palette::accent : palette::green));
         std::string value = formatValue(pi, v);
         if (r == 0) {
@@ -303,27 +309,74 @@ class PlaitsScreen final : public Screen {
           if (!pick.empty()) value = pick;
         }
         cells.push_back(text(" " + fit(value, 10)) | size(WIDTH, EQUAL, 11) | color(on ? palette::text : palette::value));
-        cells.push_back(text(fit(P::macroRole(m, r), inner - labelW - barW - 14)) | color(palette::dim));
-      } else if (row.param == P::kEnvPitch || row.param == P::kEnvTimbre || row.param == P::kEnvMorph) {
-        cells.push_back(signedBar(v, barW, on));
+        cells.push_back(text(fit(P::macroRole(m, r), w - labelW - barW - 14)) | color(palette::dim));
+      } else if (param == P::kEnvPitch || param == P::kEnvTimbre || param == P::kEnvMorph) {
+        cells.push_back(text(" "));
+        cells.push_back(signedBar(v, std::clamp(w - labelW - 10, 4, 12), on));
         cells.push_back(text(" " + formatValue(pi, v)) | color(on ? palette::text : palette::dim));
       } else {
-        cells.push_back(text(formatValue(pi, v)) | color(on ? palette::text : palette::dim));
+        cells.push_back(text(" " + formatValue(pi, v)) | color(on ? palette::text : palette::dim));
       }
       cells.push_back(filler());
       Element e = hbox(cells);
-      rowLine[static_cast<std::size_t>(r)] = static_cast<int>(lines.size());
-      lines.push_back(ctx.value(on ? e | bgcolor(palette::raised) : e, [this, r](Context&) {
+      return ctx.value(on ? e | bgcolor(palette::raised) : e, [this, r](Context&) {
         pane_ = 1;
         row_ = r;
-      }));
-      if (r == 2) {
-        // What the LPG is doing, under the macros.
-        const int mode = static_cast<int>(std::lround(s.param(engineParamRef(t, P::kLpgMode))));
-        static const char* lpg[] = {"LPG gate: opens while the key is held, closes after it",
-                                    "LPG ping: every note strikes it, and it dies away by itself",
-                                    "LPG off: the model straight out; the amp envelope shapes it"};
-        lines.push_back(text(fit(lpg[std::clamp(mode, 0, 2)], inner)) | color(palette::faint));
+      });
+    };
+    // A group: its heading (the amp envelope's is its shape, as on FM), then its rows.
+    auto group = [&](const Group& g, int w) {
+      Elements out;
+      if (g.first == 3) {
+        std::array<float, kEnvParamCount> env{};
+        for (int k = 0; k < kEnvParamCount; ++k) env[static_cast<std::size_t>(k)] = s.param(engineParamRef(t, P::kAmpAttack + k));
+        out.push_back(hbox({text("amp ") | color(palette::dim), text(envelopeShape(env.data(), std::max(6, w - 6))) | color(palette::value)}));
+      } else {
+        out.push_back(text(g.heading) | color(palette::dim));
+      }
+      for (int r = g.first; r < g.first + g.count; ++r) out.push_back(cell(r, w));
+      return out;
+    };
+
+    for (int r = 0; r < 3; ++r) {
+      rowLine[static_cast<std::size_t>(r)] = static_cast<int>(lines.size());
+      lines.push_back(cell(r, inner));
+    }
+    if (tall) {
+      // What the LPG is doing, under the macros.
+      const int mode = static_cast<int>(std::lround(s.param(engineParamRef(t, P::kLpgMode))));
+      static const char* lpg[] = {"LPG gate: opens while the key is held, closes after it",
+                                  "LPG ping: every note strikes it, and it dies away by itself",
+                                  "LPG off: the model straight out; the amp envelope shapes it"};
+      lines.push_back(text(fit(lpg[std::clamp(mode, 0, 2)], inner)) | color(palette::faint));
+    }
+
+    // Two columns where there's room (amp beside the LPG, the voice beside the
+    // decay envelope), as FM sets its envelope beside its macros; else one.
+    const bool twoColumns = inner >= 56;
+    const int colW = twoColumns ? (inner - 2) / 2 : inner;
+    auto place = [&](const Group& g, int lineOfHeading, int offset) {
+      for (int k = 0; k < g.count; ++k) rowLine[static_cast<std::size_t>(g.first + k)] = lineOfHeading + 1 + k + offset;
+    };
+    if (twoColumns) {
+      for (int pair = 0; pair < 2; ++pair) {
+        const Group& a = kGroups[pair * 2];
+        const Group& b = kGroups[pair * 2 + 1];
+        Elements left = group(a, colW), right = group(b, colW);
+        lines.push_back(text(""));
+        const int top = static_cast<int>(lines.size());
+        place(a, top, 0);
+        place(b, top, 0);
+        const std::size_t n = std::max(left.size(), right.size());
+        for (std::size_t i = 0; i < n; ++i)
+          lines.push_back(hbox({(i < left.size() ? left[i] : text("")) | size(WIDTH, EQUAL, colW), text("  "),
+                                (i < right.size() ? right[i] : text("")) | size(WIDTH, EQUAL, colW)}));
+      }
+    } else {
+      for (const Group& g : kGroups) {
+        lines.push_back(text(""));
+        place(g, static_cast<int>(lines.size()), 0);
+        for (Element& e : group(g, colW)) lines.push_back(e);
       }
     }
     // CCs mapped onto this track's Plaits.
@@ -338,11 +391,12 @@ class PlaitsScreen final : public Screen {
     }
     Elements footer = {separatorLight() | color(palette::borderSubtle),
                        text(fit(ccs.empty() ? "from the OXI: l on a value learns a CC" : "from the OXI: " + ccs, inner)) |
-                           color(ccs.empty() ? palette::faint : palette::value),
-                       text(fit("each voice is one Plaits engine · " + std::to_string(ctx.module.status().trackVoices[static_cast<std::size_t>(t)].load()) +
-                                    " sounding",
+                           color(ccs.empty() ? palette::faint : palette::value)};
+    if (tall)
+      footer.push_back(text(fit("each voice is one Plaits engine · " +
+                                    std::to_string(ctx.module.status().trackVoices[static_cast<std::size_t>(t)].load()) + " sounding",
                                 inner)) |
-                           color(palette::faint)};
+                       color(palette::faint));
 
     // Scroll so the focused row is in view when it doesn't all fit.
     const int room = std::max(4, ctx.height - 3 - 2 - static_cast<int>(footer.size()));  // header, status, hints; the borders
