@@ -35,7 +35,7 @@ void Lfo::reset(const uint8_t params[6]) {
   int32_t sr = rate == 0 ? 1 : (165 * rate) >> 6;
   sr *= sr < 160 ? 11 : (11 + ((sr - 160) >> 4));
   delta_ = unit_ * sr;
-  int32_t a = 99 - params[1];  // LFO delay
+  int32_t a = 99 - std::min<int32_t>(params[1], 99);  // LFO delay (ion: clamped; a byte over 99 made a negative shift)
   if (a == 99) {
     delayinc_ = ~0u;
     delayinc2_ = ~0u;

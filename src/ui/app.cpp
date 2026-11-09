@@ -112,6 +112,32 @@ class App {
   }
   bool quitRequested() const { return quit_; }
 
+  // Whether anything on screen is moving (D-62): sound, meters falling back,
+  // the clock, a take, modulation, a message that will disappear, notes
+  // waiting for their gate. When nothing is, the app redraws 4 times a second
+  // instead of 30 (a full redraw is a full-screen write to the terminal).
+  bool animating() const {
+    const ModuleStatus& st = ctx_.module.status();
+    auto loud = [](const MeterStatus& m) {
+      return m.peakLeft.load(std::memory_order_relaxed) > 1e-5f || m.peakRight.load(std::memory_order_relaxed) > 1e-5f;
+    };
+    if (st.voices.load(std::memory_order_relaxed) > 0 || st.running.load(std::memory_order_relaxed) || loud(st.master)) return true;
+    for (const MeterStatus& m : st.track)
+      if (loud(m)) return true;
+    for (const MeterStatus& m : st.returns)
+      if (loud(m)) return true;
+    // Modulation moves markers (and the Mod screen's sources) only for the
+    // selected track, on the screens that draw them; elsewhere it's heard, not seen.
+    if (current_ == ScreenId::Mod || current_ == ScreenId::Instrument || current_ == ScreenId::Tracks || current_ == ScreenId::Fx) {
+      if (current_ == ScreenId::Mod) return true;  // the LFOs' live output
+      for (const auto& r : st.modLive[static_cast<std::size_t>(ctx_.track)])
+        if (r.load(std::memory_order_relaxed) >= 0) return true;
+    }
+    const Session& s = ctx_.session;
+    return Clock::now() < flashUntil_ || s.take() || s.samplesLoading() > 0 || st.previewing.load(std::memory_order_relaxed) ||
+           !auditionOffs_.empty() || piano_.holding() || import_.valid() || overlay_ == Overlay::Monitor || s.learning().has_value();
+  }
+
   // ---- frame ----
 
   Element render(int width, int height) {
@@ -961,18 +987,50 @@ int run(Session& session, Module& module, const RunOptions& options) {
     return handled;
   });
 
-  // ~30 fps: meters, timers, monitor.
+  // ~30 fps while anything moves (meters, timers, the monitor), 4 fps when
+  // nothing does (D-62); keys and clicks always redraw at once.
   std::atomic<bool> running{true};
+  std::atomic<int> intervalMs{33};
+  auto root2 = CatchEvent(root, [&](Event e) {
+    // A key or click may have started something: tick fast until the next tick says otherwise.
+    intervalMs = e != Event::Custom || app.animating() ? 33 : 250;
+    return false;
+  });
   std::thread ticker([&] {
     while (running) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(33));
+      // Sleep in short steps so a key that starts something moving speeds it up quickly.
+      for (int slept = 0; running && slept < intervalMs.load(); slept += 33) std::this_thread::sleep_for(std::chrono::milliseconds(33));
       screen.PostEvent(Event::Custom);
     }
   });
-  screen.Loop(root);
+  screen.Loop(root2);
   running = false;
   ticker.join();
   return 0;
+}
+
+double frameMicros(Session& session, Module& module, ScreenId id, int width, int height, int track, int frames) {
+  App app(session, module, nullptr, nullptr);
+  app.selectTrack(track);
+  app.show(id);
+  auto screen = ftxui::Screen::Create(Dimension::Fixed(width), Dimension::Fixed(height));
+  Render(screen, app.render(width, height));  // warm up (caches, lists)
+  const auto start = std::chrono::steady_clock::now();
+  for (int i = 0; i < frames; ++i) {
+    app.onEvent(Event::Custom);  // the 30 fps tick: session.tick() and timers, as live
+    screen.Clear();
+    Render(screen, app.render(width, height));
+  }
+  const std::chrono::duration<double, std::micro> took = std::chrono::steady_clock::now() - start;
+  if (std::getenv("ION_BENCH_TOSTRING")) {
+    // What FTXUI then does to put it on the terminal: the whole screen as text and colour codes.
+    const auto t0 = std::chrono::steady_clock::now();
+    std::size_t bytes = 0;
+    for (int i = 0; i < frames; ++i) bytes += screen.ToString().size();
+    const std::chrono::duration<double, std::micro> ts = std::chrono::steady_clock::now() - t0;
+    std::fprintf(stderr, "    (to text: %.0f µs, %zu bytes a frame)\n", ts.count() / frames, bytes / static_cast<std::size_t>(frames));
+  }
+  return took.count() / frames;
 }
 
 std::string snapshot(Session& session, Module& module, ScreenId id, int width, int height, bool piano, bool help, int track,

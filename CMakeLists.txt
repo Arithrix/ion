@@ -130,7 +130,7 @@ add_executable(ion src/app/main.cpp)
 target_link_libraries(ion PRIVATE ion_ui ion_warnings)
 
 add_executable(ion-bench src/app/bench.cpp)
-target_link_libraries(ion-bench PRIVATE ion_engine ion_warnings)
+target_link_libraries(ion-bench PRIVATE ion_ui ion_engine ion_warnings)
 
 add_executable(ion-render src/app/render.cpp)
 target_link_libraries(ion-render PRIVATE ion_engine ion_warnings)

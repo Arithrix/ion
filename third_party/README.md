@@ -24,12 +24,17 @@ Two upstream changes, marked `ion:` in the source:
 
 - **Plaits `plaits/dsp/dsp.h`: `kCorrectedSampleRate` is 48000** (upstream 47872.34, the module's real codec rate). At ion's true 48 kHz the upstream value plays everything 4.6 cents sharp (DECISIONS V-01). Marked `ion:`. `tests/test_plaits.cpp` checks A4 is 440 Hz.
 
+- **FTXUI `src/ftxui/component/app.cpp`: mouse tracking mode 1002 (motion only while a button is held) instead of 1003 (all motion).** Every event FTXUI receives redraws the whole screen, and with 1003 a mouse crossing the terminal sends dozens. ion only needs motion for dragging. Marked `ion:` (DECISIONS D-62).
+
 - **Open303** (marked `ion:`):
   - `rosic_Open303.h`: the held-note list was a `std::list`, which allocates on every note-on; it's a fixed 16-note stack with the same calls.
   - `rosic_Open303.h/.cpp`: the accent threshold (velocity 100) is settable (`setAccentThreshold`).
   - `rosic_Open303.cpp`: sliding back to a still-held note ignored the master tuning (`pitchToFreq(currentNote)` → `pitchToFreq(currentNote, tuning)`); `tests/test_acid.cpp` covers it.
   - `rosic_FunctionTemplates.h` and `rosic_Open303.h`: `<string.h>` and `<climits>` included (newer compilers don't pull them in).
+  - `rosic_MipMappedWaveTable.cpp`, `initPrototypeTable`: zeroed 4 entries past the end of the 2048-entry table (into the next member); found by UBSan in the 0.10.1 test sweep.
   Only `Source/DSPCode/` is copied (no VST plug-in), with `License.txt` as `LICENSE`. Open303 never sets itself idle; ion's engine stops calling it after 200 ms of silence with no key down.
+
+- **Synth_Dexed: two small fixes found by UBSan in the 0.10.1 sweep** (marked `ion:`): `dexed.h` initialises `monoMode` (setMonoMode read it uninitialised); `lfo.cpp` clamps the LFO delay byte to 99 (above that it made a negative shift). Synth_Dexed is also built with `-fwrapv`: MSFA's phase accumulators wrap by design.
 
 Two other things are worked around from our side instead:
 - **Synth_Dexed** includes `<arm_math.h>` and expects Teensy/Circle helpers (`millis`, `constrain`, `signed_saturate_rshift`). `src/engine/fm/dexed_port/arm_math.h` provides them.
