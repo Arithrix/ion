@@ -1,4 +1,4 @@
- ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
+ ion  Tracks Instr Mixer Fx Rec Library  ↶ undo ↷ redo                                    snapshot ● no clock   cpu 0%   no audio
 ╭ Setup ───────────────────────────────╮╭ Recording ─────────────────────────────────────────────────────────────────────────────╮
 │source   tracks                       ││READY                               no clock yet: waits for the OXI, or set start to now│
 │tracks    1  2  3  4  5  6  7  8      ││                                                                                        │

@@ -1,6 +1,7 @@
 // Library (L): projects, the FM library and drum kits (mockups/Library).
 // Recordings join in Phase 6.
 
+#include <chrono>
 #include <cstdio>
 #include <ctime>
 #include <filesystem>
@@ -155,17 +156,40 @@ class LibraryScreen final : public Screen {
     auto row = [&](int index, const std::string& name, const std::string& count) {
       const bool on = section_ == index;
       Element r = hbox({text(" " + name) | flex, text(count + " ") | color(on ? palette::accent : palette::dim)});
-      return on ? r | color(palette::accent) | bgcolor(palette::raised) : r;
+      return ctx.item(on ? r | color(palette::accent) | bgcolor(palette::raised) : r, [this, index](Context&) {
+        pane_ = 0;
+        if (section_ != index) sel_ = 0;
+        section_ = index;
+      }, [this](Context&) { pane_ = 0; });
     };
     Elements rows = {row(kProjects, "Projects", std::to_string(projects_.size())),
                      row(kFm, "FM patches", lib ? thousands(lib->patches().size()) : "—")};
     rows.push_back(hbox({text("  ★ favourites") | flex, text(thousands(favourites) + " ")}) | color(palette::dim));
     rows.push_back(row(kKits, "Drum kits", std::to_string(kits_.size())));
     rows.push_back(text(""));
-    for (const char* later : {"Plaits · Phase 7", "Recordings · Phase 6"})
-      rows.push_back(text(" " + std::string(later)) | color(palette::faint));
+    // Kept elsewhere: presets are opened from the Plaits screen (o), recordings from the sample browser.
+    // Both read the disk: every couple of seconds, not every frame.
+    if (const auto now = std::chrono::steady_clock::now(); now - countedAt_ > std::chrono::seconds(2)) {
+      countedAt_ = now;
+      presetCount_ = s.listPlaitsPresets().size();
+      recordingCount_ = s.recordings(999).size();
+    }
+    rows.push_back(hbox({text(" Plaits presets") | flex, text(std::to_string(presetCount_) + " ")}) | color(palette::dim));
+    rows.push_back(hbox({text(" Recordings") | flex, text(std::to_string(recordingCount_) + " ")}) | color(palette::dim));
     rows.push_back(filler());
     return pane("Browse", vbox(rows), pane_ == 0);
+  }
+
+  // Mouse: a click on a row of the middle list selects it.
+  std::function<void(Context&)> pick(int i) {
+    return [this, i](Context&) {
+      pane_ = 1;
+      if (sel_ != i) pending_ = Action::None;
+      sel_ = i;
+    };
+  }
+  std::function<void(Context&)> toList() {
+    return [this](Context&) { pane_ = 1; };
   }
 
   Element middle(Context& ctx) {
@@ -191,7 +215,7 @@ class LibraryScreen final : public Screen {
         if (v.kind == FmBrowse::View::Kind::Programs) n = s.programs().size();
         const bool on = i == sel_;
         Element r = hbox({text("   " + v.label) | flex, text(thousands(n) + " ") | color(on ? palette::bg : palette::dim)});
-        rows.push_back(on ? r | color(palette::bg) | bgcolor(focused ? palette::accent : palette::raised) : r);
+        rows.push_back(ctx.item(on ? r | color(palette::bg) | bgcolor(focused ? palette::accent : palette::raised) : r, pick(i), toList()));
       }
       rows.push_back(filler());
       rows.push_back(text(" categories come from patch names and are rough: tags (t) are better") | color(palette::faint));
@@ -209,7 +233,7 @@ class LibraryScreen final : public Screen {
         const bool current = s.track(ctx.track).engine == EngineType::Drum && s.track(ctx.track).kit == name;
         Element row = hbox({text(current ? " ● " : "   ") | color(on ? palette::bg : palette::accent), text(name) | flex,
                             text(std::to_string(pads) + "     ") | color(on ? palette::bg : palette::dim)});
-        rows.push_back(on ? row | color(palette::bg) | bgcolor(focused ? palette::accent : palette::raised) : row);
+        rows.push_back(ctx.item(on ? row | color(palette::bg) | bgcolor(focused ? palette::accent : palette::raised) : row, pick(i), toList()));
       }
       if (kits_.empty()) rows.push_back(text("   no kits yet: k on a drum track saves one") | color(palette::faint));
       rows.push_back(filler());
@@ -230,7 +254,7 @@ class LibraryScreen final : public Screen {
       Element row = hbox({text(current ? " ● " : "   ") | color(on ? palette::bg : palette::accent), text(name) | flex,
                           text(s.hasRecovery(name) ? "autosave " : "") | color(on ? palette::bg : palette::record),
                           text(std::to_string(used) + "       ") | color(on ? palette::bg : palette::dim)});
-      rows.push_back(on ? row | color(palette::bg) | bgcolor(focused ? palette::accent : palette::raised) : row);
+      rows.push_back(ctx.item(on ? row | color(palette::bg) | bgcolor(focused ? palette::accent : palette::raised) : row, pick(i), toList()));
     }
     if (projects_.empty()) rows.push_back(text("   no saved projects yet: w saves this one") | color(palette::faint));
     rows.push_back(filler());
@@ -349,6 +373,8 @@ class LibraryScreen final : public Screen {
   int section_ = kProjects;
   int pane_ = 1;
   int sel_ = 0;
+  std::chrono::steady_clock::time_point countedAt_{};
+  std::size_t presetCount_ = 0, recordingCount_ = 0;
   Action pending_ = Action::None;
 };
 

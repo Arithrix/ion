@@ -1,8 +1,26 @@
 # Status
 
-**Phase:** 6 done · 0.6.0 (resampling) released and pushed; waiting at its checkpoint. 0.4.0, 0.5.0 and 0.6.0 untested by Michael.
-**Branch:** `main` (Phase 7 will be `phase/7-plaits`)
-**Updated:** 2026-11-07
+**Phase:** 7 done · 0.7.0 (Plaits, undo/redo, mouse) released; waiting at its checkpoint.
+**Branch:** `main` (Phase 8 will be `phase/8-comet`)
+**Updated:** 2026-11-08
+
+## Done (Phase 7)
+- **Plaits** (D-56, D-57):
+  - Plaits 1.2 vendored (eurorack `f4cfa76`, stmlib `e3bd7c9`, MIT), sample rate patched to a true 48 kHz (A4 = 440.00 Hz, tested);
+  - ion's own voice, adapted from upstream `voice.cc`: float out, no trigger delay, LPG gate / ping / off;
+  - 1–8 voices (default 6), the uniform amp envelope after the LPG, velocity → accent and LPG, decay envelope → pitch/timbre/morph, out ↔ aux, glide, bend;
+  - the 6-op FM a model plays a per-track list from the FM library (`f` fills it from favourites); b and c play Plaits' banks;
+  - presets in `~/ion/presets/plaits/`; project format 7.
+  - Plaits screen: the 3 × 8 grid by bank, per-model macro descriptions, the chord or 6-op patch Harmonics is on, the voice/LPG/envelope rows, CCs from the OXI; one pane at a time below 110 columns.
+  - `ion-bench`: 6 voices cost 0.7–6% of a 128-frame buffer (2-op FM the dearest at 161 µs).
+- **Undo and redo** (D-54, Michael's request): every project edit is a step; Ctrl+Z / Ctrl+Y and `↶ ↷` in the header; repeated presses on a value merge; CC moves aren't steps and undo leaves them alone; 256 deep. Replaces the take-only undo (a take's recording now stays).
+- **Mouse** (D-55, Michael's request): screens mark targets as they draw, and clicks, double-clicks, the wheel and drags become the keys they stand for. Tabs, hints, ↶ ↷, rows, values, pads, strips, models, browsers, the take's waveform. Checked in a real pty (SGR mouse): a click on a tab switches screen; Ctrl+Z undoes and doesn't suspend.
+- **Demo:** track 8 is Plaits on String machine (ch 8, cc 20–22 on the macros, ROM1A as its 6-op list).
+- **Tests:** 168 cases. All pass in the normal and Release builds, and under ASan + UBSan (nothing from the Plaits code; Synth_Dexed's own upstream UB warnings as before).
+  - Plaits: every model plays, finite and bounded; tuning; the three LPG modes and voice freeing; polyphony, stealing, restrike, fewer voices; velocity and the amp envelope; the bank hand-over; a cost guard; project round trip with the patch list; presets; undo of presets and the list; format 6 still opens.
+  - Undo: merging, switches, redo cleared by a new edit, engine changes with their patch and settings, inserts and moves, the program list, CC moves left alone, headless edits, loading clears; a take's two steps (slices, then mutes) and redo.
+  - Mouse: tabs, row select, drag on the fader (one undo step), double-click opening the engine picker, a hint as a button, the wheel on a value; Ctrl+Z / Ctrl+Y and the ↶ ↷ buttons.
+  - Snapshots of the Plaits screen at 130×36, 80×24 and 60×35 (models and params), a 6-op model, and Tracks with a Plaits track.
 
 ## Done (Phase 6)
 - **Recorder in the Module** (D-51):
@@ -69,7 +87,7 @@
   - Tracks: inserts and sends.
 - **Project format 4** (D-46). Every effect parameter is CC-learnable (`track3.fx1.ratio`).
 - **Tools:**
-  - `ion-bench` reports each effect: reverb 13–17 µs per 128-frame buffer, the others under 4.
+  - `ion-bench` reports each effect: reverb 13–17 µs per 128-frame buffer, the others under 4. (Re-measured at 0.6.0 and 0.7.0: reverb 28–35 µs on the same laptop, the same in 0.5.0, so the first figure was from a quieter machine, not a regression.)
   - The demo adds chorus, compressors, sends, and CC 75/76 mapped to reverb size and delay feedback.
 - **Tests:** 119 cases.
   - Compressor curve and timing; chorus; delay timing, sync, ping-pong, glide, stability.
@@ -109,21 +127,20 @@
   - Clean under AddressSanitizer and UBSan, apart from Synth_Dexed's own upstream warnings.
 
 ## Waiting on Michael
-- Try 0.6.0 (resampling: "resamples chords onto pads"). How chord-change slicing does on his material is the thing to tune.
+- Try 0.7.0 (Plaits: "plays every model"; undo/redo; the mouse).
 - Say whether FM without its old Attack/Release macros is OK, or bring them back (D-50; revert is possible).
-- Try 0.4.0 (effects: "dials in a mix") and 0.5.0 (sampler: "plays a sample chromatically"; the uniform envelope).
-- Choose the reverb by ear (D-42); the 1 ms limiter latency (D-45).
-- Tune by ear: velocity → level default (50%), drive amount, decay range, 4 voices per pad.
-- Still open from earlier: real-time priority (`no RT` in the header; dropouts without it, see V-10), latency feel, `ion --list-midi` with the OXI, macro ranges.
+- Chord-change slicing on real material (D-52).
+- Still open from earlier: the reverb by ear (D-42), the 1 ms limiter latency (D-45), drum defaults by ear, real-time priority (`no RT`, V-10), latency feel, `ion --list-midi` with the OXI, macro ranges.
 
-## Next (Phase 7: Plaits)
-Port all 24 models (1.2 is public, V-01), N-voice polyphony, per-model macro descriptions, the 3×8 grid, the FM-library link for the three 6-op models, presets. The uniform envelope goes after its LPG (D-50). Start from HANDOFF §6.4 and `mockups/Plaits.dc.html`. Not started: waiting for the 0.6.0 checkpoint.
+## Next (Phase 8: Comet)
+aarch64 build, ALSA backend tuning, the narrow-layout polish (incl. the Tracks detail pane at 80×24), a CPU guard, autostart as a service, measured voice limits (Plaits' cost per model is the first thing to measure there). Waiting for the 0.7.0 checkpoint, and for the Comet itself.
 
 ## Known gaps carried forward
-- Recording: no audio input yet; undo is one take deep and per session; a take's source settings are saved in its sidecar but there's no "bring the sources back" command yet; editing the Rec setup doesn't mark the project unsaved.
+- Recording: no audio input yet; a take's source settings are saved in its sidecar but there's no "bring the sources back" command yet; editing the Rec setup doesn't mark the project unsaved.
 - Global default CC mappings (D-26).
 - Near-duplicate FM patches aren't folded together (D-30).
 - No samples index in library.db yet; the browser reads folders (D-35).
 - Pads can't be copied or renamed yet; a pad's name is its file name.
-- No effect presets yet (the FX mockup's "Preset"; D-06 says `o` / `w`).
+- No effect presets yet (the FX mockup's "Preset"). Plaits has presets now (D-57); effects could use the same `o` / `a`.
+- Plaits: presets only open from the Plaits screen; the 6-op list fills from favourites as a whole (no picking one patch at a time).
 - The Tracks detail pane at 80×24 cuts its last rows (inherited from 0.1; to fix with the narrow-layout polish in Phase 8).

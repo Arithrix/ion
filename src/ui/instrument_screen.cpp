@@ -80,12 +80,13 @@ class InstrumentScreen final : public Screen {
     const std::string title = "Track " + std::to_string(ctx.track + 1) + " · " + engineLabel(tr.engine);
     if (tr.engine == EngineType::None)
       return pane(title, vbox({text("This track is empty.") | color(palette::dim),
-                               paragraph("⏎ chooses an engine. FM, Drum and Sampler are available now; Plaits arrives in Phase 7.") |
+                               paragraph("⏎ chooses an engine: FM, Drum, Sampler or Plaits.") |
                                    color(palette::faint)}),
                   true) |
              flex;
     if (tr.engine == EngineType::Drum) return drum_->render(ctx);
     if (tr.engine == EngineType::Sampler) return sampler_->render(ctx);
+    if (tr.engine == EngineType::Plaits) return plaits_->render(ctx);
     if (tr.engine != EngineType::Fm) return pane(title, text("not built yet") | color(palette::faint), true) | flex;
 
     if (ctx.narrow()) return (pane_ == 0 ? list(ctx) : macroPane(ctx)) | flex;
@@ -105,6 +106,7 @@ class InstrumentScreen final : public Screen {
     }
     if (tr.engine == EngineType::Drum) return drum_->onEvent(ctx, e);
     if (tr.engine == EngineType::Sampler) return sampler_->onEvent(ctx, e);
+    if (tr.engine == EngineType::Plaits) return plaits_->onEvent(ctx, e);
     if (tr.engine != EngineType::Fm) return false;
     FmBrowse& fm = *ctx.fm;
 
@@ -217,6 +219,7 @@ class InstrumentScreen final : public Screen {
     if (tr.engine == EngineType::None) return {{"⏎", "Engine"}, {"Esc", "Back"}};
     if (tr.engine == EngineType::Drum) return drum_->hints(ctx);
     if (tr.engine == EngineType::Sampler) return sampler_->hints(ctx);
+    if (tr.engine == EngineType::Plaits) return plaits_->hints(ctx);
     if (tr.engine != EngineType::Fm) return {{"Esc", "Back"}};
     if (ctx.fm->typing) return {{"type", "Filter"}, {"⏎", "Done"}, {"Esc", "Clear"}, {"↑↓", "Browse"}};
     if (pane_ == 1)
@@ -236,6 +239,7 @@ class InstrumentScreen final : public Screen {
   std::optional<ParamRef> focusedParam(Context& ctx) override {
     if (ctx.session.track(ctx.track).engine == EngineType::Drum) return drum_->focusedParam(ctx);
     if (ctx.session.track(ctx.track).engine == EngineType::Sampler) return sampler_->focusedParam(ctx);
+    if (ctx.session.track(ctx.track).engine == EngineType::Plaits) return plaits_->focusedParam(ctx);
     if (pane_ != 1 || ctx.session.track(ctx.track).engine != EngineType::Fm) return std::nullopt;
     return param(ctx);
   }
@@ -324,7 +328,13 @@ class InstrumentScreen final : public Screen {
                           text(narrow ? "" : alg) | color(on ? palette::bg : palette::dim),
                           text(narrow ? "" : pcText) | color(on ? palette::bg : palette::value), filler()});
       if (on) row = row | color(palette::bg) | bgcolor(focused ? palette::accent : palette::raised);
-      rows.push_back(row);
+      // A click loads it, like moving there; a double-click plays it.
+      rows.push_back(ctx.item(row, [this, i](Context& c) {
+        pane_ = 0;
+        if (c.fm->cursor(c.session, c.track) == i) return;
+        c.fm->loadAt(c.session, c.track, i);
+        if (c.session.config().previewOnMove) c.request = Context::Request::Audition;
+      }, [this](Context&) { pane_ = 0; }));
     }
     if (items.empty())
       rows.push_back(text(view.kind == FmBrowse::View::Kind::Programs ? "  empty: + adds the highlighted patch"
@@ -434,7 +444,10 @@ class InstrumentScreen final : public Screen {
       }
       cells.push_back(filler());
       Element e = hbox(cells);
-      return on ? e | bgcolor(palette::raised) : e;
+      return ctx.value(on ? e | bgcolor(palette::raised) : e, [this, r](Context&) {
+        pane_ = 1;
+        row_ = r;
+      });
     };
     const float* amp = nullptr;
     std::array<float, kAmpRows> ampValues{};
@@ -566,6 +579,7 @@ class InstrumentScreen final : public Screen {
   int row_ = 0;
   std::unique_ptr<Screen> drum_ = makeDrumScreen();
   std::unique_ptr<Screen> sampler_ = makeSamplerScreen();
+  std::unique_ptr<Screen> plaits_ = makePlaitsScreen();
 };
 
 }  // namespace

@@ -27,13 +27,14 @@ namespace ion {
 
 // 1: Phase 1. 2: FM macros, the program list, library ids (v0.2.0). 3: drum kits (v0.3.0).
 // 4: inserts, sends, the returns and the master chain (v0.4.0). 5: sampler tracks (v0.5.0).
-// 6: the Rec screen's setup (v0.6.0).
-inline constexpr int kProjectFormat = 6;
+// 6: the Rec screen's setup (v0.6.0). 7: Plaits tracks (v0.7.0).
+inline constexpr int kProjectFormat = 7;
 
 struct PadState {
   // As saved: an absolute path, or one relative to the project folder
   // ("samples/bd.wav", after collect). Empty: no sample.
   std::string sample;
+  bool operator==(const PadState&) const = default;
 };
 
 struct TrackState {
@@ -49,6 +50,9 @@ struct TrackState {
   // engine parameters, like FM's macros.
   std::array<PadState, DrumEngine::kPads> pads{};
   std::string kit;  // the kit's name, if it was loaded from or saved as one
+  // Plaits: the patches "6-op FM a" plays, up to 32 (D-57). Harmonics picks among them.
+  std::vector<syx::Voice> plaitsPatches;
+  bool operator==(const TrackState&) const = default;
 };
 
 // How the next take is recorded and where it goes (the Rec screen's Setup).
@@ -71,6 +75,7 @@ struct RecSetup {
 struct ProgramEntry {
   syx::Voice voice{};
   std::string source;
+  bool operator==(const ProgramEntry&) const = default;
 };
 
 // The project document and everything that changes it.
@@ -222,6 +227,16 @@ class Session {
   bool waitForSamples(int timeoutMs = 10000);
   int pinnedSamples() const { return static_cast<int>(pinned_.size()); }  // for tests
 
+  // ---- Plaits (HANDOFF §6.4, D-56, D-57) ----
+  static constexpr int kMaxPlaitsPatches = 32;
+  // The patch list for "6-op FM a" on Plaits track t (at most 32 kept). Empty:
+  // that model plays Plaits' own first bank.
+  void setPlaitsPatches(int t, std::vector<syx::Voice> patches);
+  // Presets: ~/ion/presets/plaits/<name>.json, every setting and the patch list.
+  bool savePlaitsPreset(int t, const std::string& name, std::string& error);
+  bool loadPlaitsPreset(int t, const std::string& name, std::string& error);
+  std::vector<std::string> listPlaitsPresets() const;
+
   // ---- effects (HANDOFF §7) ----
   // Three insert slots in every scope (tracks, master, the two returns). A
   // return's slot 0 is its own delay or reverb and can't be changed.
@@ -265,10 +280,8 @@ class Session {
   bool commitSlices(std::string& error);
   void keepRecording();  // end the review: the recording stays, no pads change
 
-  // Undo the last take: its files go, and the tracks it changed come back.
-  bool canUndoTake() const { return undo_.has_value() && !take_; }
-  std::string undoName() const { return undo_ ? undo_->name : std::string(); }
-  bool undoTake(std::string& error);
+  // A take is undone like any other edit (D-54): the tracks it changed come
+  // back; its recording stays in recordings/.
 
   // This project's recordings, newest first.
   struct RecordingEntry {
@@ -278,6 +291,27 @@ class Session {
   };
   std::vector<RecordingEntry> recordings(int max = 50) const;
   std::filesystem::path recordingsDir() const;
+
+  // ---- undo and redo (DECISIONS D-54) ----
+  // Every edit to the project is a step: values, engines, sounds, pads,
+  // inserts, the CC map, the program list, what a take changed. CC moves and
+  // program changes from the OXI are playing, not editing, and aren't steps.
+  // Rec setup, selection and screens aren't part of it either.
+  //
+  // commitEdit() turns everything changed since it was last called into one
+  // step. The UI calls it after every key or click; tick() calls it too, so
+  // headless edits and takes are steps. Repeated presses on one value within
+  // a second and a half are one step. Loading or starting a project clears the history.
+  void commitEdit();
+  bool canUndo() const { return !undo_.empty() || !docUnchanged() || values_ != undoValues_; }
+  bool canRedo() const { return !redo_.empty(); }
+  std::string undoLabel() const;  // what undo would undo
+  std::string redoLabel() const;
+  // Undoes the last step (committing any edit in progress first). Returns its
+  // label, or "" if there was nothing to undo.
+  std::string undo();
+  std::string redo();
+  int undoSteps() const { return static_cast<int>(undo_.size()); }
 
   // ---- JSON (exposed for tests and ion-render) ----
   std::string toJson() const;
@@ -312,6 +346,7 @@ class Session {
   nlohmann::json recJson() const;
   void recFromJson(const nlohmann::json& j);
   void sendToSampler(int t, const std::string& stored);
+  void sendPlaitsBank(int t);
   std::string soundSlug(int t) const;
 
   Module& module_;
@@ -363,14 +398,38 @@ class Session {
   std::unique_ptr<Take> take_;  // in flight: the audio thread may be writing it
   bool takeAbandoned_ = false;  // …but it belongs to a project that's been closed
   std::optional<SliceReview> review_;
-  struct TakeUndo {
-    std::string name;
-    std::vector<std::filesystem::path> files;           // to delete (files or folders)
-    std::vector<std::pair<int, std::string>> tracks;    // tracks as they were (project JSON)
-    std::vector<std::pair<int, float>> mutes;           // source tracks' mute before
-    std::filesystem::path sidecar;
+
+  // Undo and redo (D-54). The document outside parameter values, as plain
+  // data: cheap to copy and compare on every key press.
+  struct Doc {
+    std::array<TrackState, kTrackCount> tracks{};
+    std::array<std::array<EffectType, kInsertSlots>, kScopeCount> inserts{};
+    std::array<CcMapping, kMaxCcMappings> cc{};
+    std::vector<ProgramEntry> programs;
+    bool operator==(const Doc&) const = default;
   };
-  std::optional<TakeUndo> undo_;
+  struct ValueChange {
+    uint32_t index;  // into Values
+    float before, after;
+  };
+  struct Step {
+    std::string label;
+    std::optional<Doc> before, after;  // only when more than values changed
+    std::vector<ValueChange> values;
+    std::chrono::steady_clock::time_point at;
+  };
+  static constexpr std::size_t kMaxSteps = 256;
+  Doc doc() const;
+  bool docUnchanged() const;  // the document is still undoDoc_
+  void restoreDoc(const Doc& d);
+  void applyStep(const Step& step, bool forward);
+  void clearHistory();
+  // Names the step being made ("Track 3 · patch BRASS 1"); the first name wins until commitEdit().
+  void editLabel(std::string label);
+  std::deque<Step> undo_, redo_;
+  Doc undoDoc_;           // the document as of the last step
+  Values undoValues_{};   // …and the values
+  std::string editLabel_;
 
   bool dirty_ = false;          // non-parameter edits since the last save
   bool autosavedDirty_ = false; // …since the last autosave

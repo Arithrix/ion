@@ -62,7 +62,10 @@ class SettingsScreen final : public Screen {
         const Field& fd = s.fields[f];
         const bool on = focused && static_cast<int>(f) == field_;
         const std::string value = fd.nudge && on ? "◀ " + fd.value + " ▶" : fd.value;
-        rows.push_back(paramRow(fd.label, value, on, labelWidth));
+        rows.push_back(ctx.value(paramRow(fd.label, value, on, labelWidth), [this, i, f](Context&) {
+          section_ = i;
+          field_ = static_cast<int>(f);
+        }));
       }
       if (s.fields.empty()) rows.push_back(text("none") | color(palette::faint));
       if (!s.note.empty()) rows.push_back(paragraph(s.note) | color(palette::faint));

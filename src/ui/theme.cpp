@@ -129,7 +129,7 @@ Element verticalMeter(const MeterReading& m, int height) {
   return vbox(rows);
 }
 
-Element hintBar(const Hints& hints, int width) {
+Element hintBar(const Hints& hints, int width, const std::function<Element(Element, const Hint&)>& decorate) {
   Elements items;
   int used = 0;
   auto cells = [](const std::string& s) {
@@ -141,8 +141,9 @@ Element hintBar(const Hints& hints, int width) {
     const int w = cells(h.key) + cells(h.label) + 5;
     if (used + w > width) break;
     used += w;
-    items.push_back(text(" " + h.key + " ") | bold | ftxui::color(palette::text));
-    items.push_back(text(" " + h.label + " ") | ftxui::color(palette::bg) | bgcolor(palette::value));
+    Element block = hbox({text(" " + h.key + " ") | bold | ftxui::color(palette::text),
+                          text(" " + h.label + " ") | ftxui::color(palette::bg) | bgcolor(palette::value)});
+    items.push_back(decorate ? decorate(std::move(block), h) : std::move(block));
     items.push_back(text(" "));
   }
   return hbox(items);

@@ -17,6 +17,7 @@
 #include "engine/drum/drum_engine.h"
 #include "engine/fm/fm_engine.h"
 #include "engine/fx/effects.h"
+#include "engine/plaits/plaits_engine.h"
 #include "library/syx.h"
 
 namespace {
@@ -53,6 +54,34 @@ Result benchFm(const ion::syx::Voice* voice, int voices, double seconds) {
     fm.render(left, right, ion::kBlockSize);
     sink = sink + left[0];
     voiceSum += fm.voiceCount();
+  }
+  const std::chrono::duration<double> wall = std::chrono::steady_clock::now() - start;
+  const double rendered = static_cast<double>(blocks * ion::kBlockSize) / ion::kSampleRate;
+  const double periods = rendered * ion::kSampleRate / 128.0;
+  return {rendered / wall.count(), wall.count() * 1e6 / periods, voiceSum / static_cast<double>(blocks)};
+}
+
+// Plaits: `voices` held notes on one model, restruck every 250 ms (the drum
+// and string models decay; this keeps every voice busy).
+Result benchPlaits(int model, int voices, double seconds) {
+  ion::PlaitsEngine e;
+  e.setParam(ion::PlaitsEngine::kModel, static_cast<float>(model));
+  e.setParam(ion::PlaitsEngine::kPoly, static_cast<float>(voices));
+  auto note = [](int i) { return static_cast<uint8_t>(48 + (i * 4) % 30); };
+  constexpr std::size_t kRetriggerBlocks = ion::kSampleRate / 4 / ion::kBlockSize;
+  const auto blocks = static_cast<std::size_t>(seconds * ion::kSampleRate / ion::kBlockSize);
+  float left[ion::kBlockSize], right[ion::kBlockSize];
+  volatile float sink = 0;
+  double voiceSum = 0;
+  const auto start = std::chrono::steady_clock::now();
+  for (std::size_t b = 0; b < blocks; ++b) {
+    if (b % kRetriggerBlocks == 0)
+      for (int i = 0; i < voices; ++i) e.noteOn(note(i), 100);
+    std::fill(std::begin(left), std::end(left), 0.0f);
+    std::fill(std::begin(right), std::end(right), 0.0f);
+    e.render(left, right, ion::kBlockSize);
+    sink = sink + left[0];
+    voiceSum += e.voiceCount();
   }
   const std::chrono::duration<double> wall = std::chrono::steady_clock::now() - start;
   const double rendered = static_cast<double>(blocks * ion::kBlockSize) / ion::kSampleRate;
@@ -171,6 +200,17 @@ int main(int argc, char** argv) {
     std::printf("  %4d  %-15s %8.1f   %9.0f   %23.1f   %11.2f%%   %12.2f\n", sc.pads, sc.label, r.averageVoices, r.realtimeFactor,
                 r.usPerPeriod128, r.usPerPeriod128 / 2666.7 * 100.0, r.usPerPeriod128 / std::max(1.0, r.averageVoices));
   }
+
+  std::printf("\nPlaits (6 voices, every model)\n");
+  std::printf("  model             sounding   realtime×   µs per 128-frame buffer   %% of 2.67 ms   µs per voice\n");
+  double worst = 0;
+  for (int m = 0; m < ion::PlaitsEngine::kModels; ++m) {
+    const Result r = benchPlaits(m, 6, seconds / 4);
+    worst = std::max(worst, r.usPerPeriod128);
+    std::printf("  %-16s  %8.1f   %9.0f   %23.1f   %11.2f%%   %12.2f\n", ion::PlaitsEngine::modelName(m), r.averageVoices,
+                r.realtimeFactor, r.usPerPeriod128, r.usPerPeriod128 / 2666.7 * 100.0, r.usPerPeriod128 / std::max(1.0, r.averageVoices));
+  }
+  std::printf("  worst model: %.1f µs per buffer for 6 voices (%.1f%% of a 128-frame buffer)\n", worst, worst / 2666.7 * 100.0);
 
   std::printf("\nEffects (stereo noise in; the time includes making the noise)\n");
   std::printf("  effect                    µs per 128-frame buffer   %% of 2.67 ms\n");

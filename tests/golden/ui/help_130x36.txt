@@ -1,36 +1,36 @@
- ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
-╭ Tracks ───────────────────────────────────────────────────────────────────────╮╭ Track 1 · FM ─────────────────────────────────╮
-│ #  ch  engine  sound                                    level       dB        ││SNAP TEST                                      │
-│ 1  01  FM      SNAP TEST                                 ░░░░░░░░░░   0.0  ·  ││from unit                                      │
-│ 2                                                                                                                              │
-│ 3   ╭ Help ─────────────────────────────────────────────────────────────────────────────────────────────────────────────╮      │
-│ 4   │Everywhere                                                       Piano mode (`)                                    │      │
-│ 5   │T I M F R L  Tracks · Instrument · Mixer · FX · Rec · Library    Z S X D C…   lower octave, from C                 │      │
-│ 6   │,            Settings                                            Q 2 W 3 E…   upper octave                         │      │
-│ 7   │1 – 8        select track                                        [  ]         octave down / up                     │      │
-│ 8   │↑ ↓ ← →      move · change the value (Shift = coarse)            \            velocity 64 / 100 / 127              │      │
-│     │Tab          switch pane                                         drum track   starts at octave 1: Z row = pads 1–16│      │
-│     │⏎            edit / open                                         Esc          leave piano mode                     │      │
-│     │Esc          back · cancel                                       notes play for 300 ms (gate mode)                 │      │
+ ion  Tracks Instr Mixer Fx Rec Library  ↶ undo ↷ redo                                    snapshot ● no clock   cpu 0%   no audio
+╭ Tra                                                                                                                       ─────╮
+│ #   ╭ Help ─────────────────────────────────────────────────────────────────────────────────────────────────────────────╮      │
+│ 1   │Everywhere                                                       Piano mode (`)                                    │      │
+│ 2   │T I M F R L  Tracks · Instrument · Mixer · FX · Rec · Library    Z S X D C…   lower octave, from C                 │      │
+│ 3   │,            Settings                                            Q 2 W 3 E…   upper octave                         │      │
+│ 4   │1 – 8        select track                                        [  ]         octave down / up                     │      │
+│ 5   │↑ ↓ ← →      move · change the value (Shift = coarse)            \            velocity 64 / 100 / 127              │      │
+│ 6   │Tab          switch pane                                         drum track   starts at octave 1: Z row = pads 1–16│      │
+│ 7   │⏎            edit / open                                         Esc          leave piano mode                     │      │
+│ 8   │Esc          back · cancel                                       notes play for 300 ms (gate mode)                 │      │
 │     │Space        audition the selected track (or pad)                                                                  │      │
-│     │m  s         mute · solo the selected track                      This screen                                       │      │
-│     │l            MIDI-learn the focused value                        1-8          Track                                │      │
-│     │p            panic: all notes off                                ↑↓           Move                                 │      │
-│     │w  W         save · save as                                      ←→           Fader                                │      │
-│     │`            piano mode                                          Tab          Pane                                 │      │
-│     │~            MIDI monitor                                        ⏎            Edit                                 │      │
-│     │q            quit                                                m            Mute                                 │      │
+│     │m  s         mute · solo the selected track                      Mouse                                             │      │
+│     │l            MIDI-learn the focused value                        click        select · tabs, hints, ↶ ↷            │      │
+│     │p            panic: all notes off                                double-click open (as ⏎)                          │      │
+│     │^Z  ^Y       undo · redo (or click ↶ ↷)                          wheel        scroll a list · change a value       │      │
+│     │w  W         save · save as                                      drag         change a value                       │      │
+│     │`            piano mode                                                                                            │      │
+│     │~            MIDI monitor                                        This screen                                       │      │
+│     │q            quit                                                1-8          Track                                │      │
+│     │                                                                 ↑↓           Move                                 │      │
+│     │                                                                 ←→           Fader                                │      │
+│     │                                                                 Tab          Pane                                 │      │
+│     │                                                                 ⏎            Edit                                 │      │
+│     │                                                                 m            Mute                                 │      │
 │     │                                                                 s            Solo                                 │      │
 │     │                                                                 Spc          Audition                             │      │
 │     │                                                                 ?            Help                                 │      │
 │     │                                                                 q            Quit                                 │      │
 │     │                                                                                                                   │      │
 │     │ion VERSION                                                                                                        │      │
-│     │Esc or ? closes                                                                                                    │      │
-│     ╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯      │
-│                                                                                                                                │
-├───────────────────────────────────────────────────────────────────────────────┤├───────────────────────────────────────────────┤
-│ 4 of 8 tracks in use · 0 voices                                               ││midi ch 01 · 0 voices                          │
-╰───────────────────────────────────────────────────────────────────────────────╯╰───────────────────────────────────────────────╯
+├──── │Esc or ? closes                                                                                                    │ ─────┤
+│ 5 o ╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯      │
+╰────                                                                                                                       ─────╯
  midi MIDI off  ·  last: nothing yet
  Esc  Close

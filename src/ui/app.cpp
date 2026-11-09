@@ -117,9 +117,14 @@ class App {
     ctx_.width = width;
     ctx_.height = height;
     ctx_.piano = pianoOn_;
+    ctx_.hits.clear();
     Element body = screen().render(ctx_);
-    Element frame = vbox({header(), body | flex, statusLine(), hintBar(currentHints(), width)}) | bgcolor(palette::bg) |
-                    color(palette::text);
+    Element hints = hintBar(currentHints(), width, [this](Element e, const Hint& h) {
+      const auto key = hintKey(h.key);
+      return key ? ctx_.button(std::move(e), *key) : e;
+    });
+    Element frame = vbox({header(), body | flex, statusLine(), hints}) | bgcolor(palette::bg) | color(palette::text);
+    overlayHits_ = ctx_.hits.size();
     if (overlay_ != Overlay::None) {
       // A one-cell margin keeps the overlay's border from fusing with the
       // pane borders underneath (FTXUI joins adjacent box-drawing characters).
@@ -136,11 +141,38 @@ class App {
       tick();
       return true;
     }
+    const bool handled = handleEvent(e);
+    // Whatever that key or click changed is one undo step (D-54).
+    ctx_.session.commitEdit();
+    return handled;
+  }
+
+  // Ctrl+Z / Ctrl+Y and the header's ↶ ↷.
+  void undo() {
+    const std::string what = ctx_.session.undo();
+    flash(what.empty() ? "nothing to undo" : "undid " + what);
+  }
+  void redo() {
+    const std::string what = ctx_.session.redo();
+    flash(what.empty() ? "nothing to redo" : "redid " + what);
+  }
+
+ private:
+  bool handleEvent(const Event& e) {
     if (e == Event::CtrlC) {
       quit_ = true;
       return true;
     }
+    if (e.is_mouse()) return mouseEvent(Event(e).mouse());
     if (overlay_ != Overlay::None) return overlayEvent(e);
+    if (e == Event::CtrlZ) {
+      undo();
+      return true;
+    }
+    if (e == Event::CtrlY) {
+      redo();
+      return true;
+    }
 
     Session& s = ctx_.session;
     if (s.learning() && e == Event::Escape) {
@@ -254,6 +286,104 @@ class App {
   }
 
  private:
+  // ---- mouse (D-55) ----
+
+  // The smallest target under (x, y): a row wins over the pane it's in. With
+  // an overlay up, only the overlay's own.
+  const Hit* hitAt(int x, int y) const {
+    const Hit* best = nullptr;
+    long bestArea = 0;
+    const std::size_t from = overlay_ != Overlay::None ? std::min(overlayHits_, ctx_.hits.size()) : 0;
+    for (std::size_t i = from; i < ctx_.hits.size(); ++i) {
+      const Hit& h = ctx_.hits[i];
+      if (!h.box.Contain(x, y)) continue;
+      const long area = static_cast<long>(h.box.x_max - h.box.x_min + 1) * (h.box.y_max - h.box.y_min + 1);
+      if (!best || area <= bestArea) {
+        best = &h;
+        bestArea = area;
+      }
+    }
+    return best;
+  }
+
+  bool mouseEvent(const Mouse& m) {
+    // A drag in progress follows the pointer wherever it goes.
+    if (drag_) {
+      if (m.button == Mouse::Left && m.motion == Mouse::Moved) {
+        const int cells = drag_->vertical ? drag_->origin - m.y : m.x - drag_->origin;
+        const Event more = drag_->vertical ? (m.shift ? kShiftUp : Event::ArrowUp) : (m.shift ? kShiftRight : Event::ArrowRight);
+        const Event less = drag_->vertical ? (m.shift ? kShiftDown : Event::ArrowDown) : (m.shift ? kShiftLeft : Event::ArrowLeft);
+        while (drag_->steps < cells) {
+          ++drag_->steps;
+          handleEvent(more);
+        }
+        while (drag_->steps > cells) {
+          --drag_->steps;
+          handleEvent(less);
+        }
+        return true;
+      }
+      if (m.motion == Mouse::Released) {
+        drag_.reset();
+        return true;
+      }
+    }
+    if (m.motion == Mouse::Released || m.motion == Mouse::Moved) return false;
+
+    const Hit* h = hitAt(m.x, m.y);
+    if (!h) {
+      // A click outside an overlay that's only showing something closes it.
+      if (m.button == Mouse::Left && (overlay_ == Overlay::Help || overlay_ == Overlay::Monitor || overlay_ == Overlay::EnginePicker))
+        overlay_ = Overlay::None;
+      return false;
+    }
+    // Copy what's needed: handling an event can re-render nothing, but it can
+    // change what the hit's functions point at.
+    const Hit hit = *h;
+    if (m.button == Mouse::WheelUp || m.button == Mouse::WheelDown) {
+      const bool up = m.button == Mouse::WheelUp;
+      if (hit.wheel == Hit::Wheel::Value) {
+        if (hit.focus) hit.focus(ctx_);
+        handleEvent(up ? Event::ArrowRight : Event::ArrowLeft);
+      } else if (hit.wheel == Hit::Wheel::List) {
+        if (hit.pane) hit.pane(ctx_);
+        dispatchOrOverlay(up ? Event::ArrowUp : Event::ArrowDown);
+      }
+      return true;
+    }
+    if (m.button != Mouse::Left) return false;
+
+    const auto now = Clock::now();
+    const bool twice = now - lastClick_ < std::chrono::milliseconds(400) && lastClickBox_.x_min == hit.box.x_min &&
+                       lastClickBox_.y_min == hit.box.y_min && lastClickBox_.x_max == hit.box.x_max &&
+                       lastClickBox_.y_max == hit.box.y_max;
+    lastClick_ = twice ? Clock::time_point{} : now;  // a third click starts again
+    lastClickBox_ = hit.box;
+    if (hit.focus) hit.focus(ctx_);
+    if (hit.at) hit.at(ctx_, m.x - hit.box.x_min, m.y - hit.box.y_min);
+    handleRequest();
+    if (hit.click) handleEvent(*hit.click);
+    else if (twice && hit.open) handleEvent(*hit.open);
+    if (hit.drag != Hit::Drag::None) drag_ = Drag{hit.drag == Hit::Drag::Vertical, hit.drag == Hit::Drag::Vertical ? m.y : m.x, 0};
+    return true;
+  }
+
+  // Arrow keys for a list: to the overlay if one is up, else the screen.
+  void dispatchOrOverlay(const Event& e) {
+    if (overlay_ != Overlay::None) overlayEvent(e);
+    else dispatchToScreen(e);
+  }
+
+  struct Drag {
+    bool vertical;
+    int origin;
+    int steps;
+  };
+  std::optional<Drag> drag_;
+  Clock::time_point lastClick_{};
+  Box lastClickBox_{};
+  std::size_t overlayHits_ = 0;
+
   enum class Overlay { None, Help, Monitor, EnginePicker, Prompt, Quit, Recovery };
 
   Screen& screen() { return *screens_[static_cast<int>(current_)]; }
@@ -452,13 +582,11 @@ class App {
         else if (e == Event::ArrowDown) picker_ = (picker_ + 1) % 5;
         else if (e == Event::Return) {
           const EngineType t = options[picker_];
-          if (t != EngineType::Plaits) {
-            s.setEngine(ctx_.track, t);
-            overlay_ = Overlay::None;
-            if (t != EngineType::None) show(ScreenId::Instrument);  // straight to the library / the pads
-            flash(t == EngineType::None ? "track " + std::to_string(ctx_.track + 1) + " cleared"
-                                        : "track " + std::to_string(ctx_.track + 1) + " is now " + engineLabel(t));
-          }
+          s.setEngine(ctx_.track, t);
+          overlay_ = Overlay::None;
+          if (t != EngineType::None) show(ScreenId::Instrument);  // straight to the library / the pads / the models
+          flash(t == EngineType::None ? "track " + std::to_string(ctx_.track + 1) + " cleared"
+                                      : "track " + std::to_string(ctx_.track + 1) + " is now " + engineLabel(t));
         }
         return true;
       }
@@ -515,15 +643,15 @@ class App {
       case Overlay::Monitor: return monitorOverlay();
       case Overlay::EnginePicker: {
         static const char* labels[] = {"FM      DX7-compatible 6-operator", "DRUM    16-pad drum sampler",
-                                       "SMPL    keymapped sampler", "PLTS    Plaits macro-oscillator · Phase 7",
+                                       "SMPL    keymapped sampler", "PLTS    Plaits: 24 models",
                                        "empty   clear the track"};
         Elements rows;
         for (int i = 0; i < 5; ++i) {
-          const bool available = i != 3;
+          const bool available = true;
           Element row = text(" " + std::string(labels[i]) + " ");
           if (i == picker_) row = row | color(palette::bg) | bgcolor(available ? palette::accent : palette::faint);
           else row = row | color(available ? palette::text : palette::faint);
-          rows.push_back(row);
+          rows.push_back(ctx_.item(row, [this, i](Context&) { picker_ = i; }));
         }
         return pane("Engine for track " + std::to_string(ctx_.track + 1), vbox(rows), true);
       }
@@ -578,6 +706,7 @@ class App {
                                             {"m  s", "mute · solo the selected track"},
                                             {"l", "MIDI-learn the focused value"},
                                             {"p", "panic: all notes off"},
+                                            {"^Z  ^Y", "undo · redo (or click ↶ ↷)"},
                                             {"w  W", "save · save as"},
                                             {"`", "piano mode"},
                                             {"~", "MIDI monitor"},
@@ -593,7 +722,12 @@ class App {
       screenKeys.push_back(hbox({text(h.key) | bold | color(palette::value) | size(WIDTH, EQUAL, 13), text(h.label)}));
     char gate[64];
     std::snprintf(gate, sizeof gate, "notes play for %d ms (gate mode)", ctx_.session.config().gateMs);
-    Element body = vbox({hbox({global, text("    "), vbox({piano, text(gate) | color(palette::faint), text(""), vbox(screenKeys)})}),
+    Element mouse = section("Mouse", {{"click", "select · tabs, hints, ↶ ↷"},
+                                      {"double-click", "open (as ⏎)"},
+                                      {"wheel", "scroll a list · change a value"},
+                                      {"drag", "change a value"}});
+    Element body = vbox({hbox({global, text("    "),
+                               vbox({piano, text(gate) | color(palette::faint), text(""), mouse, text(""), vbox(screenKeys)})}),
                          text(""), text(versionLine()) | color(palette::dim),
                          text("Esc or ? closes") | color(palette::faint)});
     return pane("Help", body, true);
@@ -634,10 +768,16 @@ class App {
     for (int i = 0; i < 6; ++i) {
       const bool on = static_cast<int>(current_) == i;
       const auto& n = narrow ? shortNames[i] : longNames[i];
-      tabs.push_back(hbox({text(n[0]) | bold | color(on ? palette::bg : palette::accent), text(n[1]) | color(on ? palette::bg : palette::dim)}) |
-                     bgcolor(on ? palette::accent : palette::bg));
+      static const char keys[] = {'T', 'I', 'M', 'F', 'R', 'L'};
+      tabs.push_back(ctx_.button(hbox({text(n[0]) | bold | color(on ? palette::bg : palette::accent), text(n[1]) | color(on ? palette::bg : palette::dim)}) |
+                                     bgcolor(on ? palette::accent : palette::bg),
+                                 Event::Character(keys[i])));
       tabs.push_back(text(" "));
     }
+    // Undo and redo, for the mouse (Ctrl+Z, Ctrl+Y on the keyboard).
+    const Session& ss = ctx_.session;
+    Element undoButton = ctx_.button(text(wide ? "↶ undo" : "↶") | color(ss.canUndo() ? palette::text : palette::faint), Event::CtrlZ);
+    Element redoButton = ctx_.button(text(wide ? "↷ redo" : "↷") | color(ss.canRedo() ? palette::text : palette::faint), Event::CtrlY);
     char clock[48];
     if (st.clockPresent.load()) std::snprintf(clock, sizeof clock, "%s %.1f%s", st.running.load() ? "▶" : "■", st.bpm.load(), wide ? " ext clock" : "");
     else std::snprintf(clock, sizeof clock, "%s", narrow ? "" : "no clock");
@@ -666,7 +806,8 @@ class App {
       }
       if (!rec.empty()) rec += narrow ? " " : "   ";
     }
-    return hbox({text(" ion") | bold | color(palette::accent), text(narrow ? " " : "  "), hbox(tabs), filler(),
+    return hbox({text(" ion") | bold | color(palette::accent), text(narrow ? " " : "  "), hbox(tabs), text(narrow ? "" : " "), undoButton,
+                 text(" "), redoButton, filler(),
                  text(project) | color(palette::dim), text(s.dirty() && wide ? " ● " : (wide ? "   " : "")) | color(palette::accent),
                  text(rec) | bold | color(palette::record),
                  text(clock) | color(st.clockPresent.load() ? palette::text : palette::faint), text(narrow ? " " : "   "),
@@ -757,8 +898,21 @@ class App {
 
 }  // namespace
 
+std::optional<Event> hintKey(const std::string& key) {
+  if (key == "⏎") return Event::Return;
+  if (key == "Esc") return Event::Escape;
+  if (key == "Tab") return Event::Tab;
+  if (key == "Spc" || key == "Space") return Event::Character(' ');
+  if (key == "^Z") return Event::CtrlZ;
+  if (key == "^Y") return Event::CtrlY;
+  // One character (or one UTF-8 character that's a printable key).
+  if (key.size() == 1 && key[0] > ' ' && key[0] < 127) return Event::Character(key);
+  return std::nullopt;
+}
+
 int run(Session& session, Module& module, const RunOptions& options) {
   auto screen = ScreenInteractive::Fullscreen();
+  screen.ForceHandleCtrlZ(false);  // Ctrl+Z is undo, not suspend
   App app(session, module, options.audio, options.midi);
   if (!options.notice.empty()) app.flash(options.notice);
   if (options.offerRecovery) app.offerRecovery();
@@ -798,8 +952,41 @@ std::string snapshot(Session& session, Module& module, ScreenId id, int width, i
       {"Up", Event::ArrowUp},   {"Down", Event::ArrowDown}, {"Left", Event::ArrowLeft},       {"Right", Event::ArrowRight},
       {"Return", Event::Return}, {"Tab", Event::Tab},        {"TabReverse", Event::TabReverse}, {"Escape", Event::Escape},
       {"Backspace", Event::Backspace}};
+  // Mouse, as "click:x,y", "dclick:x,y", "wheelup:x,y", "wheeldown:x,y", "drag:x,y,toX".
+  auto mouse = [](Mouse::Button button, Mouse::Motion motion, int x, int y) {
+    Mouse m;
+    m.button = button;
+    m.motion = motion;
+    m.x = x;
+    m.y = y;
+    return Event::Mouse("", m);
+  };
   for (const std::string& k : keys) {
-    app.render(width, height);  // screens size their lists from the last frame
+    // Screens size their lists from the last frame, and mouse targets are where it drew them.
+    auto screen = ftxui::Screen::Create(Dimension::Fixed(width), Dimension::Fixed(height));
+    Render(screen, app.render(width, height));
+    if (const auto colon = k.find(':'); colon != std::string::npos && colon > 1) {
+      const std::string what = k.substr(0, colon);
+      int x = 0, y = 0, toX = 0;
+      std::sscanf(k.c_str() + colon + 1, "%d,%d,%d", &x, &y, &toX);
+      if (what == "click" || what == "dclick") {
+        for (int n = 0; n < (what == "dclick" ? 2 : 1); ++n) {
+          app.onEvent(mouse(Mouse::Left, Mouse::Pressed, x, y));
+          app.onEvent(mouse(Mouse::Left, Mouse::Released, x, y));
+        }
+      } else if (what == "wheelup" || what == "wheeldown") {
+        app.onEvent(mouse(what == "wheelup" ? Mouse::WheelUp : Mouse::WheelDown, Mouse::Pressed, x, y));
+      } else if (what == "drag") {
+        app.onEvent(mouse(Mouse::Left, Mouse::Pressed, x, y));
+        app.onEvent(mouse(Mouse::Left, Mouse::Moved, toX, y));
+        app.onEvent(mouse(Mouse::Left, Mouse::Released, toX, y));
+      }
+      continue;
+    }
+    if (k == "^Z" || k == "^Y") {
+      app.onEvent(k == "^Z" ? Event::CtrlZ : Event::CtrlY);
+      continue;
+    }
     const auto it = named.find(k);
     app.onEvent(it != named.end() ? it->second : Event::Character(k));
   }

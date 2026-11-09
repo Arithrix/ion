@@ -1,4 +1,4 @@
- ion  Tracks Instr Mixer Fx Rec Library                                                   snapshot ● no clock   cpu 0%   no audio
+ ion  Tracks Instr Mixer Fx Rec Library  ↶ undo ↷ redo                                    snapshot ● no clock   cpu 0%   no audio
 ╭ Tracks ───────────────────────────────────────────────────────────────────────╮╭ Track 4 · DRUM ───────────────────────────────╮
 │ #  ch  engine  sound                                    level       dB        ││Garage 02                                      │
 │ 1  01  FM      SNAP TEST                                 ░░░░░░░░░░   0.0  ·  ││11 of 16 pads loaded                           │
@@ -7,7 +7,7 @@
 │ 4  04  DRUM    Garage 02                                 ░░░░░░░░░░   0.0  ·  ││pad        ◀ 1 · kick_tight_03 ▶               │
 │ 5  05  —       — empty —                                 ░░░░░░░░░░        ·  ││level      ██████░░░░ -3.0 dB                  │
 │ 6  06  SMPL    chords_124bpm_4bar                        ░░░░░░░░░░   0.0  ·  ││tune       0 st                                │
-│ 7  07  —       — empty —                                 ░░░░░░░░░░        ·  ││decay      420 ms                              │
+│ 7  07  PLTS    String machine                            ░░░░░░░░░░   0.0  ·  ││decay      420 ms                              │
 │ 8  08  —       — empty —                                 ░░░░░░░░░░        ·  ││pan        █████░░░░░ C                        │
 │                                                                               ││cutoff     8.20 kHz                            │
 │                                                                               ││                                               │
@@ -30,7 +30,7 @@
 │                                                                               ││                                               │
 │                                                                               ││                                               │
 ├───────────────────────────────────────────────────────────────────────────────┤├───────────────────────────────────────────────┤
-│ 4 of 8 tracks in use · 0 voices                                               ││midi ch 04 · 0 voices                          │
+│ 5 of 8 tracks in use · 0 voices                                               ││midi ch 04 · 0 voices                          │
 ╰───────────────────────────────────────────────────────────────────────────────╯╰───────────────────────────────────────────────╯
  midi MIDI off  ·  last: nothing yet
  1-8  Track   ↑↓  Move   ←→  Fader   Tab  Pane   ⏎  Edit   m  Mute   s  Solo   Spc  Audition   ?  Help   q  Quit

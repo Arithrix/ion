@@ -5,6 +5,33 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-08
+
+### Added (Phase 7: Plaits)
+- **Plaits tracks.** Choose PLTS for any track: Mutable Instruments' Plaits macro-oscillator, all **24 models** of firmware 1.2, ported from Émilie Gillet's code and tuned to a true 48 kHz.
+  - **Polyphonic:** up to 8 voices (6 by default), each a whole Plaits. 1 voice is mono.
+  - **The model grid** (`I` on a PLTS track): green (the originals), red (noise, strings, drums) and orange (1.2: VA + filter, phase distortion, three 6-op FM, wave terrain, string machine, chiptune). ↑ ↓ ← → moves and the model changes as you move, so you can play while you browse.
+  - **Harmonics, Timbre, Morph** are described for the model you're on ("chord · chorus and filter · waveform" on String machine). On the chord models it shows the chord, on the 6-op models the patch.
+  - **The low-pass gate**, three ways: **gate** (opens while the key is held, so notes sustain; the default), **ping** (struck, dies away by itself: the classic Plaits pluck), **off** (the raw model, shaped by the amp envelope). LPG decay and colour as on the module.
+  - **Velocity** opens the gate further and strikes the drums and strings harder. The **decay envelope** can reach pitch, timbre and morph (the module's attenuverters). Out ↔ aux, glide, bend range, and the same amp envelope as every other instrument, after the gate.
+  - **6-op FM a plays your FM library:** `f` fills its list from your FM favourites (up to 32), and Harmonics picks among them. b and c play Plaits' own banks.
+  - **Presets:** `a` saves the track's Plaits settings (and its patch list) by name, `o` opens them.
+  - Every setting can be MIDI-learned (`l`), like everything else.
+- **Undo and redo, everywhere.** **Ctrl+Z** undoes and **Ctrl+Y** redoes, on any screen, even in piano mode. It covers anything that changes the project: values, patches, samples, kits, engines, effects, CC mappings, the program list, presets, and what a take did. Holding ← → on one value is a single undo. Moves of the OXI's knobs aren't undone (that's playing, not editing). The status line says what was undone. Up to 256 steps; loading a project starts afresh.
+- **The mouse**, Midnight Commander style. Click to select (tracks, rows, pads, models, files), double-click to open or load, scroll the wheel over a list to move through it or over a value to change it, and drag a value (or a mixer fader, up and down) to set it. Click the screen names at the top, or any key in the hint bar at the bottom. **↶ undo ↷ redo** in the header are buttons. Clicking a drum pad plays it. Everything still works from the keyboard. To select text in the terminal while ion is running, hold Shift.
+- **The demo project** ("demo v0.7.0") adds **track 8: Plaits on String machine** on channel 8, with CCs 20, 21 and 22 on Harmonics, Timbre and Morph, and the DX7's first factory bank as its 6-op list.
+
+### Changed (Phase 7)
+- Ctrl+Z no longer suspends ion to the shell; it's undo.
+- The Rec screen's `u` is gone: Ctrl+Z undoes a take like anything else, and **the recording now stays** in the project's recordings (it used to be deleted).
+- Projects are now format 7 (they can hold Plaits tracks); 0.6.x can't open projects saved by 0.7.0.
+- The Library screen counts your Plaits presets and the project's recordings.
+
+### Known issues (Phase 7)
+- Plaits presets open from the Plaits screen only (not the Library screen yet).
+- The 6-op list fills from favourites as a whole; there's no picking patches one by one yet.
+- Model descriptions paraphrase the Plaits manual; a few may read oddly on first sight.
+
 ## [0.6.0] - 2026-11-07
 
 ### Added (Phase 6: resampling)

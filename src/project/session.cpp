@@ -20,6 +20,7 @@
 #include "engine/drum/drum_engine.h"
 #include "engine/envelope_params.h"
 #include "engine/fm/fm_engine.h"
+#include "engine/plaits/plaits_engine.h"
 #include "engine/sampler/sampler_engine.h"
 
 namespace ion {
@@ -79,6 +80,7 @@ ParamRef engineRef(int track, int index) {
 //          from 5000 to 10000; a gate pad's decay is now its release. FM's
 //          Attack and Release macros are gone (their values and CCs drop).
 //   5 → 6: the Rec setup ("rec"), optional: older files get the defaults.
+//   6 → 7: Plaits tracks ("plaits", with its patch list). Nothing to convert.
 // A drum pad's settings from before the uniform envelope (0.3, 0.4), in place.
 // `prefix` is "padN." in a project, "" in a kit.
 void upgradePadParams(json& params, const std::string& prefix) {
@@ -137,7 +139,8 @@ std::unique_ptr<Engine> createEngine(EngineType type) {
     case EngineType::Fm: return std::make_unique<FmEngine>();
     case EngineType::Drum: return std::make_unique<DrumEngine>();
     case EngineType::Sampler: return std::make_unique<SamplerEngine>();
-    default: return nullptr;  // other engines arrive in later phases
+    case EngineType::Plaits: return std::make_unique<PlaitsEngine>();
+    default: return nullptr;
   }
 }
 
@@ -149,6 +152,7 @@ Session::Session(Module& module, Paths paths, Config& config)
   defaultValues();
   lastStore_ = values_;
   saved_ = autosaved_ = values_;
+  clearHistory();
   Command c;
   c.type = Command::Type::SetTiming;
   c.value = config_.timing == MidiTiming::Immediate ? 1.0f : 0.0f;
@@ -187,6 +191,7 @@ EffectType Session::insert(int scope, int slot) const {
 
 void Session::setInsert(int scope, int slot, EffectType type) {
   if (scope < 0 || scope >= kScopeCount || slot < 0 || slot >= kInsertSlots || insertFixed(scope, slot)) return;
+  editLabel(scopeLabel(scope) + " · insert " + std::to_string(slot + 1) + ": " + (type == EffectType::None ? "empty" : effectLabel(type)));
   inserts_[static_cast<std::size_t>(scope)][static_cast<std::size_t>(slot)] = type;
   Command c;
   c.type = Command::Type::SetInsert;
@@ -213,6 +218,7 @@ void Session::moveInsert(int scope, int slot, int delta) {
     return v;
   };
   const EffectType a = insert(scope, slot), b = insert(scope, to);
+  editLabel(scopeLabel(scope) + " · move insert " + std::to_string(slot + 1) + " → " + std::to_string(to + 1));
   const auto va = settings(slot), vb = settings(to);
   auto place = [&](int sl, EffectType type, const std::array<float, kInsertStride>& v) {
     setInsert(scope, sl, type);
@@ -234,6 +240,7 @@ void Session::send(const Command& c) {
   }
   if (c.type == Command::Type::SetEngine) delete c.engine;
   if (c.type == Command::Type::SetPrograms) delete c.programs;
+  if (c.type == Command::Type::SetPlaitsBank) delete c.plaitsBank;
   if (c.type == Command::Type::SetSample || c.type == Command::Type::Preview) unpin(c.sample);
   message_ = "audio engine not responding: an edit was lost";
 }
@@ -252,6 +259,7 @@ void Session::setValue(ParamRef ref, float value) {
 
 void Session::setEngine(int t, EngineType type) {
   TrackState& tr = tracks_[static_cast<std::size_t>(t)];
+  editLabel("Track " + std::to_string(t + 1) + " · " + (type == EngineType::None ? std::string("cleared") : std::string("engine ") + engineLabel(type)));
   Command c;
   c.type = Command::Type::SetEngine;
   c.track = static_cast<uint8_t>(t);
@@ -276,6 +284,8 @@ void Session::setEngine(int t, EngineType type) {
     tr.voiceSource.clear();
     tr.libraryId = 0;
   }
+  if (type == EngineType::Plaits) sendPlaitsBank(t);
+  else tr.plaitsPatches.clear();
   // The new engine has empty pads: load the track's samples onto it (or, for
   // another engine, forget them).
   padLoads_[static_cast<std::size_t>(t)] = {};
@@ -295,6 +305,7 @@ void Session::setEngine(int t, EngineType type) {
 
 void Session::setVoice(int t, const syx::Voice& voice, const std::string& source) {
   TrackState& tr = tracks_[static_cast<std::size_t>(t)];
+  editLabel("Track " + std::to_string(t + 1) + " · patch " + syx::name(voice));
   tr.hasVoice = true;
   tr.voice = syx::normalize(voice);
   tr.voiceSource = source;
@@ -312,6 +323,7 @@ void Session::setVoice(int t, const syx::Voice& voice, const std::string& source
 
 void Session::setChannel(int t, int channel) {
   channel = std::clamp(channel, 0, 15);
+  editLabel("Track " + std::to_string(t + 1) + " · channel " + std::to_string(channel + 1));
   tracks_[static_cast<std::size_t>(t)].channel = channel;
   Command c;
   c.type = Command::Type::SetChannel;
@@ -453,6 +465,7 @@ int Session::addMapping(uint8_t channel, uint8_t cc, ParamRef target, float lo, 
     const CcMapping& m = cc_[static_cast<std::size_t>(i)];
     if (m.used && ((m.cc == cc && m.channel == channel) || m.target == target)) removeMapping(i);
   }
+  editLabel("CC map: cc " + std::to_string(cc) + " → " + paramLabel(target));
   for (int i = 0; i < kMaxCcMappings; ++i) {
     if (cc_[static_cast<std::size_t>(i)].used) continue;
     const CcMapping m{true, channel, cc, target, std::clamp(lo, 0.0f, 1.0f), std::clamp(hi, 0.0f, 1.0f)};
@@ -470,6 +483,7 @@ int Session::addMapping(uint8_t channel, uint8_t cc, ParamRef target, float lo, 
 
 void Session::removeMapping(int slot) {
   if (slot < 0 || slot >= kMaxCcMappings) return;
+  editLabel("CC map: remove cc " + std::to_string(cc_[static_cast<std::size_t>(slot)].cc));
   cc_[static_cast<std::size_t>(slot)] = {};
   Command c;
   c.type = Command::Type::SetCcMapping;
@@ -482,6 +496,7 @@ void Session::removeMapping(int slot) {
 void Session::setMappingRange(int slot, float lo, float hi) {
   if (slot < 0 || slot >= kMaxCcMappings || !cc_[static_cast<std::size_t>(slot)].used) return;
   CcMapping& m = cc_[static_cast<std::size_t>(slot)];
+  editLabel("CC map: cc " + std::to_string(m.cc) + " range");
   m.lo = std::clamp(lo, 0.0f, 1.0f);
   m.hi = std::clamp(hi, 0.0f, 1.0f);
   Command c;
@@ -541,6 +556,7 @@ dx7::Macros Session::macros(int t) const {
 }
 
 void Session::resetMacros(int t) {
+  editLabel("Track " + std::to_string(t + 1) + " · reset macros");
   for (int i = 0; i < dx7::kMacroCount; ++i) setParam(engineRef(t, FmEngine::kFirstMacro + i), 0.0f);
 }
 
@@ -609,6 +625,7 @@ int Session::programIndex(const syx::Voice& voice) const {
 }
 
 bool Session::toggleProgram(const syx::Voice& voice, const std::string& source) {
+  editLabel("program list: " + syx::name(voice));
   if (const int i = programIndex(voice); i >= 0) {
     programs_.erase(programs_.begin() + i);
   } else {
@@ -623,6 +640,7 @@ bool Session::toggleProgram(const syx::Voice& voice, const std::string& source) 
 void Session::moveProgram(int index, int delta) {
   const int to = index + delta;
   if (index < 0 || to < 0 || index >= static_cast<int>(programs_.size()) || to >= static_cast<int>(programs_.size())) return;
+  editLabel("program list: move " + syx::name(programs_[static_cast<std::size_t>(index)].voice));
   std::swap(programs_[static_cast<std::size_t>(index)], programs_[static_cast<std::size_t>(to)]);
   sendPrograms();
   markDirty();
@@ -656,6 +674,8 @@ void Session::setPadSample(int t, int pad, const std::string& path) {
   if (t < 0 || t >= kTrackCount || pad < 0 || pad >= DrumEngine::kPads) return;
   TrackState& tr = tracks_[static_cast<std::size_t>(t)];
   if (tr.engine != EngineType::Drum && !(tr.engine == EngineType::Sampler && pad == 0)) return;
+  editLabel("Track " + std::to_string(t + 1) + (tr.engine == EngineType::Sampler ? std::string(" · sample") : " · pad " + std::to_string(pad + 1)) +
+            (path.empty() ? std::string(" cleared") : ": " + fs::path(path).stem().string()));
   tr.pads[static_cast<std::size_t>(pad)].sample = path;
   requestPad(t, pad);
   markDirty();
@@ -811,6 +831,7 @@ int Session::collectSamples(std::string& error) {
     error = "the project has no name";
     return -1;
   }
+  editLabel("collect samples");
   const fs::path dir = paths_.projectDir(name_) / "samples";
   std::map<fs::path, std::string> copied;  // source → new stored path
   int count = 0, missing = 0;
@@ -886,6 +907,7 @@ bool Session::loadKit(int t, const fs::path& file, std::string& error) {
     error = "not a drum track";
     return false;
   }
+  editLabel("Track " + std::to_string(t + 1) + " · kit " + file.stem().string());
   std::string text;
   if (!readFile(file, text)) {
     error = "can't read " + file.string();
@@ -938,6 +960,101 @@ std::vector<std::string> Session::listKits() const {
   return out;
 }
 
+// ---- Plaits ------------------------------------------------------------------------------
+
+void Session::setPlaitsPatches(int t, std::vector<syx::Voice> patches) {
+  if (t < 0 || t >= kTrackCount) return;
+  TrackState& tr = tracks_[static_cast<std::size_t>(t)];
+  if (tr.engine != EngineType::Plaits) return;
+  if (static_cast<int>(patches.size()) > kMaxPlaitsPatches) patches.resize(kMaxPlaitsPatches);
+  for (syx::Voice& v : patches) v = syx::normalize(v);
+  editLabel("Track " + std::to_string(t + 1) + " · 6-op patch list");
+  tr.plaitsPatches = std::move(patches);
+  sendPlaitsBank(t);
+  markDirty();
+}
+
+// The 32 slots Plaits' Harmonics sweeps across, filled evenly from the list,
+// so the whole knob covers the list however long it is.
+void Session::sendPlaitsBank(int t) {
+  const TrackState& tr = tracks_[static_cast<std::size_t>(t)];
+  Command c;
+  c.type = Command::Type::SetPlaitsBank;
+  c.track = static_cast<uint8_t>(t);
+  if (!tr.plaitsPatches.empty()) {
+    c.plaitsBank = new PlaitsBank();
+    const std::size_t n = tr.plaitsPatches.size();
+    for (std::size_t slot = 0; slot < 32; ++slot) {
+      const syx::PackedVoice packed = syx::pack(tr.plaitsPatches[slot * n / 32]);
+      std::copy(packed.begin(), packed.end(), c.plaitsBank->data.begin() + static_cast<std::ptrdiff_t>(slot * syx::kPackedVoiceSize));
+    }
+  }
+  send(c);
+}
+
+bool Session::savePlaitsPreset(int t, const std::string& name, std::string& error) {
+  const TrackState& tr = tracks_[static_cast<std::size_t>(t)];
+  if (tr.engine != EngineType::Plaits) {
+    error = "not a Plaits track";
+    return false;
+  }
+  if (!validProjectName(name)) {
+    error = "names can use letters, digits, spaces, - _ and .";
+    return false;
+  }
+  json params;
+  const auto table = PlaitsEngine::paramTable();
+  for (std::size_t i = 0; i < table.size(); ++i) params[table[i].key] = param(engineRef(t, static_cast<int>(i)));
+  json patches = json::array();
+  for (const syx::Voice& v : tr.plaitsPatches) patches.push_back({{"name", syx::name(v)}, {"voice", toHex(v.data(), v.size())}});
+  const json j = {{"ion_preset", 1}, {"engine", "plaits"}, {"name", name}, {"saved_by", versionLine()},
+                  {"saved_at", nowIso()}, {"params", params}, {"patches", patches}};
+  return writeFileAtomic(paths_.presetFile("plaits", name), j.dump(2) + "\n", error);
+}
+
+bool Session::loadPlaitsPreset(int t, const std::string& name, std::string& error) {
+  if (tracks_[static_cast<std::size_t>(t)].engine != EngineType::Plaits) {
+    error = "not a Plaits track";
+    return false;
+  }
+  std::string text;
+  if (!readFile(paths_.presetFile("plaits", name), text)) {
+    error = "no preset called \"" + name + "\"";
+    return false;
+  }
+  const json j = json::parse(text, nullptr, false);
+  if (j.is_discarded() || !j.is_object() || j.value("engine", std::string()) != "plaits" || !j.contains("params")) {
+    error = "not a Plaits preset";
+    return false;
+  }
+  editLabel("Track " + std::to_string(t + 1) + " · preset " + name);
+  // Settings the preset leaves out go to their defaults, so it sounds the same anywhere.
+  const auto table = PlaitsEngine::paramTable();
+  for (std::size_t i = 0; i < table.size(); ++i) {
+    float v = table[i].def;
+    if (j["params"].contains(table[i].key) && j["params"][table[i].key].is_number()) v = j["params"][table[i].key].get<float>();
+    setIfDifferent(engineRef(t, static_cast<int>(i)), v);
+  }
+  std::vector<syx::Voice> patches;
+  if (j.contains("patches") && j["patches"].is_array())
+    for (const json& jp : j["patches"]) {
+      syx::Voice v{};
+      if (fromHex(jp.value("voice", std::string()), v.data(), v.size())) patches.push_back(v);
+    }
+  if (patches != tracks_[static_cast<std::size_t>(t)].plaitsPatches) setPlaitsPatches(t, std::move(patches));
+  markDirty();
+  return true;
+}
+
+std::vector<std::string> Session::listPlaitsPresets() const {
+  std::vector<std::string> out;
+  std::error_code ec;
+  for (const auto& e : fs::directory_iterator(paths_.presetsDir / "plaits", ec))
+    if (e.is_regular_file(ec) && e.path().extension() == ".json") out.push_back(e.path().stem().string());
+  std::sort(out.begin(), out.end());
+  return out;
+}
+
 Session::KitSummary Session::kitSummary(const std::string& name) const {
   KitSummary out;
   std::string text;
@@ -959,6 +1076,7 @@ Session::KitSummary Session::kitSummary(const std::string& name) const {
 // ---- tick ----------------------------------------------------------------------------
 
 void Session::tick() {
+  commitEdit();  // edits made without the UI (headless, tests) are steps too
   while (auto n = module_.popNotification()) {
     switch (n->type) {
       case Notification::Type::EngineRetired:
@@ -981,6 +1099,9 @@ void Session::tick() {
       case Notification::Type::ProgramsRetired:
         delete n->programs;
         break;
+      case Notification::Type::BankRetired:
+        delete n->plaitsBank;
+        break;
       case Notification::Type::ProgramChanged:
         // The audio thread has already loaded it; keep the document in step.
         if (n->program < programs_.size() && n->track < kTrackCount) {
@@ -990,12 +1111,14 @@ void Session::tick() {
           tr.voiceSource = programs_[n->program].source;
           linkLibrary(tr);
           loadedAt_[n->track] = std::chrono::steady_clock::now();
+          undoDoc_.tracks[n->track] = tr;  // playing, not an edit: not a step
           markDirty();
           message_ = "program " + std::to_string(n->program + 1) + " → track " + std::to_string(n->track + 1) + ": " +
                      syx::name(tr.voice);
         }
         break;
       case Notification::Type::CcLearned: {
+        editLabel("learn cc " + std::to_string(n->cc) + " → " + paramLabel(n->param));
         if (addMapping(n->channel, n->cc, n->param) >= 0)
           message_ = "learned: cc " + std::to_string(n->cc) + " ch " + std::to_string(n->channel + 1) + " → " +
                      paramLabel(n->param);
@@ -1016,8 +1139,10 @@ void Session::tick() {
     if (s != lastStore_[i]) {
       lastStore_[i] = s;
       values_[i] = s;
+      undoValues_[i] = s;  // a CC move is playing, not an edit
     }
   }
+  commitEdit();  // what a take or a learned CC changed
 
   // A patch that has stayed on a track for a few seconds counts as used.
   if (library_) {
@@ -1094,7 +1219,6 @@ void Session::reset() {
   cancelTake();
   takeAbandoned_ = take_ != nullptr;
   review_.reset();
-  undo_.reset();
   for (int t = 0; t < kTrackCount; ++t) {
     if (tracks_[static_cast<std::size_t>(t)].engine != EngineType::None) {
       Command c;
@@ -1137,6 +1261,7 @@ void Session::newProject(const std::string& name) {
   name_ = name;
   saved_ = autosaved_ = values_;
   dirty_ = autosavedDirty_ = false;
+  clearHistory();
 }
 
 namespace {
@@ -1226,6 +1351,12 @@ json Session::trackJson(int t) const {
       je["name"] = !tr.kit.empty() ? tr.kit : std::to_string(pads.size()) + (pads.size() == 1 ? " pad" : " pads");
       je["pads"] = pads;
     }
+    if (tr.engine == EngineType::Plaits) {
+      je["name"] = PlaitsEngine::modelName(static_cast<int>(std::lround(param(engineRef(t, PlaitsEngine::kModel)))));
+      json patches = json::array();
+      for (const syx::Voice& v : tr.plaitsPatches) patches.push_back({{"name", syx::name(v)}, {"voice", toHex(v.data(), v.size())}});
+      if (!patches.empty()) je["patches"] = patches;
+    }
     if (tr.engine == EngineType::Sampler) {
       je["sample"] = tr.pads[0].sample;
       je["name"] = tr.pads[0].sample.empty() ? std::string() : fs::path(tr.pads[0].sample).stem().string();
@@ -1275,6 +1406,7 @@ void Session::trackFromJson(int t, const json& jt) {
   tr.libraryId = 0;
   tr.pads = {};
   tr.kit.clear();
+  tr.plaitsPatches.clear();
   setChannel(t, jt.value("channel", t + 1) - 1);
   if (jt.contains("mixer")) mixerFromJson(t, jt["mixer"]);
   if (jt.contains("inserts")) insertsFromJson(t, jt["inserts"]);
@@ -1302,6 +1434,12 @@ void Session::trackFromJson(int t, const json& jt) {
       }
   }
   if (type == EngineType::Sampler) tr.pads[0].sample = je.value("sample", std::string());
+  if (type == EngineType::Plaits && je.contains("patches") && je["patches"].is_array())
+    for (const json& jp : je["patches"]) {
+      syx::Voice v{};
+      if (static_cast<int>(tr.plaitsPatches.size()) < kMaxPlaitsPatches && fromHex(jp.value("voice", std::string()), v.data(), v.size()))
+        tr.plaitsPatches.push_back(syx::normalize(v));
+    }
   setEngine(t, type);
   if (je.contains("params") && je["params"].is_object()) {
     // The new engine is already at its defaults: send only what differs
@@ -1383,8 +1521,10 @@ bool Session::fromJson(const std::string& text, std::string& error) {
     if (j.contains("rec") && j["rec"].is_object()) recFromJson(j["rec"]);
   } catch (const json::exception& e) {
     error = std::string("bad project file: ") + e.what();
+    clearHistory();
     return false;
   }
+  clearHistory();
   return true;
 }
 

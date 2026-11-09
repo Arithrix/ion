@@ -15,6 +15,8 @@ add_executable(ion-tests
   test_sampler.cpp
   test_session.cpp
   test_recording.cpp
+  test_undo.cpp
+  test_plaits.cpp
   test_render.cpp
   test_ui.cpp
   test_version.cpp

@@ -2,6 +2,7 @@
 
 // Colours (HANDOFF §8) and the drawing pieces every screen shares.
 
+#include <functional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -71,7 +72,9 @@ ftxui::Element verticalMeter(const MeterReading& m, int height);
 
 // "Key Label" blocks for the bottom hint bar; hints that don't fit in `width`
 // are dropped from the end (the full list is in the ? overlay).
-ftxui::Element hintBar(const Hints& hints, int width = 1000);
+// `decorate`, if given, wraps each block (the app makes them clickable).
+ftxui::Element hintBar(const Hints& hints, int width = 1000,
+                       const std::function<ftxui::Element(ftxui::Element, const Hint&)>& decorate = {});
 
 // One labelled value row; `focused` highlights it like the mockups.
 ftxui::Element paramRow(const std::string& label, const std::string& value, bool focused, int labelWidth = 14,

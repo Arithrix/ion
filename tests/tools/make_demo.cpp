@@ -15,6 +15,7 @@
 #include "engine/drum/drum_engine.h"
 #include "engine/fm/fm_engine.h"
 #include "engine/fx/effects.h"
+#include "engine/plaits/plaits_engine.h"
 #include "engine/sampler/sampler_engine.h"
 #include "engine/module.h"
 #include "library/syx.h"
@@ -309,6 +310,27 @@ int main(int argc, char** argv) {
     rs.tracks = 1 << 0 | 1 << 3;
     rs.firstPad = 4;
     rs.muteSources = true;
+  }
+
+  // Track 8 (ch 8): Plaits on String machine, the mockup's patch: harmonics
+  // on a minor 7th, cc 20-22 on the three macros, into the reverb. Its 6-op
+  // list is ROM1A, so "6-op FM a" plays the DX7's own first bank.
+  {
+    s.setEngine(7, EngineType::Plaits);
+    s.setChannel(7, 7);
+    auto pl = [&](int p, float v) { s.setParam(engineParamRef(7, p), v); };
+    pl(PlaitsEngine::kModel, 22);
+    pl(PlaitsEngine::kHarmonics, 0.38f);
+    pl(PlaitsEngine::kTimbre, 0.68f);
+    pl(PlaitsEngine::kMorph, 0.40f);
+    pl(PlaitsEngine::kLpgDecay, 0.62f);
+    pl(PlaitsEngine::kAux, 0.3f);
+    set(7, kFader, -8.0f);
+    set(7, kSendB, -10.0f);
+    s.setPlaitsPatches(7, std::vector<syx::Voice>(bank.begin(), bank.begin() + 32));
+    s.addMapping(7, 20, engineParamRef(7, PlaitsEngine::kHarmonics));
+    s.addMapping(7, 21, engineParamRef(7, PlaitsEngine::kTimbre));
+    s.addMapping(7, 22, engineParamRef(7, PlaitsEngine::kMorph));
   }
 
   // cc 75 on channel 1: the reverb's size; cc 76: the delay's feedback.

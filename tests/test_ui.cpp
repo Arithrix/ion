@@ -11,6 +11,7 @@
 #include "core/version.h"
 #include "engine/drum/drum_engine.h"
 #include "engine/fx/effects.h"
+#include "engine/plaits/plaits_engine.h"
 #include "engine/sampler/sampler_engine.h"
 #include "engine/fm/fm_engine.h"
 #include "engine/module.h"
@@ -229,6 +230,19 @@ struct SnapshotRig {
     session.addMapping(3, 71, engineParamRef(3, DrumEngine::param(0, DrumEngine::kDecay)));
     REQUIRE(session.saveKit(3, "Garage 02", error));
 
+    // Track 7: Plaits on String machine (the Plaits mockup), CCs 20-22 on the macros.
+    session.setEngine(6, EngineType::Plaits);
+    auto pl = [&](int p, float value) { session.setParam(engineParamRef(6, p), value); };
+    pl(PlaitsEngine::kModel, 22);
+    pl(PlaitsEngine::kHarmonics, 0.38f);
+    pl(PlaitsEngine::kTimbre, 0.68f);
+    pl(PlaitsEngine::kMorph, 0.40f);
+    pl(PlaitsEngine::kLpgDecay, 0.55f);
+    pl(PlaitsEngine::kAux, 0.3f);
+    session.addMapping(6, 20, engineParamRef(6, PlaitsEngine::kHarmonics));
+    session.addMapping(6, 21, engineParamRef(6, PlaitsEngine::kTimbre));
+    session.addMapping(6, 22, engineParamRef(6, PlaitsEngine::kMorph));
+
     // Track 6: a sampler with a 4-bar resampled loop that knows its tempo (the Sampler mockup).
     {
       wav::Audio loop;
@@ -341,6 +355,12 @@ TEST_CASE("ui snapshots: every screen at the handoff's sizes") {
       {"sampler_loop_zoom_130x36", ui::ScreenId::Instrument, 130, 36, false, false, 5, {"Down", "Down", "Down", "Down", "z"}},
       {"sampler_browse_130x36", ui::ScreenId::Instrument, 130, 36, false, false, 5, {"o"}},
       {"tracks_sampler_130x36", ui::ScreenId::Tracks, 130, 36, false, false, 5},
+      {"plaits_130x36", ui::ScreenId::Instrument, 130, 36, false, false, 6},
+      {"plaits_80x24", ui::ScreenId::Instrument, 80, 24, false, false, 6, {"Tab", "Down", "Down", "Down", "Down"}},
+      {"plaits_60x35", ui::ScreenId::Instrument, 60, 35, false, false, 6},
+      {"plaits_params_60x35", ui::ScreenId::Instrument, 60, 35, false, false, 6, {"Tab", "Down"}},
+      {"plaits_6op_130x36", ui::ScreenId::Instrument, 130, 36, false, false, 6, {"Up", "Up", "Up", "Up"}},
+      {"tracks_plaits_130x36", ui::ScreenId::Tracks, 130, 36, false, false, 6},
       {"library_kits_130x36", ui::ScreenId::Library, 130, 36, false, false, 3, {"Tab", "Down", "Down", "Right"}},
       {"rec_130x36", ui::ScreenId::Rec, 130, 36, false, false, 0, kRecSetup},
       {"rec_80x24", ui::ScreenId::Rec, 80, 24, false, false, 0, kRecSetup},
@@ -349,6 +369,7 @@ TEST_CASE("ui snapshots: every screen at the handoff's sizes") {
   };
   for (const Case& c : cases) {
     if (c.screen == ui::ScreenId::Rec) r.session.recSetup() = RecSetup{};  // each case from the defaults
+    r.session.setParam(engineParamRef(6, PlaitsEngine::kModel), 22);       // the Plaits cases move the model
     const std::string frame = mask(ui::snapshot(r.session, *r.module, c.screen, c.w, c.h, c.piano, c.help, c.track, c.keys));
     // Never wider than the terminal.
     std::size_t start = 0;
@@ -429,6 +450,94 @@ TEST_CASE("mixer: m and s act on the selected strip; returns mute but don't solo
   // On a track, m mutes that track.
   ui::snapshot(r.session, *r.module, ui::ScreenId::Mixer, 130, 36, false, false, 0, {"Right", "m"});
   CHECK(r.session.param({1, kMute}) == 1.0f);
+}
+
+// ---- the mouse (D-55) and undo (D-54) ----
+
+// Where `needle` is drawn in a frame: its first cell (column, row).
+std::pair<int, int> cellOf(const std::string& frame, const std::string& needle) {
+  int y = 0;
+  std::size_t start = 0;
+  while (start < frame.size()) {
+    const std::size_t nl = frame.find('\n', start);
+    const std::string line = frame.substr(start, nl - start);
+    if (const std::size_t at = line.find(needle); at != std::string::npos) {
+      int x = 0;
+      for (std::size_t i = 0; i < at; ++i) x += (static_cast<unsigned char>(line[i]) & 0xC0) != 0x80;
+      return {x, y};
+    }
+    if (nl == std::string::npos) break;
+    start = nl + 1;
+    ++y;
+  }
+  FAIL("not on screen: " << needle);
+  return {-1, -1};
+}
+
+std::string at(const char* what, std::pair<int, int> c, int dx = 0) {
+  return std::string(what) + ":" + std::to_string(c.first + dx) + "," + std::to_string(c.second);
+}
+
+TEST_CASE("mouse: tabs, rows, double-click, wheel and drag do what their keys do") {
+  SnapshotRig r;
+  Session& s = r.session;
+  const std::string tracks = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36);
+
+  // A header tab is a button.
+  const std::string mixer = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {at("click", cellOf(tracks, "Mixer"))});
+  CHECK(mixer.find("EQ · Track 1") != std::string::npos);
+
+  // A click on a track row selects it (the mixer's EQ follows the selected track).
+  const auto row3 = cellOf(tracks, " 3  03");
+  const std::string sel = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {at("click", row3)});
+  CHECK(sel.find("Track 3 · FM") != std::string::npos);
+
+  // Dragging sideways on a row moves its fader one step per cell; the wheel on a value changes it.
+  const float before = s.param({2, kFader});
+  ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {at("drag", row3, 0) + "," + std::to_string(row3.first + 3)});
+  CHECK(s.param({2, kFader}) > before);
+  const float dragged = s.param({2, kFader});
+  CHECK(s.undo() == "Track 3 · Fader");  // one drag, one step
+  CHECK(s.param({2, kFader}) == before);
+  (void)dragged;
+
+  // Double-click on an empty track opens the engine picker; a click outside closes it.
+  const auto row8 = cellOf(tracks, " 8  08");
+  const std::string picker = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {at("dclick", row8)});
+  CHECK(picker.find("Engine for track 8") != std::string::npos);
+
+  // A hint is a button: "? Help".
+  const std::string help = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {at("click", cellOf(tracks, " ? "))});
+  CHECK(help.find("╭ Help") != std::string::npos);
+  CHECK(help.find("double-click") != std::string::npos);
+
+  // The wheel over a value in the detail pane changes it.
+  const std::string detail = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {"Tab"});
+  const float pan = s.param({0, kPan});
+  ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {at("wheelup", cellOf(detail, "pan "))});
+  CHECK(s.param({0, kPan}) > pan);
+}
+
+TEST_CASE("undo: Ctrl+Z and Ctrl+Y, and the header's buttons") {
+  SnapshotRig r;
+  Session& s = r.session;
+  const float fader = s.param({0, kFader});
+  ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {"Right", "Right", "m"});
+  CHECK(s.param({0, kMute}) == 1.0f);
+  CHECK(s.undoSteps() >= 2);
+  std::string frame = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {"^Z"});
+  CHECK(frame.find("undid Track 1 · Mute") != std::string::npos);
+  CHECK(s.param({0, kMute}) == 0.0f);
+  frame = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {at("click", cellOf(frame, "↶ undo"))});
+  CHECK(frame.find("undid Track 1 · Fader") != std::string::npos);
+  CHECK(s.param({0, kFader}) == fader);
+  frame = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {at("click", cellOf(frame, "↷ redo"))});
+  CHECK(frame.find("redid Track 1 · Fader") != std::string::npos);
+  CHECK(s.param({0, kFader}) != fader);
+  frame = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {"^Y"});
+  CHECK(s.param({0, kMute}) == 1.0f);
+  frame = ui::snapshot(s, *r.module, ui::ScreenId::Tracks, 130, 36, false, false, 0, {"^Y"});
+  CHECK(frame.find("nothing to redo") != std::string::npos);
 }
 
 // ---- the Rec screen with a take running, and its slices ----

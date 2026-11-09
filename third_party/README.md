@@ -12,6 +12,7 @@ Pinned copies with their license files intact (HANDOFF §13). Sources were check
 | `nlohmann/` | nlohmann/json | v3.12.0 (`55f9368`) | MIT | github.com/nlohmann/json |
 | `tomlplusplus/` | toml++ | v3.4.0 (`3017243`) | MIT | github.com/marzer/tomlplusplus |
 | `libsamplerate/` | libsamplerate | 0.2.2 | BSD-2-Clause | github.com/libsndfile/libsamplerate release tarball, SHA-256 `3258da28…3893`; `src/` and `include/` identical to Debian's `libsamplerate_0.2.2.orig.tar.gz` |
+| `plaits/` | Plaits (from `pichenettes/eurorack`) and the part of stmlib it uses | eurorack `f4cfa76` (2026-10-12), stmlib `e3bd7c9` (2023-05-30) | MIT | github.com/pichenettes/eurorack, github.com/pichenettes/stmlib |
 | `sqlite/` | SQLite amalgamation | 3.54.1 (2026-10-16) | Public domain | sqlite.org/2026/sqlite-amalgamation-3540100.zip, SHA3-256 `92281c86…8e30` matches the download page |
 
 ## Local changes
@@ -20,9 +21,13 @@ Two upstream changes, marked `ion:` in the source:
 
 - **Synth_Dexed `src/dexed.h`, `src/dx7note.h/.cpp`, `src/dexed.cpp` (`getSamples`): the uniform amp envelope (DECISIONS D-50).** Each `Dx7Note` carries an `ion::dsp::Ahdsr` (from `src/dsp/ahdsr.h`, header-only): `init()` starts it, `keyup()` releases it, `transferState()` carries it to a legato note. `getSamples` multiplies each voice's output by it and by velocity → amp, and marks a voice not live once its envelope is done. Marked `ion:`. With the envelope's defaults (wide open) the output is unchanged; the golden FM render checks that.
 
+- **Plaits `plaits/dsp/dsp.h`: `kCorrectedSampleRate` is 48000** (upstream 47872.34, the module's real codec rate). At ion's true 48 kHz the upstream value plays everything 4.6 cents sharp (DECISIONS V-01). Marked `ion:`. `tests/test_plaits.cpp` checks A4 is 440 Hz.
+
 Two other things are worked around from our side instead:
 - **Synth_Dexed** includes `<arm_math.h>` and expects Teensy/Circle helpers (`millis`, `constrain`, `signed_saturate_rshift`). `src/engine/fm/dexed_port/arm_math.h` provides them.
 - **FTXUI:** only `include/`, `src/` (tests removed), `cmake/` and the top-level CMake files are copied. `examples/` and `doc/` hold just their `CMakeLists.txt`, which return early when those options are off; upstream's CMake adds both directories unconditionally.
+
+Only part of Plaits is copied: `plaits/dsp/` without `voice.cc`/`voice.h`, and `resources.cc/h`. ion's own voice (`src/engine/plaits/plaits_voice.*`, adapted from upstream's `voice.cc`, MIT) replaces the voice, so nothing pulls in the STM32 flash code (`user_data.h`) or the firmware's UI, settings and drivers. From stmlib: `stmlib.h`, `dsp/*.h`, `dsp/units.cc`, `utils/{buffer_allocator,dsp,random}.h`, `utils/random.cc`, `LICENSE`. The eurorack repo has no LICENSE file (its README says "Code (STM32F projects): MIT license"), so `plaits/LICENSE` is the MIT notice from the source headers. Built with `TEST` defined: stmlib's host build.
 
 Only part of libsamplerate is copied: `include/samplerate.h`, `COPYING`, and from `src/` the converter sources with the fast and medium coefficient tables. `high_qual_coeffs.h` (the "best" converter, 9 MB of source) is left out; the build doesn't define `ENABLE_SINC_BEST_CONVERTER`.
 

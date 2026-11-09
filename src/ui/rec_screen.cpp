@@ -74,12 +74,6 @@ class RecScreen final : public Screen {
       pane_ = 1 - pane_;
       return true;
     }
-    if (e == Event::Character('u')) {
-      if (s.undoTake(error)) slice_ = 0;
-      else ctx.flash = error;
-      return true;
-    }
-
     if (st == Session::RecState::Review) return reviewEvent(ctx, e);
 
     if (e == Event::Character('r')) {
@@ -144,7 +138,6 @@ class RecScreen final : public Screen {
       case Session::RecState::Idle:
         h = {{"r", "Record"}, {"↑↓", "Option"}, {"←→", "Change"}};
         if (s.recSetup().source == RecSource::Tracks) h.push_back({"⏎", "Toggle track"});
-        if (s.canUndoTake()) h.push_back({"u", "Undo take"});
         h.push_back({"Esc", "Back"});
         break;
     }
@@ -279,7 +272,13 @@ class RecScreen final : public Screen {
           Element c = text(std::to_string(t + 1));
           if (in) c = c | bold | color(palette::bg) | bgcolor(locked ? palette::dim : palette::record);
           else c = c | color(s.track(t).engine == EngineType::None ? palette::faint : palette::dim);
-          cells.push_back(hbox({text(cursor ? "[" : " ") | color(palette::accent), c, text(cursor ? "]" : " ") | color(palette::accent)}));
+          // A click toggles the track, as ⏎ on it does.
+          cells.push_back(ctx.button(hbox({text(cursor ? "[" : " ") | color(palette::accent), c, text(cursor ? "]" : " ") | color(palette::accent)}),
+                                     Event::Return, [this, i, t](Context&) {
+                                       pane_ = 0;
+                                       row_ = static_cast<int>(i);
+                                       trackCursor_ = t;
+                                     }));
         }
         (void)valueW;
         Element e = hbox(cells);
@@ -287,7 +286,10 @@ class RecScreen final : public Screen {
         continue;
       }
       Element e = paramRow(rowLabel(row), fit(valueText(s, row), valueW), on, labelW);
-      out.push_back(locked ? e | color(palette::faint) : e);
+      out.push_back(ctx.value(locked ? e | color(palette::faint) : e, [this, i](Context&) {
+        pane_ = 0;
+        row_ = static_cast<int>(i);
+      }, std::nullopt));
     }
     out.push_back(filler());
     // What this setup will do, in a sentence.
@@ -405,8 +407,25 @@ class RecScreen final : public Screen {
     }
 
     // The waveform: the take so far, or the take under review with its slices.
+    // Under review, a click picks the slice under the pointer and plays it.
     const int waveRows = height >= 34 ? 5 : height >= 26 ? 4 : 3;
-    out.push_back(waveform(ctx, inner, waveRows));
+    Element wave = waveform(ctx, inner, waveRows);
+    if (st == Session::RecState::Review) {
+      Hit h;
+      h.open.reset();
+      h.wheel = Hit::Wheel::List;  // ↑ ↓: the slices
+      h.at = [this, inner](Context& c, int x, int) {
+        const Session::SliceReview* rv = c.session.review();
+        if (!rv || rv->slices.empty()) return;
+        const int64_t frame = rv->sample->frames * std::clamp(x, 0, inner - 1) / inner;
+        int i = 0;
+        while (i + 1 < static_cast<int>(rv->slices.size()) && rv->slices[static_cast<std::size_t>(i + 1)] <= frame) ++i;
+        slice_ = i;
+        c.session.playSlice(i);
+      };
+      wave = ctx.hit(wave, std::move(h));
+    }
+    out.push_back(wave);
 
     // What happens to it.
     std::string what;
@@ -444,7 +463,9 @@ class RecScreen final : public Screen {
                           text(fit(len, lenW)) | size(WIDTH, EQUAL, lenW) | color(palette::dim), text(" "),
                           text(fit(e.info.sentTo.empty() ? "library" : e.info.sentTo, destW)) | color(palette::dim)}));
     }
-    if (s.canUndoTake()) out.push_back(text(fit("u undoes " + s.undoName(), inner)) | color(palette::faint));
+    // The last take (or its slices) is undone like any edit.
+    if (const std::string u = s.undoLabel(); u.rfind("take ", 0) == 0 || u.rfind("slices ", 0) == 0)
+      out.push_back(text(fit("^Z undoes " + u, inner)) | color(palette::faint));
 
     const Color border = hot ? palette::record : st == Session::RecState::Review ? palette::accent : palette::border;
     return pane("Recording", vbox(out), border);

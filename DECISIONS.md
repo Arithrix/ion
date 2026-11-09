@@ -323,8 +323,51 @@ All three are offline on the control thread, after the take (well under 100 ms f
 - **Sampler:** the track becomes a sampler if it isn't one (other settings stay if it is), and plays the take from C3, looped forward over the whole take, no crossfade. Repitch.
 - **Drum pads:** the take waits for review. ↑↓ picks a slice, ← → nudges it 1 ms (Shift 10 ms), `a` splits, `x` merges, Space plays it, ⏎ commits. Each slice is written as `recordings/<take>/slice NN.wav`, with a 0.5 ms fade-in (except the first) and 2 ms fade-out, so a cut mid-waveform doesn't click. On the pads each slice starts from the pad defaults (the note stays), one-shot, in the first choke group no other loaded pad on the track uses. Esc keeps the recording and changes no pads.
 - **Mute sources** (on by default) mutes the recorded tracks, except the destination track itself. That way bouncing track 3 into a sampler on track 3 frees the track instead of silencing it.
-- **Undo** (`u`, the last take only, this session): the tracks the take changed come back from snapshots taken just before (the destination as project JSON, the sources' mute), and its files and slices are deleted.
+- **Undo** (`u`, the last take only, this session): the tracks the take changed come back from snapshots taken just before (the destination as project JSON, the sources' mute), and its files and slices are deleted. *Superseded in 0.7.0 by D-54: a take is undone like any edit, and its recording stays.*
 - **Project format 6:** the Rec setup is saved with the project (`"rec"`). Format 5 files read as they are, with the default setup. Editing the setup doesn't mark the project unsaved.
+
+## Decided during Phase 7
+
+### D-54 · decided (Michael asked for it) · Undo and redo for the whole project
+- **What's a step:** anything that changes the project: values (faders, macros, pad settings, EQ, sends, insert settings), engines, patches, samples, kits, inserts, the CC map, the program list, the Plaits patch list and presets, collect, and what a take changed (its mutes; a sampler destination; slices put on pads). **Not steps:** CC moves and program changes from the OXI (playing, not editing), selection, screens, the Rec setup, and settings in config.toml.
+- **How:** Session keeps the document outside values as plain data (tracks, inserts, CC map, program list) and a copy of every value. After each key or click the UI calls `commitEdit()`, which compares and records what changed; `tick()` does too, so headless edits and takes are steps. A step stores the document before and after (only when more than values changed) and each changed value. Undo restores the document part by part, touching only what differs (a pad whose sample didn't change isn't reloaded; a patch list that didn't change isn't resent), then sets back the values that step changed. Values it didn't change keep their current value, so a CC move made since isn't undone.
+- **Merging:** presses on one value within 1.5 s are one step (holding ← → or dragging a fader is one undo). Switches (mute, solo, toggles) never merge.
+- **Depth:** 256 steps. Loading a project, starting a new one or recovering an autosave clears the history; saving doesn't.
+- **Keys:** Ctrl+Z undo, Ctrl+Y redo, everywhere (also in piano mode, where letters are notes). Ctrl+Z no longer suspends ion (FTXUI's default). `↶ undo ↷ redo` in the header for the mouse, dimmed when there's nothing to undo or redo. The status line says what was undone ("undid Track 3 · Fader").
+- **Takes:** the Rec screen's `u` (D-53) is gone; a take is undone like anything else. Undoing a take no longer deletes its recording: it stays in `recordings/` (redo needs it, and a recording is never lost by undo). Its sidecar still says where it was sent.
+
+### D-55 · decided (Michael asked for it) · Mouse, as in Midnight Commander
+- **Additive.** Every action stays on the keyboard (HANDOFF §8 still holds). The mouse is another way to press the same keys, so each screen keeps one code path.
+- **How:** while a screen draws, it marks targets (`ctx.item`, `ctx.value`, `ctx.button`); FTXUI's `reflect` records where each one landed. On a mouse event the app finds the smallest target under the pointer in the last frame and acts:
+  - **click:** focus it (the row, the pane, the pad, the model); a button presses its key;
+  - **double-click** (400 ms): ⏎ (open, load, play);
+  - **wheel:** over a list, ↑ ↓ in that list; over a value, → ← on it;
+  - **drag:** on a value, one ← → step per cell; on a mixer strip, up and down move its fader.
+- **Clickable everywhere:** the header's screen tabs and ↶ ↷; every hint in the hint bar that names one key; track rows (and drag for the fader); mixer strips, their M and S, the EQ table and its bypass; the FX chain, parameters and picker; FM library rows (a click loads, like moving there); sample browser rows; drum pads (a click selects and plays); every parameter row; the Rec setup, its track buttons, and the take's waveform under review (a click picks and plays the slice under it); Library lists; Settings fields; the engine picker; Plaits models and presets. A click outside the help, the MIDI monitor or the engine picker closes it.
+- **Terminal text selection** needs Shift+drag while ion has the mouse (xfce4-terminal and most others).
+
+### D-56 · decided · Plaits: the engine
+- **Source:** Plaits 1.2 from `pichenettes/eurorack` @ `f4cfa76`, with the stmlib it uses, MIT (V-01). One local change: the sample rate correction (V-01). Upstream's `voice.cc` is replaced by ion's own voice (`src/engine/plaits/plaits_voice.*`, adapted from it, MIT notice kept), because upstream's reads the 6-op banks from STM32 flash and outputs 16-bit. What ion's voice changes: float output; no 1 ms trigger delay (a MIDI note's pitch and gate arrive together); the trigger is the note-on, so restriking a held voice always fires; three LPG modes (below).
+- **Polyphony:** 1–8 voices (default 6), each a full Plaits voice with every model (16 KB of scratch RAM each). Voices are taken as the other engines take them (D-26); the same note restrikes its own voice. 1 voice is mono, retriggering.
+- **Model order** in the UI and in files: the mockup's grid, green, red, orange, 8 each (0–23). Upstream registers orange first; `PlaitsEngine::plaitsIndex` maps. Files store the model as a number in this order; the track's "name" is the model's name.
+- **The LPG** has three modes:
+  - **gate** (default): it opens to the note's velocity while the key is held and closes after; LPG decay is how slowly. Plays like a keyboard synth: held notes sustain.
+  - **ping:** each note strikes it and it dies away by itself, held or not. This is Plaits with only TRIG patched: the classic plucked sound.
+  - **off:** the model straight out. The amp envelope shapes it; with release "off", a note-off fades it in 5 ms so a drone never hangs.
+  The models that make their own envelope (kick, snare, hi-hat, string, modal, 6-op FM, and speech when it's saying words) bypass the LPG as they do on the module.
+- **Velocity:** sets the note's accent (the drums and strings strike harder), and in gate mode how far the LPG opens (Vel→LPG, default 70%). Vel→amp (the uniform envelope's, D-50) is there too, default 0.
+- **The internal decay envelope** (fired by every note) reaches pitch, timbre and morph through Env→pitch / Env→timbre / Env→morph (−100…+100%, default 0): Plaits' three attenuverters with nothing patched into FM, TIMBRE and MORPH. LPG decay sets its length, as on the module.
+- **After the LPG:** the uniform amp envelope (D-50), wide open by default (attack 0, hold full, sustain 100%, release off). Out ↔ aux blends each model's two outputs. Glide (from the last note played) and bend range (default 2 semitones). Each voice is −6 dB, so six voices of a chord have headroom.
+- **A voice is freed** once its key is up and it's been below −80 dB for 50 ms (or its envelope has finished).
+- **Rendering:** Plaits renders 12 samples at a time; each voice keeps its own 12-sample buffer, so a note lands within 0.25 ms of where MIDI put it.
+- **Cost** (`ion-bench`, this laptop): 6 voices take 0.7–6% of a 128-frame buffer. Speech and chiptune are cheapest, then most models at 2–3.5%; 2-op FM is the dearest (161 µs, 6%) because it oversamples. Plaits voices only render while they sound.
+- **Tuning:** A4 plays at 440.00 Hz (tested).
+
+### D-57 · decided · Plaits: the 6-op patch list, presets, the screen
+- **6-op FM a** plays the track's own list of up to 32 patches from the FM library (HANDOFF §6.4); `f` on the Plaits screen fills it from your FM favourites (library order, the first 32), `x` clears it. With an empty list it plays Plaits' own first bank. **6-op FM b and c** play Plaits' own second and third banks. The list is spread over Plaits' 32 slots, so Harmonics sweeps the whole list however long it is. The screen shows the patch Harmonics is on. The list is saved in the project (unpacked voices, hex) and in presets.
+- **Presets:** `~/ion/presets/plaits/<name>.json`: every Plaits setting and the patch list. `a` saves (the same name replaces), `o` opens the list, ⏎ loads. A setting the preset leaves out goes to its default. Loading a preset is one undo step. (D-06 wanted `w` for write, but `w` saves the project everywhere; `a` matches FM's "save as".)
+- **The screen** (Instrument, on a PLTS track): the 3 × 8 model grid by bank (↑ ↓ ← →; moving selects, as browsing FM patches does), the model's description and what each macro does on it; the three macros with what they do (and, on chord models, the chord; on 6-op models, the patch); then the voice, the decay envelope's amounts and the amp envelope. Below 110 columns it's one pane at a time (Tab swaps).
+- **Project format 7** adds Plaits tracks. Format 6 files read as they are.
 
 ## Proposed (waiting for Michael)
 

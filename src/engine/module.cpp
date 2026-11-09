@@ -1,5 +1,7 @@
 #include "engine/module.h"
 
+#include "engine/plaits/plaits_engine.h"
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -94,12 +96,14 @@ Module::~Module() {
     if (n->type == Notification::Type::EngineRetired) delete n->engine;
     if (n->type == Notification::Type::ProgramsRetired) delete n->programs;
     if (n->type == Notification::Type::EffectRetired) delete n->effect;
+    if (n->type == Notification::Type::BankRetired) delete n->plaitsBank;
   }
   // Engines and tables still in flight to the audio thread.
   while (auto c = commandQueue_.pop()) {
     if (c->type == Command::Type::SetEngine) delete c->engine;
     if (c->type == Command::Type::SetPrograms) delete c->programs;
     if (c->type == Command::Type::SetInsert) delete c->effect;
+    if (c->type == Command::Type::SetPlaitsBank) delete c->plaitsBank;
   }
 }
 
@@ -864,6 +868,16 @@ void Module::handleCommand(const Command& c) noexcept {
     case Command::Type::CancelRecord:
       endTake(Take::State::Cancelled);
       break;
+    case Command::Type::SetPlaitsBank: {
+      PlaitsBank* old = c.plaitsBank;  // no Plaits on the track: the bank goes straight back
+      if (Engine* e = engines_[track]; e && e->type() == EngineType::Plaits) old = static_cast<PlaitsEngine*>(e)->setBank(c.plaitsBank);
+      if (old) {
+        Notification n{Notification::Type::BankRetired};
+        n.plaitsBank = old;
+        notify(n);
+      }
+      break;
+    }
     case Command::Type::SetPrograms: {
       ProgramTable* old = programs_;
       programs_ = c.programs;

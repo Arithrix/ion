@@ -1,4 +1,4 @@
- ion Trk Ins Mix Fx Rec Lib                     0% no audio
+ ion Trk Ins Mix Fx Rec Lib ↶ ↷                 0% no audio
 ╭ Audio · 1/6 ─────────────────────────────────────────────╮
 │backend        PipeWire (native)                          │
 │device         default output · follows the system        │

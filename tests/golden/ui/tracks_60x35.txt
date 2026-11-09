@@ -1,4 +1,4 @@
- ion Trk Ins Mix Fx Rec Lib                     0% no audio
+ ion Trk Ins Mix Fx Rec Lib ↶ ↷                 0% no audio
 ╭ Tracks ──────────────────────────────────────────────────╮
 │ #  ch  engine  sound                          level      │
 │ 1  01  FM      SNAP TEST                       ░░░░░░ ·  │
@@ -7,7 +7,7 @@
 │ 4  04  DRUM    Garage 02                       ░░░░░░ ·  │
 │ 5  05  —       — empty —                       ░░░░░░ ·  │
 │ 6  06  SMPL    chords_124bpm_4bar              ░░░░░░ ·  │
-│ 7  07  —       — empty —                       ░░░░░░ ·  │
+│ 7  07  PLTS    String machine                  ░░░░░░ ·  │
 │ 8  08  —       — empty —                       ░░░░░░ ·  │
 │                                                          │
 │                                                          │
@@ -29,7 +29,7 @@
 │                                                          │
 │                                                          │
 ├──────────────────────────────────────────────────────────┤
-│ 4 of 8 tracks in use · 0 voices                          │
+│ 5 of 8 tracks in use · 0 voices                          │
 ╰──────────────────────────────────────────────────────────╯
  midi MIDI off · nothing yet
  1-8  Track   ↑↓  Move   ←→  Fader   Tab  Pane   ⏎  Edit

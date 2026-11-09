@@ -1,0 +1,35 @@
+ ion Trk Ins Mix Fx Rec Lib ↶ ↷                 0% no audio
+╭ Track 7 · PLTS · String machine ─────────────────────────╮
+│  Harmonics  █████▊░░░░░░░░░ m7        chord              │
+│▸ Timbre     ██████████▎░░░░ 68%       chorus · filter    │
+│  Morph      ██████░░░░░░░░░ 40%       waveform           │
+│LPG gate: opens while the key is held, closes after it    │
+│                                                          │
+│voice                                                     │
+│  LPG        gate                                         │
+│  LPG decay  55%                                          │
+│  LPG colour 50%                                          │
+│  Out ↔ aux  30%                                          │
+│  Vel→LPG    70%                                          │
+│  Voices     6                                            │
+│  Glide      off                                          │
+│  Bend range 2                                            │
+│                                                          │
+│decay envelope →                                          │
+│  Env→pitch  ░░░░░░░░░░░░░░░ 0%                           │
+│  Env→timbre ░░░░░░░░░░░░░░░ 0%                           │
+│  Env→morph  ░░░░░░░░░░░░░░░ 0%                           │
+│                                                          │
+│amp envelope (after the LPG)                              │
+│  Attack     0                                            │
+│  Hold       full                                         │
+│  Decay      1.00 s                                       │
+│  Sustain    100%                                         │
+│  Release    off                                          │
+│  Vel→amp    0%                                           │
+├──────────────────────────────────────────────────────────┤
+│from the OXI: cc 20 → harmonics · cc 21 → timbre · cc 2…  │
+│each voice is one Plaits engine · 0 sounding              │
+╰──────────────────────────────────────────────────────────╯
+ midi MIDI off · nothing yet
+ ↑↓  Param   ←→  Change   l  Learn   Tab  Models
