@@ -1,7 +1,7 @@
 # Status
 
-**Phase:** 7 done · 0.7.0 (Plaits, undo/redo, mouse) released; waiting at its checkpoint.
-**Branch:** `main` (Phase 8 will be `phase/8-comet`)
+**Phase:** 7 done · 0.7.1 released (0.7.0: Plaits, undo/redo, mouse; 0.7.1: Plaits' envelope laid out like FM's). Waiting at the checkpoint.
+**Branch:** `main`
 **Updated:** 2026-11-08
 
 ## Done (Phase 7)
@@ -132,8 +132,9 @@
 - Chord-change slicing on real material (D-52).
 - Still open from earlier: the reverb by ear (D-42), the 1 ms limiter latency (D-45), drum defaults by ear, real-time priority (`no RT`, V-10), latency feel, `ion --list-midi` with the OXI, macro ranges.
 
-## Next (Phase 8: Comet)
-aarch64 build, ALSA backend tuning, the narrow-layout polish (incl. the Tracks detail pane at 80×24), a CPU guard, autostart as a service, measured voice limits (Plaits' cost per model is the first thing to measure there). Waiting for the 0.7.0 checkpoint, and for the Comet itself.
+## Next
+- **Phase 8 (Comet) is on hold until Michael has the device** (his call, 2026-11-08): aarch64 build, ALSA tuning, narrow-layout polish, CPU guard, autostart, measured voice limits.
+- Until then: whatever Michael picks. Candidates: HANDOFF §12's "Later" list (time-stretch, audio input recording, multi-zone sampler / SFZ, more synths), or the known gaps below.
 
 ## Known gaps carried forward
 - Recording: no audio input yet; a take's source settings are saved in its sidecar but there's no "bring the sources back" command yet; editing the Rec setup doesn't mark the project unsaved.

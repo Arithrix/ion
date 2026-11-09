@@ -3,22 +3,22 @@
 │  Harmonics  ██████▏░░░░░░░░░ m7        chord                                 │
 │  Timbre     ██████████▉░░░░░ 68%       chorus · filter                       │
 │  Morph      ██████▍░░░░░░░░░ 40%       waveform                              │
-│LPG gate: opens while the key is held, closes after it                        │
 │                                                                              │
-│voice                                                                         │
-│  LPG        gate                                                             │
-│▸ LPG decay  55%                                                              │
-│  LPG colour 50%                                                              │
-│  Out ↔ aux  30%                                                              │
-│  Vel→LPG    70%                                                              │
-│  Voices     6                                                                │
-│  Glide      off                                                              │
-│  Bend range 2                                                                │
+│amp ███████████████████████████████    low-pass gate                          │
+│  Attack      0                          LPG         gate                     │
+│▸ Hold        full                       LPG decay   55%                      │
+│  Decay       1.00 s                     LPG colour  50%                      │
+│  Sustain     100%                       Vel→LPG     70%                      │
+│  Release     off                                                             │
+│  Vel→amp     0%                                                              │
 │                                                                              │
-│decay envelope →                                                              │
+│voice                                  decay envelope →                       │
+│  Voices      6                          Env→pitch   ░░░░░░░░░░░░ 0%          │
+│  Glide       off                        Env→timbre  ░░░░░░░░░░░░ 0%          │
+│  Bend range  2                          Env→morph   ░░░░░░░░░░░░ 0%          │
+│  Out ↔ aux   30%                                                             │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │from the OXI: cc 20 → harmonics · cc 21 → timbre · cc 22 → morph              │
-│each voice is one Plaits engine · 0 sounding                                  │
 ╰──────────────────────────────────────────────────────────────────────────────╯
  midi MIDI off  ·  last: nothing yet
  ↑↓  Param   ←→  Change   l  Learn   Tab  Models   o  Presets   a  Save preset
