@@ -90,6 +90,7 @@ struct Context {
   std::deque<Hit> hits;  // a deque, so each box stays put while the frame lays out
   // Marks `e` as a mouse target.
   ftxui::Element hit(ftxui::Element e, Hit h) {
+    h.box = {1, 0, 1, 0};  // empty until drawn: a target that's scrolled out of view never matches
     hits.push_back(std::move(h));
     return e | ftxui::reflect(hits.back().box);
   }
@@ -175,6 +176,7 @@ std::unique_ptr<Screen> makeFxScreen();
 std::unique_ptr<Screen> makeInstrumentScreen();
 std::unique_ptr<Screen> makeDrumScreen();     // the Instrument screen for DRUM tracks
 std::unique_ptr<Screen> makeSamplerScreen();  // …and for SAMPLER tracks
+std::unique_ptr<Screen> makePlaitsScreen();   // …and for PLAITS tracks
 std::unique_ptr<Screen> makeRecScreen();       // Rec (R): resampling
 std::unique_ptr<Screen> makeSettingsScreen();
 std::unique_ptr<Screen> makeLibraryScreen();

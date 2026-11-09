@@ -20,6 +20,7 @@
 #include "engine/drum/drum_engine.h"
 #include "engine/envelope_params.h"
 #include "engine/fm/fm_engine.h"
+#include "engine/plaits/plaits_engine.h"
 #include "engine/sampler/sampler_engine.h"
 
 namespace ion {
@@ -79,6 +80,7 @@ ParamRef engineRef(int track, int index) {
 //          from 5000 to 10000; a gate pad's decay is now its release. FM's
 //          Attack and Release macros are gone (their values and CCs drop).
 //   5 → 6: the Rec setup ("rec"), optional: older files get the defaults.
+//   6 → 7: Plaits tracks ("plaits", with its patch list). Nothing to convert.
 // A drum pad's settings from before the uniform envelope (0.3, 0.4), in place.
 // `prefix` is "padN." in a project, "" in a kit.
 void upgradePadParams(json& params, const std::string& prefix) {
@@ -137,7 +139,8 @@ std::unique_ptr<Engine> createEngine(EngineType type) {
     case EngineType::Fm: return std::make_unique<FmEngine>();
     case EngineType::Drum: return std::make_unique<DrumEngine>();
     case EngineType::Sampler: return std::make_unique<SamplerEngine>();
-    default: return nullptr;  // other engines arrive in later phases
+    case EngineType::Plaits: return std::make_unique<PlaitsEngine>();
+    default: return nullptr;
   }
 }
 
@@ -237,6 +240,7 @@ void Session::send(const Command& c) {
   }
   if (c.type == Command::Type::SetEngine) delete c.engine;
   if (c.type == Command::Type::SetPrograms) delete c.programs;
+  if (c.type == Command::Type::SetPlaitsBank) delete c.plaitsBank;
   if (c.type == Command::Type::SetSample || c.type == Command::Type::Preview) unpin(c.sample);
   message_ = "audio engine not responding: an edit was lost";
 }
@@ -280,6 +284,8 @@ void Session::setEngine(int t, EngineType type) {
     tr.voiceSource.clear();
     tr.libraryId = 0;
   }
+  if (type == EngineType::Plaits) sendPlaitsBank(t);
+  else tr.plaitsPatches.clear();
   // The new engine has empty pads: load the track's samples onto it (or, for
   // another engine, forget them).
   padLoads_[static_cast<std::size_t>(t)] = {};
@@ -954,6 +960,101 @@ std::vector<std::string> Session::listKits() const {
   return out;
 }
 
+// ---- Plaits ------------------------------------------------------------------------------
+
+void Session::setPlaitsPatches(int t, std::vector<syx::Voice> patches) {
+  if (t < 0 || t >= kTrackCount) return;
+  TrackState& tr = tracks_[static_cast<std::size_t>(t)];
+  if (tr.engine != EngineType::Plaits) return;
+  if (static_cast<int>(patches.size()) > kMaxPlaitsPatches) patches.resize(kMaxPlaitsPatches);
+  for (syx::Voice& v : patches) v = syx::normalize(v);
+  editLabel("Track " + std::to_string(t + 1) + " · 6-op patch list");
+  tr.plaitsPatches = std::move(patches);
+  sendPlaitsBank(t);
+  markDirty();
+}
+
+// The 32 slots Plaits' Harmonics sweeps across, filled evenly from the list,
+// so the whole knob covers the list however long it is.
+void Session::sendPlaitsBank(int t) {
+  const TrackState& tr = tracks_[static_cast<std::size_t>(t)];
+  Command c;
+  c.type = Command::Type::SetPlaitsBank;
+  c.track = static_cast<uint8_t>(t);
+  if (!tr.plaitsPatches.empty()) {
+    c.plaitsBank = new PlaitsBank();
+    const std::size_t n = tr.plaitsPatches.size();
+    for (std::size_t slot = 0; slot < 32; ++slot) {
+      const syx::PackedVoice packed = syx::pack(tr.plaitsPatches[slot * n / 32]);
+      std::copy(packed.begin(), packed.end(), c.plaitsBank->data.begin() + static_cast<std::ptrdiff_t>(slot * syx::kPackedVoiceSize));
+    }
+  }
+  send(c);
+}
+
+bool Session::savePlaitsPreset(int t, const std::string& name, std::string& error) {
+  const TrackState& tr = tracks_[static_cast<std::size_t>(t)];
+  if (tr.engine != EngineType::Plaits) {
+    error = "not a Plaits track";
+    return false;
+  }
+  if (!validProjectName(name)) {
+    error = "names can use letters, digits, spaces, - _ and .";
+    return false;
+  }
+  json params;
+  const auto table = PlaitsEngine::paramTable();
+  for (std::size_t i = 0; i < table.size(); ++i) params[table[i].key] = param(engineRef(t, static_cast<int>(i)));
+  json patches = json::array();
+  for (const syx::Voice& v : tr.plaitsPatches) patches.push_back({{"name", syx::name(v)}, {"voice", toHex(v.data(), v.size())}});
+  const json j = {{"ion_preset", 1}, {"engine", "plaits"}, {"name", name}, {"saved_by", versionLine()},
+                  {"saved_at", nowIso()}, {"params", params}, {"patches", patches}};
+  return writeFileAtomic(paths_.presetFile("plaits", name), j.dump(2) + "\n", error);
+}
+
+bool Session::loadPlaitsPreset(int t, const std::string& name, std::string& error) {
+  if (tracks_[static_cast<std::size_t>(t)].engine != EngineType::Plaits) {
+    error = "not a Plaits track";
+    return false;
+  }
+  std::string text;
+  if (!readFile(paths_.presetFile("plaits", name), text)) {
+    error = "no preset called \"" + name + "\"";
+    return false;
+  }
+  const json j = json::parse(text, nullptr, false);
+  if (j.is_discarded() || !j.is_object() || j.value("engine", std::string()) != "plaits" || !j.contains("params")) {
+    error = "not a Plaits preset";
+    return false;
+  }
+  editLabel("Track " + std::to_string(t + 1) + " · preset " + name);
+  // Settings the preset leaves out go to their defaults, so it sounds the same anywhere.
+  const auto table = PlaitsEngine::paramTable();
+  for (std::size_t i = 0; i < table.size(); ++i) {
+    float v = table[i].def;
+    if (j["params"].contains(table[i].key) && j["params"][table[i].key].is_number()) v = j["params"][table[i].key].get<float>();
+    setIfDifferent(engineRef(t, static_cast<int>(i)), v);
+  }
+  std::vector<syx::Voice> patches;
+  if (j.contains("patches") && j["patches"].is_array())
+    for (const json& jp : j["patches"]) {
+      syx::Voice v{};
+      if (fromHex(jp.value("voice", std::string()), v.data(), v.size())) patches.push_back(v);
+    }
+  if (patches != tracks_[static_cast<std::size_t>(t)].plaitsPatches) setPlaitsPatches(t, std::move(patches));
+  markDirty();
+  return true;
+}
+
+std::vector<std::string> Session::listPlaitsPresets() const {
+  std::vector<std::string> out;
+  std::error_code ec;
+  for (const auto& e : fs::directory_iterator(paths_.presetsDir / "plaits", ec))
+    if (e.is_regular_file(ec) && e.path().extension() == ".json") out.push_back(e.path().stem().string());
+  std::sort(out.begin(), out.end());
+  return out;
+}
+
 Session::KitSummary Session::kitSummary(const std::string& name) const {
   KitSummary out;
   std::string text;
@@ -997,6 +1098,9 @@ void Session::tick() {
         break;
       case Notification::Type::ProgramsRetired:
         delete n->programs;
+        break;
+      case Notification::Type::BankRetired:
+        delete n->plaitsBank;
         break;
       case Notification::Type::ProgramChanged:
         // The audio thread has already loaded it; keep the document in step.
@@ -1247,6 +1351,12 @@ json Session::trackJson(int t) const {
       je["name"] = !tr.kit.empty() ? tr.kit : std::to_string(pads.size()) + (pads.size() == 1 ? " pad" : " pads");
       je["pads"] = pads;
     }
+    if (tr.engine == EngineType::Plaits) {
+      je["name"] = PlaitsEngine::modelName(static_cast<int>(std::lround(param(engineRef(t, PlaitsEngine::kModel)))));
+      json patches = json::array();
+      for (const syx::Voice& v : tr.plaitsPatches) patches.push_back({{"name", syx::name(v)}, {"voice", toHex(v.data(), v.size())}});
+      if (!patches.empty()) je["patches"] = patches;
+    }
     if (tr.engine == EngineType::Sampler) {
       je["sample"] = tr.pads[0].sample;
       je["name"] = tr.pads[0].sample.empty() ? std::string() : fs::path(tr.pads[0].sample).stem().string();
@@ -1296,6 +1406,7 @@ void Session::trackFromJson(int t, const json& jt) {
   tr.libraryId = 0;
   tr.pads = {};
   tr.kit.clear();
+  tr.plaitsPatches.clear();
   setChannel(t, jt.value("channel", t + 1) - 1);
   if (jt.contains("mixer")) mixerFromJson(t, jt["mixer"]);
   if (jt.contains("inserts")) insertsFromJson(t, jt["inserts"]);
@@ -1323,6 +1434,12 @@ void Session::trackFromJson(int t, const json& jt) {
       }
   }
   if (type == EngineType::Sampler) tr.pads[0].sample = je.value("sample", std::string());
+  if (type == EngineType::Plaits && je.contains("patches") && je["patches"].is_array())
+    for (const json& jp : je["patches"]) {
+      syx::Voice v{};
+      if (static_cast<int>(tr.plaitsPatches.size()) < kMaxPlaitsPatches && fromHex(jp.value("voice", std::string()), v.data(), v.size()))
+        tr.plaitsPatches.push_back(syx::normalize(v));
+    }
   setEngine(t, type);
   if (je.contains("params") && je["params"].is_object()) {
     // The new engine is already at its defaults: send only what differs

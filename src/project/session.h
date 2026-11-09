@@ -27,8 +27,8 @@ namespace ion {
 
 // 1: Phase 1. 2: FM macros, the program list, library ids (v0.2.0). 3: drum kits (v0.3.0).
 // 4: inserts, sends, the returns and the master chain (v0.4.0). 5: sampler tracks (v0.5.0).
-// 6: the Rec screen's setup (v0.6.0).
-inline constexpr int kProjectFormat = 6;
+// 6: the Rec screen's setup (v0.6.0). 7: Plaits tracks (v0.7.0).
+inline constexpr int kProjectFormat = 7;
 
 struct PadState {
   // As saved: an absolute path, or one relative to the project folder
@@ -50,6 +50,8 @@ struct TrackState {
   // engine parameters, like FM's macros.
   std::array<PadState, DrumEngine::kPads> pads{};
   std::string kit;  // the kit's name, if it was loaded from or saved as one
+  // Plaits: the patches "6-op FM a" plays, up to 32 (D-57). Harmonics picks among them.
+  std::vector<syx::Voice> plaitsPatches;
   bool operator==(const TrackState&) const = default;
 };
 
@@ -225,6 +227,16 @@ class Session {
   bool waitForSamples(int timeoutMs = 10000);
   int pinnedSamples() const { return static_cast<int>(pinned_.size()); }  // for tests
 
+  // ---- Plaits (HANDOFF §6.4, D-56, D-57) ----
+  static constexpr int kMaxPlaitsPatches = 32;
+  // The patch list for "6-op FM a" on Plaits track t (at most 32 kept). Empty:
+  // that model plays Plaits' own first bank.
+  void setPlaitsPatches(int t, std::vector<syx::Voice> patches);
+  // Presets: ~/ion/presets/plaits/<name>.json, every setting and the patch list.
+  bool savePlaitsPreset(int t, const std::string& name, std::string& error);
+  bool loadPlaitsPreset(int t, const std::string& name, std::string& error);
+  std::vector<std::string> listPlaitsPresets() const;
+
   // ---- effects (HANDOFF §7) ----
   // Three insert slots in every scope (tracks, master, the two returns). A
   // return's slot 0 is its own delay or reverb and can't be changed.
@@ -334,6 +346,7 @@ class Session {
   nlohmann::json recJson() const;
   void recFromJson(const nlohmann::json& j);
   void sendToSampler(int t, const std::string& stored);
+  void sendPlaitsBank(int t);
   std::string soundSlug(int t) const;
 
   Module& module_;

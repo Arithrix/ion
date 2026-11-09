@@ -53,3 +53,12 @@ target_include_directories(samplerate SYSTEM PUBLIC libsamplerate/include)
 target_compile_definitions(samplerate PRIVATE HAVE_STDBOOL_H=1 ENABLE_SINC_FAST_CONVERTER ENABLE_SINC_MEDIUM_CONVERTER
   CPU_CLIPS_POSITIVE=0 CPU_CLIPS_NEGATIVE=0 PACKAGE="libsamplerate" VERSION="0.2.2")
 target_compile_options(samplerate PRIVATE -w)
+
+# ---- Plaits and the part of stmlib it needs (MIT) --------------------------------
+# plaits/dsp/voice.* are left out: ion has its own voice (src/engine/plaits/), so
+# nothing pulls in the STM32 flash code. See third_party/README.md.
+file(GLOB_RECURSE PLAITS_SOURCES CONFIGURE_DEPENDS plaits/plaits/*.cc plaits/stmlib/*.cc)
+add_library(plaits STATIC ${PLAITS_SOURCES})
+target_include_directories(plaits SYSTEM PUBLIC plaits)
+target_compile_definitions(plaits PUBLIC TEST)  # stmlib's host build: no ARM intrinsics
+target_compile_options(plaits PRIVATE -w)

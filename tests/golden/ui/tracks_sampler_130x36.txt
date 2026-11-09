@@ -7,7 +7,7 @@
 │ 4  04  DRUM    Garage 02                                 ░░░░░░░░░░   0.0  ·  ││root       C3                                  │
 │ 5  05  —       — empty —                                 ░░░░░░░░░░        ·  ││loop       forward                             │
 │ 6  06  SMPL    chords_124bpm_4bar                        ░░░░░░░░░░   0.0  ·  ││attack     4.0 ms                              │
-│ 7  07  —       — empty —                                 ░░░░░░░░░░        ·  ││release    220 ms                              │
+│ 7  07  PLTS    String machine                            ░░░░░░░░░░   0.0  ·  ││release    220 ms                              │
 │ 8  08  —       — empty —                                 ░░░░░░░░░░        ·  ││cutoff     6.40 kHz                            │
 │                                                                               ││                                               │
 │                                                                               ││mixer                                          │
@@ -30,7 +30,7 @@
 │                                                                               ││                                               │
 │                                                                               ││                                               │
 ├───────────────────────────────────────────────────────────────────────────────┤├───────────────────────────────────────────────┤
-│ 4 of 8 tracks in use · 0 voices                                               ││midi ch 06 · 0 voices                          │
+│ 5 of 8 tracks in use · 0 voices                                               ││midi ch 06 · 0 voices                          │
 ╰───────────────────────────────────────────────────────────────────────────────╯╰───────────────────────────────────────────────╯
  midi MIDI off  ·  last: nothing yet
  1-8  Track   ↑↓  Move   ←→  Fader   Tab  Pane   ⏎  Edit   m  Mute   s  Solo   Spc  Audition   ?  Help   q  Quit

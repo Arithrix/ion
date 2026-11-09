@@ -156,6 +156,10 @@ void Session::restoreDoc(const Doc& d) {
         requestPad(t, pad);
       }
     tr.kit = want.kit;
+    if (tr.plaitsPatches != want.plaitsPatches) {
+      tr.plaitsPatches = want.plaitsPatches;
+      sendPlaitsBank(t);
+    }
   }
   for (int scope = 0; scope < kScopeCount; ++scope)
     for (int slot = 0; slot < kInsertSlots; ++slot)

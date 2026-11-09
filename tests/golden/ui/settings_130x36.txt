@@ -7,7 +7,7 @@
 │buffer         128 frames                                                   ││track 4        ch 4   DRUM                        │
 │running        no audio                                                     ││track 5        ch 5   empty                       │
 │128 frames at 48 kHz = 2.7 ms · buffer changes apply on restart             ││track 6        ch 6   SMPL                        │
-╰────────────────────────────────────────────────────────────────────────────╯│track 7        ch 7   empty                       │
+╰────────────────────────────────────────────────────────────────────────────╯│track 7        ch 7   PLTS                        │
 ╭ MIDI + clock ──────────────────────────────────────────────────────────────╮│track 8        ch 8   empty                       │
 │input          names containing "OXI"                                       ││two tracks can share a channel to layer sounds    │
 │also accept    only that                                                    │╰──────────────────────────────────────────────────╯
@@ -20,15 +20,15 @@
 │in the FM browser adds)                                                     ││track) starts                                     │
 ╰────────────────────────────────────────────────────────────────────────────╯╰──────────────────────────────────────────────────╯
 ╭ Keyboard + project ────────────────────────────────────────────────────────╮╭ CC map ──────────────────────────────────────────╮
-│piano gate     300 ms                                                       ││cc  71 ch 4 Track 4 · DRU… 0–100%                 │
-│piano rows     zsxdcvgbhnjm,l.;/ / q2w3er5t6y7ui9o0p                        ││cc  71 ch 6 Track 6 · SMP… 0–100%                 │
-│FM preview     off                                                          ││cc  74 ch 1 Track 3 · FM … 0–100%                 │
-│autosave       off                                                          ││cc  74 ch 6 Track 6 · SMP… 0–100%                 │
-│start-up       open the last project                                        ││learn: focus any value and press l, then move a   │
-│piano rows: edit config.toml for non-US keyboards                           ││control on the OXI                                │
-╰────────────────────────────────────────────────────────────────────────────╯│                                                  │
-                                                                              │                                                  │
-                                                                              │                                                  │
+│piano gate     300 ms                                                       ││cc  20 ch 7 Track 7 · PLT… 0–100%                 │
+│piano rows     zsxdcvgbhnjm,l.;/ / q2w3er5t6y7ui9o0p                        ││cc  21 ch 7 Track 7 · PLT… 0–100%                 │
+│FM preview     off                                                          ││cc  22 ch 7 Track 7 · PLT… 0–100%                 │
+│autosave       off                                                          ││cc  71 ch 4 Track 4 · DRU… 0–100%                 │
+│start-up       open the last project                                        ││cc  71 ch 6 Track 6 · SMP… 0–100%                 │
+│piano rows: edit config.toml for non-US keyboards                           ││cc  74 ch 1 Track 3 · FM … 0–100%                 │
+╰────────────────────────────────────────────────────────────────────────────╯│cc  74 ch 6 Track 6 · SMP… 0–100%                 │
+                                                                              │learn: focus any value and press l, then move a   │
+                                                                              │control on the OXI                                │
                                                                               │                                                  │
                                                                               │                                                  │
                                                                               ╰──────────────────────────────────────────────────╯

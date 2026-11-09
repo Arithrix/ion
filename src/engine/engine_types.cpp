@@ -3,6 +3,7 @@
 #include "engine/engine.h"
 #include "engine/drum/drum_engine.h"
 #include "engine/fm/fm_engine.h"
+#include "engine/plaits/plaits_engine.h"
 #include "engine/sampler/sampler_engine.h"
 
 namespace ion {
@@ -38,12 +39,14 @@ EngineType engineFromKey(const char* key) {
 static_assert(DrumEngine::kParamCount <= kMaxEngineParams, "drum parameters don't fit the engine range");
 static_assert(SamplerEngine::kParamCount <= kMaxEngineParams, "sampler parameters don't fit the engine range");
 static_assert(FmEngine::kParamCount <= kMaxEngineParams, "FM parameters don't fit the engine range");
+static_assert(PlaitsEngine::kParamCount <= kMaxEngineParams, "Plaits parameters don't fit the engine range");
 
 std::span<const ParamInfo> engineParams(EngineType type) {
   switch (type) {
     case EngineType::Fm: return FmEngine::paramTable();
     case EngineType::Drum: return DrumEngine::paramTable();
     case EngineType::Sampler: return SamplerEngine::paramTable();
+    case EngineType::Plaits: return PlaitsEngine::paramTable();
     default: return {};
   }
 }

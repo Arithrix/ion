@@ -25,6 +25,8 @@ inline constexpr int kMaxCcMappings = 64;
 
 // A CC mapped to a parameter. lo/hi are the normalized range the CC sweeps
 // (hi < lo inverts).
+struct PlaitsBank;
+
 struct CcMapping {
   bool used = false;
   uint8_t channel = kAnyChannel;  // 0-15, or kAnyChannel
@@ -70,6 +72,7 @@ struct Command {
     Record,        // start `take` (armed until the next downbeat if it's synced); comes back as TakeDone
     StopRecord,    // armed: disarm; synced: stop on the next downbeat; otherwise stop now
     CancelRecord,  // drop the take (it comes back as TakeDone, Cancelled)
+    SetPlaitsBank, // `plaitsBank` (may be null: Plaits' own) for the Plaits engine on `track`; the old one comes back as BankRetired
   };
   Type type = Type::Panic;
   uint8_t track = 0;
@@ -85,6 +88,7 @@ struct Command {
   uint8_t scope = 0;  // SetInsert: any scope, returns and master included
   Effect* effect = nullptr;
   Take* take = nullptr;
+  PlaitsBank* plaitsBank = nullptr;
 };
 
 // Audio thread → control thread.
@@ -97,6 +101,7 @@ struct Notification {
     SampleReleased,   // the audio thread no longer uses `sample` (one per SetSample/Preview that sent it)
     EffectRetired,    // delete `effect`
     TakeDone,         // the audio thread has finished with `take` (Done or Cancelled)
+    BankRetired,      // delete `plaitsBank`
   };
   Type type = Type::EngineRetired;
   Engine* engine = nullptr;
@@ -109,6 +114,7 @@ struct Notification {
   const Sample* sample = nullptr;
   Effect* effect = nullptr;
   Take* take = nullptr;
+  PlaitsBank* plaitsBank = nullptr;
 };
 
 struct MeterStatus {

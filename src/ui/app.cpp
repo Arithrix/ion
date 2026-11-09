@@ -582,13 +582,11 @@ class App {
         else if (e == Event::ArrowDown) picker_ = (picker_ + 1) % 5;
         else if (e == Event::Return) {
           const EngineType t = options[picker_];
-          if (t != EngineType::Plaits) {
-            s.setEngine(ctx_.track, t);
-            overlay_ = Overlay::None;
-            if (t != EngineType::None) show(ScreenId::Instrument);  // straight to the library / the pads
-            flash(t == EngineType::None ? "track " + std::to_string(ctx_.track + 1) + " cleared"
-                                        : "track " + std::to_string(ctx_.track + 1) + " is now " + engineLabel(t));
-          }
+          s.setEngine(ctx_.track, t);
+          overlay_ = Overlay::None;
+          if (t != EngineType::None) show(ScreenId::Instrument);  // straight to the library / the pads / the models
+          flash(t == EngineType::None ? "track " + std::to_string(ctx_.track + 1) + " cleared"
+                                      : "track " + std::to_string(ctx_.track + 1) + " is now " + engineLabel(t));
         }
         return true;
       }
@@ -645,11 +643,11 @@ class App {
       case Overlay::Monitor: return monitorOverlay();
       case Overlay::EnginePicker: {
         static const char* labels[] = {"FM      DX7-compatible 6-operator", "DRUM    16-pad drum sampler",
-                                       "SMPL    keymapped sampler", "PLTS    Plaits macro-oscillator · Phase 7",
+                                       "SMPL    keymapped sampler", "PLTS    Plaits: 24 models",
                                        "empty   clear the track"};
         Elements rows;
         for (int i = 0; i < 5; ++i) {
-          const bool available = i != 3;
+          const bool available = true;
           Element row = text(" " + std::string(labels[i]) + " ");
           if (i == picker_) row = row | color(palette::bg) | bgcolor(available ? palette::accent : palette::faint);
           else row = row | color(available ? palette::text : palette::faint);

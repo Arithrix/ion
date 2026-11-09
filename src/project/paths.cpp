@@ -27,6 +27,7 @@ Paths Paths::defaults() {
   p.projectsDir = home / "ion" / "projects";
   p.exportsDir = home / "ion" / "exports";
   p.kitsDir = home / "ion" / "kits";
+  p.presetsDir = home / "ion" / "presets";
   return p;
 }
 
@@ -37,6 +38,7 @@ Paths Paths::under(const fs::path& root) {
   p.projectsDir = root / "projects";
   p.exportsDir = root / "exports";
   p.kitsDir = root / "kits";
+  p.presetsDir = root / "presets";
   return p;
 }
 

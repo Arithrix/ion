@@ -11,6 +11,7 @@
 #include "core/version.h"
 #include "engine/drum/drum_engine.h"
 #include "engine/fx/effects.h"
+#include "engine/plaits/plaits_engine.h"
 #include "engine/sampler/sampler_engine.h"
 #include "engine/fm/fm_engine.h"
 #include "engine/module.h"
@@ -229,6 +230,19 @@ struct SnapshotRig {
     session.addMapping(3, 71, engineParamRef(3, DrumEngine::param(0, DrumEngine::kDecay)));
     REQUIRE(session.saveKit(3, "Garage 02", error));
 
+    // Track 7: Plaits on String machine (the Plaits mockup), CCs 20-22 on the macros.
+    session.setEngine(6, EngineType::Plaits);
+    auto pl = [&](int p, float value) { session.setParam(engineParamRef(6, p), value); };
+    pl(PlaitsEngine::kModel, 22);
+    pl(PlaitsEngine::kHarmonics, 0.38f);
+    pl(PlaitsEngine::kTimbre, 0.68f);
+    pl(PlaitsEngine::kMorph, 0.40f);
+    pl(PlaitsEngine::kLpgDecay, 0.55f);
+    pl(PlaitsEngine::kAux, 0.3f);
+    session.addMapping(6, 20, engineParamRef(6, PlaitsEngine::kHarmonics));
+    session.addMapping(6, 21, engineParamRef(6, PlaitsEngine::kTimbre));
+    session.addMapping(6, 22, engineParamRef(6, PlaitsEngine::kMorph));
+
     // Track 6: a sampler with a 4-bar resampled loop that knows its tempo (the Sampler mockup).
     {
       wav::Audio loop;
@@ -341,6 +355,12 @@ TEST_CASE("ui snapshots: every screen at the handoff's sizes") {
       {"sampler_loop_zoom_130x36", ui::ScreenId::Instrument, 130, 36, false, false, 5, {"Down", "Down", "Down", "Down", "z"}},
       {"sampler_browse_130x36", ui::ScreenId::Instrument, 130, 36, false, false, 5, {"o"}},
       {"tracks_sampler_130x36", ui::ScreenId::Tracks, 130, 36, false, false, 5},
+      {"plaits_130x36", ui::ScreenId::Instrument, 130, 36, false, false, 6},
+      {"plaits_80x24", ui::ScreenId::Instrument, 80, 24, false, false, 6, {"Tab", "Down", "Down", "Down", "Down"}},
+      {"plaits_60x35", ui::ScreenId::Instrument, 60, 35, false, false, 6},
+      {"plaits_params_60x35", ui::ScreenId::Instrument, 60, 35, false, false, 6, {"Tab", "Down"}},
+      {"plaits_6op_130x36", ui::ScreenId::Instrument, 130, 36, false, false, 6, {"Up", "Up", "Up", "Up"}},
+      {"tracks_plaits_130x36", ui::ScreenId::Tracks, 130, 36, false, false, 6},
       {"library_kits_130x36", ui::ScreenId::Library, 130, 36, false, false, 3, {"Tab", "Down", "Down", "Right"}},
       {"rec_130x36", ui::ScreenId::Rec, 130, 36, false, false, 0, kRecSetup},
       {"rec_80x24", ui::ScreenId::Rec, 80, 24, false, false, 0, kRecSetup},
@@ -349,6 +369,7 @@ TEST_CASE("ui snapshots: every screen at the handoff's sizes") {
   };
   for (const Case& c : cases) {
     if (c.screen == ui::ScreenId::Rec) r.session.recSetup() = RecSetup{};  // each case from the defaults
+    r.session.setParam(engineParamRef(6, PlaitsEngine::kModel), 22);       // the Plaits cases move the model
     const std::string frame = mask(ui::snapshot(r.session, *r.module, c.screen, c.w, c.h, c.piano, c.help, c.track, c.keys));
     // Never wider than the terminal.
     std::size_t start = 0;

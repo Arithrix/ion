@@ -7,7 +7,7 @@
 │ 4  04  DRUM    Garage 02                       ░░░░░░ ·  │
 │ 5  05  —       — empty —                       ░░░░░░ ·  │
 │ 6  06  SMPL    chords_124bpm_4bar              ░░░░░░ ·  │
-│ 7  07  —       — empty —                       ░░░░░░ ·  │
+│ 7  07  PLTS    String machine                  ░░░░░░ ·  │
 │ 8  08  —       — empty —                       ░░░░░░ ·  │
 │                                                          │
 │                                                          │
@@ -29,7 +29,7 @@
 │                                                          │
 │                                                          │
 ├──────────────────────────────────────────────────────────┤
-│ 4 of 8 tracks in use · 0 voices                          │
+│ 5 of 8 tracks in use · 0 voices                          │
 ╰──────────────────────────────────────────────────────────╯
  ♪ PIANO · oct 3 · vel 100 · gate 300 ms · track 1
  Z…/ Q…P  Play   [ ]  Octave   \  Velocity   ←→  Value

@@ -12,6 +12,7 @@ struct Paths {
   std::filesystem::path projectsDir;  // ~/ion/projects
   std::filesystem::path exportsDir;   // ~/ion/exports: .syx banks made with "export"
   std::filesystem::path kitsDir;      // ~/ion/kits: drum kits, one .json each
+  std::filesystem::path presetsDir;   // ~/ion/presets: <engine>/<name>.json (Plaits)
 
   // From $HOME, honouring $XDG_CONFIG_HOME and $XDG_DATA_HOME.
   static Paths defaults();
@@ -27,6 +28,9 @@ struct Paths {
   std::filesystem::path libraryFile() const { return dataDir / "library.db"; }
   std::filesystem::path importLog() const { return dataDir / "import.log"; }
   std::filesystem::path kitFile(const std::string& name) const { return kitsDir / (name + ".json"); }
+  std::filesystem::path presetFile(const std::string& engine, const std::string& name) const {
+    return presetsDir / engine / (name + ".json");
+  }
 };
 
 // Writes `content` to `path` via a temporary file and rename, so a crash never

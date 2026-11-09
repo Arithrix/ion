@@ -1,0 +1,36 @@
+ ion  Tracks Instr Mixer Fx Rec Library  ↶ undo ↷ redo                                    snapshot ● no clock   cpu 0%   no audio
+╭ Models ─────────────────────────────────────────────────╮╭ Track 7 · PLTS · String machine ────────────────────────────────────╮
+│● green            ● red              ● orange           ││  Harmonics  ██████▏░░░░░░░░░ m7        chord                        │
+│1 Virtual analog   1 Swarm            1 VA + filter      ││  Timbre     ██████████▉░░░░░ 68%       chorus · filter              │
+│2 Waveshaper       2 Filtered noise   2 Phase dist.      ││  Morph      ██████▍░░░░░░░░░ 40%       waveform                     │
+│3 2-op FM          3 Particles        3 6-op FM a        ││LPG gate: opens while the key is held, closes after it               │
+│4 Formant          4 String           4 6-op FM b        ││                                                                     │
+│5 Harmonic         5 Modal            5 6-op FM c        ││voice                                                                │
+│6 Wavetable        6 Kick             6 Wave terrain     ││  LPG        gate                                                    │
+│7 Chords           7 Snare            7 String machine   ││  LPG decay  55%                                                     │
+│8 Speech           8 Hi-hat           8 Chiptune         ││  LPG colour 50%                                                     │
+│                                                         ││  Out ↔ aux  30%                                                     │
+│24 models · 6-op FM models draw on your FM library       ││  Vel→LPG    70%                                                     │
+│                                                         ││  Voices     6                                                       │
+│String machine  ● orange                                 ││  Glide      off                                                     │
+│ensemble strings with a filter and chorus                ││  Bend range 2                                                       │
+│                                                         ││                                                                     │
+│harmonics  chord                                         ││decay envelope →                                                     │
+│timbre     chorus · filter                               ││  Env→pitch  ░░░░░░░░░░░░░░░░ 0%                                     │
+│morph      waveform                                      ││  Env→timbre ░░░░░░░░░░░░░░░░ 0%                                     │
+│                                                         ││  Env→morph  ░░░░░░░░░░░░░░░░ 0%                                     │
+│                                                         ││                                                                     │
+│                                                         ││amp envelope (after the LPG)                                         │
+│                                                         ││  Attack     0                                                       │
+│                                                         ││  Hold       full                                                    │
+│                                                         ││  Decay      1.00 s                                                  │
+│                                                         ││  Sustain    100%                                                    │
+│                                                         ││  Release    off                                                     │
+│                                                         ││  Vel→amp    0%                                                      │
+│                                                         ││                                                                     │
+│                                                         │├─────────────────────────────────────────────────────────────────────┤
+│                                                         ││from the OXI: cc 20 → harmonics · cc 21 → timbre · cc 22 → morph     │
+│                                                         ││each voice is one Plaits engine · 0 sounding                         │
+╰─────────────────────────────────────────────────────────╯╰─────────────────────────────────────────────────────────────────────╯
+ midi MIDI off  ·  last: nothing yet
+ ↑↓←→  Model   ⏎  Play   Tab  Params   o  Presets   a  Save preset   f  6-op list   Spc  Audition   Esc  Back

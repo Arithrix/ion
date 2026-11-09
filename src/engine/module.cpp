@@ -1,5 +1,7 @@
 #include "engine/module.h"
 
+#include "engine/plaits/plaits_engine.h"
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -864,6 +866,16 @@ void Module::handleCommand(const Command& c) noexcept {
     case Command::Type::CancelRecord:
       endTake(Take::State::Cancelled);
       break;
+    case Command::Type::SetPlaitsBank: {
+      PlaitsBank* old = c.plaitsBank;  // no Plaits on the track: the bank goes straight back
+      if (Engine* e = engines_[track]; e && e->type() == EngineType::Plaits) old = static_cast<PlaitsEngine*>(e)->setBank(c.plaitsBank);
+      if (old) {
+        Notification n{Notification::Type::BankRetired};
+        n.plaitsBank = old;
+        notify(n);
+      }
+      break;
+    }
     case Command::Type::SetPrograms: {
       ProgramTable* old = programs_;
       programs_ = c.programs;
