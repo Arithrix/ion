@@ -657,3 +657,71 @@ TEST_CASE("idle strips sleep, but never while an echo or a tail is still inside"
   out = r.hit(48000 * 3);
   CHECK(peak(out, 48000 * 2, 48000 * 3) > 1e-3f);
 }
+
+// ---- drive (D-60) ----
+
+#include "dsp/fft.h"
+
+TEST_CASE("drive: gentle settings pass a quiet signal; heavy ones stay bounded") {
+  auto runSine = [](ion::Drive& d, float amp, float hz, int n) {
+    std::vector<float> l(static_cast<std::size_t>(n)), r(static_cast<std::size_t>(n));
+    for (int i = 0; i < n; ++i) l[static_cast<std::size_t>(i)] = r[static_cast<std::size_t>(i)] = amp * std::sin(2.0f * 3.14159265f * hz * static_cast<float>(i) / 48000.0f);
+    for (int i = 0; i < n; i += 64) d.process(l.data() + i, r.data() + i, 64);
+    return l;
+  };
+  ion::Drive d;
+  d.setParam(ion::Drive::kDrive, 0);
+  d.setParam(ion::Drive::kLevel, 0);
+  d.setParam(ion::Drive::kTone, 20000);
+  const auto quiet = runSine(d, 0.05f, 440, 48000);
+  float pk = 0;
+  for (std::size_t i = 24000; i < quiet.size(); ++i) pk = std::max(pk, std::fabs(quiet[i]));
+  CHECK(pk == doctest::Approx(0.05f).epsilon(0.05));  // tanh of a small signal is the signal
+
+  for (int shape : {ion::Drive::kSoft, ion::Drive::kHard, ion::Drive::kFold}) {
+    CAPTURE(shape);
+    ion::Drive h;
+    h.setParam(ion::Drive::kShape, static_cast<float>(shape));
+    h.setParam(ion::Drive::kDrive, 48);
+    h.setParam(ion::Drive::kLevel, 0);
+    h.setParam(ion::Drive::kBias, 0.6f);
+    const auto loud = runSine(h, 4.0f, 110, 48000);
+    double mean = 0;
+    float top = 0;
+    for (std::size_t i = 24000; i < loud.size(); ++i) {
+      REQUIRE(std::isfinite(loud[i]));
+      mean += loud[i];
+      top = std::max(top, std::fabs(loud[i]));
+    }
+    mean /= 24000;
+    CHECK(top < 2.1f);                 // the shaper's ±1, plus a little from the DC blocker settling
+    CHECK(std::fabs(mean) < 0.02);     // the bias's offset is taken out
+  }
+}
+
+TEST_CASE("drive: anti-aliasing keeps folded-back harmonics down") {
+  // A 4.7 kHz sine clipped hard makes harmonics far above 24 kHz. Everything
+  // that isn't a harmonic of 4.7 kHz is aliasing; it should be well below the signal.
+  ion::Drive d;
+  d.setParam(ion::Drive::kShape, ion::Drive::kHard);
+  d.setParam(ion::Drive::kDrive, 30);
+  d.setParam(ion::Drive::kLevel, 0);
+  d.setParam(ion::Drive::kTone, 20000);
+  const int n = 16384;
+  const float hz = 4687.5f;  // exactly bin 1600 of 16384 at 48 kHz: harmonics land on bins
+  std::vector<float> l(static_cast<std::size_t>(n)), r(static_cast<std::size_t>(n));
+  for (int i = 0; i < n; ++i) l[static_cast<std::size_t>(i)] = r[static_cast<std::size_t>(i)] = 0.5f * std::sin(2.0f * 3.14159265f * hz * static_cast<float>(i) / 48000.0f);
+  for (int i = 0; i < n; i += 64) d.process(l.data() + i, r.data() + i, 64);
+  const auto spec = ion::dsp::stft(l, static_cast<std::size_t>(n), static_cast<std::size_t>(n)).front();
+  double harmonic = 0, alias = 0;
+  for (std::size_t k = 1; k < spec.size(); ++k) {
+    const double e = static_cast<double>(spec[k]) * spec[k];
+    // Harmonic bins (and the Hann window's neighbours) vs the rest.
+    const std::size_t m = k % 1600;
+    if (m <= 2 || m >= 1598) harmonic += e;
+    else alias += e;
+  }
+  const double db = 10 * std::log10(alias / harmonic);
+  MESSAGE("aliasing " << db << " dB below the harmonics");
+  CHECK(db < -30.0);
+}

@@ -19,6 +19,7 @@
 #include "engine/fm/fm_engine.h"
 #include "engine/fx/effects.h"
 #include "engine/module.h"
+#include "engine/acid/acid_engine.h"
 #include "engine/plaits/plaits_engine.h"
 #include "library/syx.h"
 
@@ -203,6 +204,29 @@ int main(int argc, char** argv) {
                 r.usPerPeriod128, r.usPerPeriod128 / 2666.7 * 100.0, r.usPerPeriod128 / std::max(1.0, r.averageVoices));
   }
 
+  {
+    // ACID: one voice playing 16ths with slides and accents; asleep it costs nothing.
+    ion::AcidEngine e;
+    const auto blocks = static_cast<std::size_t>(seconds * ion::kSampleRate / ion::kBlockSize);
+    float left[ion::kBlockSize], right[ion::kBlockSize];
+    volatile float sink = 0;
+    const auto start = std::chrono::steady_clock::now();
+    for (std::size_t b = 0; b < blocks; ++b) {
+      if (b % 94 == 0) {
+        const auto n = static_cast<uint8_t>(36 + (b / 94) % 12);
+        e.noteOn(n, (b / 94) % 4 == 0 ? 120 : 90);
+        if ((b / 94) % 3) e.noteOff(static_cast<uint8_t>(n - 1));
+      }
+      std::fill(std::begin(left), std::end(left), 0.0f);
+      std::fill(std::begin(right), std::end(right), 0.0f);
+      e.render(left, right, ion::kBlockSize);
+      sink = sink + left[0];
+    }
+    const std::chrono::duration<double> wall = std::chrono::steady_clock::now() - start;
+    const double us = wall.count() * 1e6 / (static_cast<double>(blocks * ion::kBlockSize) / 128.0);
+    std::printf("\nACID (Open303, one mono voice playing 16ths)\n  %.1f µs per 128-frame buffer (%.2f%%)\n", us, us / 2666.7 * 100.0);
+  }
+
   std::printf("\nPlaits (6 voices, every model)\n");
   std::printf("  model             sounding   realtime×   µs per 128-frame buffer   %% of 2.67 ms   µs per voice\n");
   double worst = 0;
@@ -260,7 +284,8 @@ int main(int argc, char** argv) {
   for (const Fx& f : {Fx{"compressor", ion::EffectType::Compressor}, Fx{"chorus", ion::EffectType::Chorus},
                       Fx{"delay (1/8D, 40%)", ion::EffectType::Delay}, Fx{"reverb plate", ion::EffectType::Reverb, ion::Reverb::kType, 0},
                       Fx{"reverb hall", ion::EffectType::Reverb, ion::Reverb::kType, 1},
-                      Fx{"reverb room", ion::EffectType::Reverb, ion::Reverb::kType, 2}}) {
+                      Fx{"reverb room", ion::EffectType::Reverb, ion::Reverb::kType, 2},
+                      Fx{"drive (soft, 2× oversampled)", ion::EffectType::Drive}}) {
     auto fx = ion::createEffect(f.type);
     if (f.param >= 0) fx->setParam(f.param, f.value);
     const double us = benchEffect(*fx, seconds);

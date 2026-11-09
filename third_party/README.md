@@ -13,6 +13,7 @@ Pinned copies with their license files intact (HANDOFF §13). Sources were check
 | `tomlplusplus/` | toml++ | v3.4.0 (`3017243`) | MIT | github.com/marzer/tomlplusplus |
 | `libsamplerate/` | libsamplerate | 0.2.2 | BSD-2-Clause | github.com/libsndfile/libsamplerate release tarball, SHA-256 `3258da28…3893`; `src/` and `include/` identical to Debian's `libsamplerate_0.2.2.orig.tar.gz` |
 | `plaits/` | Plaits (from `pichenettes/eurorack`) and the part of stmlib it uses | eurorack `f4cfa76` (2026-10-12), stmlib `e3bd7c9` (2023-05-30) | MIT | github.com/pichenettes/eurorack, github.com/pichenettes/stmlib |
+| `open303/` | Open303 (Robin Schmidt), the DSP code | `313bf0d` (2024-03-29) | MIT (`fft4g.c`: Takuya Ooura's FFT, "free for any purpose") | github.com/RobinSchmidt/Open303 |
 | `sqlite/` | SQLite amalgamation | 3.54.1 (2026-10-16) | Public domain | sqlite.org/2026/sqlite-amalgamation-3540100.zip, SHA3-256 `92281c86…8e30` matches the download page |
 
 ## Local changes
@@ -22,6 +23,13 @@ Two upstream changes, marked `ion:` in the source:
 - **Synth_Dexed `src/dexed.h`, `src/dx7note.h/.cpp`, `src/dexed.cpp` (`getSamples`): the uniform amp envelope (DECISIONS D-50).** Each `Dx7Note` carries an `ion::dsp::Ahdsr` (from `src/dsp/ahdsr.h`, header-only): `init()` starts it, `keyup()` releases it, `transferState()` carries it to a legato note. `getSamples` multiplies each voice's output by it and by velocity → amp, and marks a voice not live once its envelope is done. Marked `ion:`. With the envelope's defaults (wide open) the output is unchanged; the golden FM render checks that.
 
 - **Plaits `plaits/dsp/dsp.h`: `kCorrectedSampleRate` is 48000** (upstream 47872.34, the module's real codec rate). At ion's true 48 kHz the upstream value plays everything 4.6 cents sharp (DECISIONS V-01). Marked `ion:`. `tests/test_plaits.cpp` checks A4 is 440 Hz.
+
+- **Open303** (marked `ion:`):
+  - `rosic_Open303.h`: the held-note list was a `std::list`, which allocates on every note-on; it's a fixed 16-note stack with the same calls.
+  - `rosic_Open303.h/.cpp`: the accent threshold (velocity 100) is settable (`setAccentThreshold`).
+  - `rosic_Open303.cpp`: sliding back to a still-held note ignored the master tuning (`pitchToFreq(currentNote)` → `pitchToFreq(currentNote, tuning)`); `tests/test_acid.cpp` covers it.
+  - `rosic_FunctionTemplates.h` and `rosic_Open303.h`: `<string.h>` and `<climits>` included (newer compilers don't pull them in).
+  Only `Source/DSPCode/` is copied (no VST plug-in), with `License.txt` as `LICENSE`. Open303 never sets itself idle; ion's engine stops calling it after 200 ms of silence with no key down.
 
 Two other things are worked around from our side instead:
 - **Synth_Dexed** includes `<arm_math.h>` and expects Teensy/Circle helpers (`millis`, `constrain`, `signed_saturate_rshift`). `src/engine/fm/dexed_port/arm_math.h` provides them.

@@ -1,8 +1,16 @@
 # Status
 
-**Phase:** 8 done · 0.8.0 (modulation) released; waiting at its checkpoint. Then Phase 9 (303-style bass), Phase 10 (chip synth).
+**Phase:** 9 done · 0.9.0 (303-style bass, Drive) released. Michael asked (2026-11-08, overnight) for Phases 9 and 10, then a full test sweep and an efficiency pass, without stopping.
 **Branch:** `main`
 **Updated:** 2026-11-08
+
+## Done (Phase 9)
+- **ACID** (D-60): Open303 vendored (MIT, verified at source) with four local changes (allocation-free note list, settable accent threshold, slide-back tuning fix, includes). Mono; overlapping notes slide; velocity ≥ threshold accents. The 303 front panel, playing settings, and the uniform amp envelope. Sleeps after 200 ms of silence. ACID screen laid out like FM/Plaits.
+- **Drive insert** (D-60): soft/hard/fold, bias, tone, level, mix; 2× polyphase half-band oversampling + first-order ADAA (aliases 40 dB under the harmonics); 17 µs per buffer (3.6× faster than the first, naive version, same output).
+- **Demo:** track 2 is ACID through a Drive.
+- **Tests:** 183 cases: pitch, slides (and the tuning bug), accents, the threshold, sleep, every setting at its extremes; Drive's transparency, bounds, DC and aliasing; ACID screen snapshots at three sizes.
+- **ion-bench:** ACID 15 µs per buffer; Drive 17 µs.
+- Project format 9.
 
 ## Done (Phase 8)
 - **Modulation** (D-58, Michael's request; per track by his choice):
@@ -149,7 +157,7 @@
 
 ## Next
 - **Phase 8 (Comet) is on hold until Michael has the device** (his call, 2026-11-08): aarch64 build, ALSA tuning, narrow-layout polish, CPU guard, autostart, measured voice limits.
-- **Phase 9: a 303-style bass** on Open303 (PLAN.md), after the 0.8.0 checkpoint. Then **Phase 10: the chip synth**, ion's own in the spirit of the M8's WavSynth (D-59).
+- **Phase 10: the chip synth**, ion's own in the spirit of the M8's WavSynth (D-59). Then the full test sweep and the efficiency pass (Michael's overnight list).
 
 ## Known gaps carried forward
 - Recording: no audio input yet; a take's source settings are saved in its sidecar but there's no "bring the sources back" command yet; editing the Rec setup doesn't mark the project unsaved.

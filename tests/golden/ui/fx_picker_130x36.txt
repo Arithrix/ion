@@ -6,9 +6,9 @@
 │ 2 CHORUS      rate 0.40 · 50%                    ● ││   CHORUS   width and movement: two modulated voices                      │
 │ 3 —           empty                                ││   DELAY    echoes, synced to the clock or in ms                          │
 │ A → delay     -12.0 dB                             ││   REVERB   plate, hall or room                                           │
-│ B → reverb    -8.0 dB                              ││                                                                          │
-│   sends       post-fader                           ││⏎ adds it · Esc cancels                                                   │
-│                                                    ││                                                                          │
+│ B → reverb    -8.0 dB                              ││   DRIVE    distortion: soft, hard or folding, with tone                  │
+│   sends       post-fader                           ││                                                                          │
+│                                                    ││⏎ adds it · Esc cancels                                                   │
 │send buses                                          ││                                                                          │
 │ A DELAY       1/8D · fb 40% · 0 dB               ● ││                                                                          │
 │ B REVERB      hall · 2.4 s · −5 dB               ● ││                                                                          │

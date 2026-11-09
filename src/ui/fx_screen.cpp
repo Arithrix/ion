@@ -374,7 +374,8 @@ class FxScreen final : public Screen {
     Elements rows = {text("put an effect in " + scopeLabel(it.scope) + " slot " + std::to_string(it.slot + 1)) | color(palette::dim),
                      text("")};
     static const char* about[] = {"", "level control: threshold, ratio, knee, attack, release", "width and movement: two modulated voices",
-                                  "echoes, synced to the clock or in ms", "plate, hall or room"};
+                                  "echoes, synced to the clock or in ms", "plate, hall or room",
+                                  "distortion: soft, hard or folding, with tone"};
     for (int i = 0; i < kEffectTypes - 1; ++i) {
       const auto type = static_cast<EffectType>(i + 1);
       const bool on = i == pick_;
@@ -527,6 +528,9 @@ std::string insertSummary(const Session& s, int scope, int slot) {
       return buf;
     case EffectType::Reverb:
       std::snprintf(buf, sizeof buf, "%s · %.1f s", txt(Reverb::kType).c_str(), static_cast<double>(p(Reverb::kDecay) / 1000.0f));
+      return buf;
+    case EffectType::Drive:
+      std::snprintf(buf, sizeof buf, "%s · +%.0f dB", txt(Drive::kShape).c_str(), static_cast<double>(p(Drive::kDrive)));
       return buf;
   }
   return "";

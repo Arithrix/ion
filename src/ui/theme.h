@@ -28,6 +28,8 @@ inline const ftxui::Color value = ftxui::Color::RGB(0x6C, 0xC5, 0xD9);
 inline const ftxui::Color lilac = ftxui::Color::RGB(0xC3, 0xA6, 0xFF);
 inline const ftxui::Color green = ftxui::Color::RGB(0x9B, 0xD4, 0x8A);
 inline const ftxui::Color record = ftxui::Color::RGB(0xFF, 0x7A, 0x7A);
+inline const ftxui::Color acid = ftxui::Color::RGB(0xE6, 0xD8, 0x5C);   // ACID engine
+inline const ftxui::Color chip = ftxui::Color::RGB(0xF2, 0x8F, 0xB8);   // CHIP engine
 inline const ftxui::Color selectedOff = ftxui::Color::RGB(0x8A, 0x5A, 0x26);  // unlit bar on a selected row
 }  // namespace palette
 

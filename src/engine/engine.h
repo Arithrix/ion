@@ -18,7 +18,7 @@ inline constexpr int kSampleRate = 48000;
 // block (FM note-ons land on its 64-frame grid; other engines are sample-exact).
 inline constexpr std::size_t kBlockSize = 64;
 
-enum class EngineType : uint8_t { None, Fm, Drum, Sampler, Plaits };
+enum class EngineType : uint8_t { None, Fm, Drum, Sampler, Plaits, Acid };
 
 // Name in files ("fm") and in the UI ("FM").
 const char* engineKey(EngineType type);

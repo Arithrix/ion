@@ -9,6 +9,7 @@
 #include "engine/drum/drum_engine.h"
 #include "engine/fx/effect.h"
 #include "engine/module.h"
+#include "engine/acid/acid_engine.h"
 #include "engine/plaits/plaits_engine.h"
 #include "engine/sampler/sampler_engine.h"
 #include "engine/fm/fm_engine.h"
@@ -204,6 +205,12 @@ class TracksScreen final : public Screen {
         rows.push_back({Row::Param, label, engineParamRef(t, p)});
       }
     }
+    if (type == EngineType::Acid)
+      for (int p : {AcidEngine::kCutoff, AcidEngine::kResonance, AcidEngine::kEnvMod, AcidEngine::kDecay, AcidEngine::kAccent}) {
+        std::string label = AcidEngine::paramTable()[static_cast<std::size_t>(p)].label;
+        label[0] = static_cast<char>(std::tolower(static_cast<unsigned char>(label[0])));
+        rows.push_back({Row::Param, label, engineParamRef(t, p)});
+      }
     if (type == EngineType::Plaits) {
       // The model and its three macros, and the LPG; the rest are on the Instrument screen.
       for (int p : {PlaitsEngine::kModel, PlaitsEngine::kHarmonics, PlaitsEngine::kTimbre, PlaitsEngine::kMorph, PlaitsEngine::kLpgDecay}) {
@@ -212,7 +219,7 @@ class TracksScreen final : public Screen {
         rows.push_back({Row::Param, label, engineParamRef(t, p)});
       }
     }
-    const auto table = type == EngineType::Drum || type == EngineType::Sampler || type == EngineType::Plaits ? std::span<const ParamInfo>{}
+    const auto table = type == EngineType::Drum || type == EngineType::Sampler || type == EngineType::Plaits || type == EngineType::Acid ? std::span<const ParamInfo>{}
                                                                                                            : engineParams(type);
     auto engineRow = [&](std::size_t i) {
       std::string label = table[i].label;
@@ -352,6 +359,7 @@ std::string trackSoundName(const Session& s, int t) {
       for (const PadState& p : tr.pads) n += !p.sample.empty();
       return n == 0 ? "empty kit" : std::to_string(n) + (n == 1 ? " pad" : " pads");
     }
+    case EngineType::Acid: return "303-style bass";
     case EngineType::Plaits:
       return PlaitsEngine::modelName(static_cast<int>(std::lround(s.param(engineParamRef(t, PlaitsEngine::kModel)))));
     default: return engineLabel(tr.engine);

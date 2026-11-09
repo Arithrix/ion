@@ -62,3 +62,10 @@ add_library(plaits STATIC ${PLAITS_SOURCES})
 target_include_directories(plaits SYSTEM PUBLIC plaits)
 target_compile_definitions(plaits PUBLIC TEST)  # stmlib's host build: no ARM intrinsics
 target_compile_options(plaits PRIVATE -w)
+
+# ---- Open303 (MIT; fft4g.c is Takuya Ooura's, free for any use) -------------------
+# The DSP code only (no VST plug-in). Two local changes, marked `ion:`; see README.
+file(GLOB OPEN303_SOURCES CONFIGURE_DEPENDS open303/*.cpp open303/*.c)
+add_library(open303 STATIC ${OPEN303_SOURCES})
+target_include_directories(open303 SYSTEM PUBLIC open303)
+target_compile_options(open303 PRIVATE -w)
