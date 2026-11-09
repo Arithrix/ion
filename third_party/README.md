@@ -24,12 +24,27 @@ Two upstream changes, marked `ion:` in the source:
 
 - **Plaits `plaits/dsp/dsp.h`: `kCorrectedSampleRate` is 48000** (upstream 47872.34, the module's real codec rate). At ion's true 48 kHz the upstream value plays everything 4.6 cents sharp (DECISIONS V-01). Marked `ion:`. `tests/test_plaits.cpp` checks A4 is 440 Hz.
 
+- **FTXUI `src/ftxui/component/app.cpp`: mouse tracking mode 1002 (motion only while a button is held) instead of 1003 (all motion).** Every event FTXUI receives redraws the whole screen, and with 1003 a mouse crossing the terminal sends dozens. ion only needs motion for dragging. Marked `ion:` (DECISIONS D-62).
+
 - **Open303** (marked `ion:`):
   - `rosic_Open303.h`: the held-note list was a `std::list`, which allocates on every note-on; it's a fixed 16-note stack with the same calls.
   - `rosic_Open303.h/.cpp`: the accent threshold (velocity 100) is settable (`setAccentThreshold`).
   - `rosic_Open303.cpp`: sliding back to a still-held note ignored the master tuning (`pitchToFreq(currentNote)` → `pitchToFreq(currentNote, tuning)`); `tests/test_acid.cpp` covers it.
   - `rosic_FunctionTemplates.h` and `rosic_Open303.h`: `<string.h>` and `<climits>` included (newer compilers don't pull them in).
+  - `rosic_MipMappedWaveTable.cpp`, `initPrototypeTable`: zeroed 4 entries past the end of the 2048-entry table (into the next member); found by UBSan in the 0.10.1 test sweep.
   Only `Source/DSPCode/` is copied (no VST plug-in), with `License.txt` as `LICENSE`. Open303 never sets itself idle; ion's engine stops calling it after 200 ms of silence with no key down.
+
+- **stmlib `dsp/dsp.h`, `InterpolateWrap`:** a negative position stayed negative after wrapping and read before the table (Plaits' wave terrain model passes negative phases to its sine). Now wrapped into 0…1. Found by the deep sweep. Marked `ion:`.
+- **Plaits' shared RAM is cleared on a model switch** (in ion's own voice, `src/engine/plaits/plaits_voice.cpp`, not in Plaits): all models share one scratch buffer, and some keep state there with a `Reset()` that doesn't clear it (the 6-op models' accumulator), so a new model could start on the previous one's leftovers, including NaN. Found by the deep sweep.
+- **Plaits `plaits/dsp/fm/dx_units.h`, `NormalizeVelocity`:** a velocity of exactly 1.0 (every full-velocity note on the 6-op models) read one entry past the 17-entry cube-root table. Clamped just under 1. Found by the deep sweep. Marked `ion:`.
+- **Plaits `plaits/dsp/speech/lpc_speech_synth_controller.cc`, `Render`:** the frame position of a word being spoken carried over when Harmonics moved from the word banks back to the vowels, and read far past the 15-frame phoneme table. An out-of-range position now goes back to scanning. Found by the deep sweep. Marked `ion:`.
+- **Plaits `plaits/dsp/speech/lpc_speech_synth.h`, `PlayFrame`:** a triggered consonant (one frame, no blend) still read the frame after it, past the end of the phoneme table for the last consonant. It now reads the same frame twice. Found by the deep sweep (AddressSanitizer). Marked `ion:`.
+- **Plaits `plaits/dsp/engine/wavetable_engine.cc`: the wave coordinates are kept under 7.0** (marked `ion:`). With Harmonics high (the quantised banks), the quantisation could make a coordinate exactly 7.0, and the reads went past the end of the 256-entry wave map: garbage pointers. Silent on the module, a crash on a computer. Found by the 0.10.1 sweep (random settings, AddressSanitizer).
+
+- **Synth_Dexed: fixes from the 0.10.1 sweep** (marked `ion:`):
+  - `dexed.cpp`, `Dexed::keydown`: the new note's time stamp was written to `voices[i]` (the loop counter) instead of `voices[note]`. When every voice was busy and one was stolen, `i` was one past the end of the voice array: a heap overflow (found by AddressSanitizer under random playing). Otherwise it stamped the wrong voice, so the next steal could take a note that wasn't the oldest.
+  - `dexed.h` initialises `monoMode` (setMonoMode read it uninitialised); `lfo.cpp` clamps the LFO delay byte to 99 (above that it made a negative shift).
+  - Built with `-fwrapv`: MSFA's phase accumulators wrap by design.
 
 Two other things are worked around from our side instead:
 - **Synth_Dexed** includes `<arm_math.h>` and expects Teensy/Circle helpers (`millis`, `constrain`, `signed_saturate_rshift`). `src/engine/fm/dexed_port/arm_math.h` provides them.

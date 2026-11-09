@@ -1401,6 +1401,17 @@ json Session::insertsJson(int scope) const {
 
 void Session::insertsFromJson(int scope, const json& arr) {
   if (!arr.is_array()) return;
+  // The file lists every slot that has an effect: one it doesn't list is
+  // empty, even where a new project would have one (the master's glue
+  // compressor, which used to come back after being removed and reloaded).
+  std::array<bool, kInsertSlots> listed{};
+  for (const json& ji : arr) {
+    const int slot = ji.value("slot", 0) - 1;
+    if (slot >= 0 && slot < kInsertSlots) listed[static_cast<std::size_t>(slot)] = true;
+  }
+  for (int slot = 0; slot < kInsertSlots; ++slot)
+    if (!listed[static_cast<std::size_t>(slot)] && !insertFixed(scope, slot) && insert(scope, slot) != EffectType::None)
+      setInsert(scope, slot, EffectType::None);
   for (const json& ji : arr) {
     const int slot = ji.value("slot", 0) - 1;
     if (slot < 0 || slot >= kInsertSlots) continue;

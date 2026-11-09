@@ -10,7 +10,9 @@ target_include_directories(synth_dexed SYSTEM
   PUBLIC ${CMAKE_SOURCE_DIR}/src/engine/fm/dexed_port synth_dexed/src)
 # ion's envelope (src/dsp/ahdsr.h, header-only) is used inside Synth_Dexed: see README.
 target_include_directories(synth_dexed PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_compile_options(synth_dexed PRIVATE -w)
+# -fwrapv: MSFA's phase accumulators and gains wrap around by design; this
+# makes that defined behaviour rather than something -O3 may assume never happens.
+target_compile_options(synth_dexed PRIVATE -w -fwrapv)
 
 # ---- FTXUI (MIT) ------------------------------------------------------------
 set(FTXUI_BUILD_DOCS OFF CACHE BOOL "" FORCE)

@@ -413,6 +413,29 @@ Michael wants "something like what Dirtywave uses on the M8". As far as I can te
 - **Screen:** the wave drawn from the table, the eight wave settings, the amp envelope beside the filter and rate (as FM and Plaits place it), then playing.
 - **Project format 10** (0.9 would load a CHIP track as empty).
 
+## Decided during the 0.10.1 pass (Michael's overnight list: efficiency, then test everything)
+
+### D-62 · decided · Efficiency
+Measured first, changed second, measured again; anything that didn't help or changed the sound was dropped.
+- **Compiler (every target, vendored code included):** `-O3 -fno-math-errno -fno-trapping-math`, and on x86-64 `-march=x86-64-v3` (AVX2/FMA, CPUs from 2013 on; this laptop's i7-1270P has it). Five builds compared pinned to one core (ion-bench): -O3 alone gained little and LTO nothing; the AVX2/FMA generation is the win. Reverb ~45% faster, 16 drum pads with filter and drive ~30%, the idle mixer ~35%, Plaits ~12%, delay/chorus ~20%. The dev build uses the same flags, so the tests test what ships. A full demo render differs from 0.10.0 by −98.5 dB (fused multiply-add rounding): inaudible. `ion` refuses to start on a CPU without AVX2/FMA, with a message; `-DION_PORTABLE=ON` builds for any x86-64. The Comet (ARM) will get its own flags.
+- **The UI:** a frame costs 0.1–0.4 ms to build, but the app redrew and rewrote the whole terminal 30 times a second regardless. Now it redraws at 30 fps only while something on screen moves (sound, meters falling, the clock, a take, modulation markers on the selected track, a message, notes waiting for their gate) and at 4 fps otherwise; keys and clicks always redraw at once. FTXUI asked the terminal for every mouse movement (mode 1003) and redrew on each; it now asks only for movement with a button held (1002, enough for dragging). Idle UI thread: 7–11% → 2% of a core (the terminal app's own CPU drops with it).
+- **Drive:** its oversampling done polyphase (the half-band's zero taps skipped, the antiderivative cached): 62 → 17 µs per buffer, the same output.
+- **Looked at and left:** the mixer (0.25% of the period when idle on the demo), memory (25 MB resident with the demo; no engine is large), Plaits' heaviest models (upstream DSP; the flags already help), the audio thread's live load in the header (4–5%, mostly PipeWire's own work and an efficiency core's clock).
+- `ion-bench` now also times each screen's frame and the cost of modulation.
+
+### D-63 · decided · The test sweep, and what it found
+- **New tests:**
+  - randomised: hundreds of edits while playing, then undo all and redo all (must match exactly); random projects through save and load; every engine and effect under random settings (finite, bounded, voices freed); random MIDI including clock and transport with a take running; random keys, clicks, wheel and drags on every screen at three sizes. Fixed seeds; `ION_SWEEP_DEEP=N` runs N more (used for long hunts: 150 extra seeds under the sanitizers);
+  - a real-time guard: operator new/delete counted while `Module::process` runs, with everything busy (zero allowed);
+  - app flows driven with keys (engine picker, piano, save as, Library load, mute/solo, effects, a take, Settings);
+  - outside the suite: the real app through a pty at three sizes with PipeWire audio (every screen, piano on every track, overlays, undo, mouse, save, quit), a 90-second playing soak (memory flat, 0 dropouts), every command-line mode.
+- **Bugs found and fixed** (each with a regression test):
+  - **Synth_Dexed:** a heap overflow when stealing a voice with all busy, plus the wrong voice stamped as newest; `monoMode` read uninitialised; a negative shift from an LFO delay byte over 99; built with `-fwrapv` (its accumulators wrap by design).
+  - **Plaits:** the wavetable model read past its wave map at the top of the quantised banks (a crash); the speech model read past its phoneme table twice (a struck consonant; a word's position surviving a move back to the vowels); the 6-op models read past their velocity table on every full-velocity note, and could start on another model's leftovers in the RAM all models share (NaN; ion now clears it on a model switch); output now clips at full scale as the module's own does. stmlib's `InterpolateWrap` left a negative position negative and read before its table (the wave terrain model's sine); it now wraps into 0…1.
+  - **Open303:** an array zeroed past its end.
+  - **ion:** undo/redo of a step that changes what an effect slot holds or which engine a track runs could bring back a stale value (a moved, switched-off effect came back on); a removed master glue compressor came back after save and load; CHIP and Plaits glide ran away when the glide time was shortened mid-glide; the sampler's LP24 resonated in both stages (+49 dB at full resonance; now the second stage stops at Butterworth, unchanged below ~30%).
+- **Clean:** 214 test cases, all passing in the normal and Release builds and under AddressSanitizer + UBSan with no findings, vendored code included.
+
 ## Proposed (waiting for Michael)
 
 ### D-01 · implemented in Phase 0 · Direct ALSA sequencer instead of RtMidi

@@ -684,7 +684,10 @@ void App::Internal::Install() {
 
   if (track_mouse_) {
     enable({DECMode::kMouseVt200});
-    enable({DECMode::kMouseAnyEvent});
+    // ion: button-event tracking (motion only while a button is held, enough
+    // for dragging) instead of any-event: every reported move redraws the
+    // whole screen, and a mouse crossing the terminal reports dozens.
+    enable({DECMode::kMouseBtnEventMouse});
     enable({DECMode::kMouseUrxvtMode});
     enable({DECMode::kMouseSgrExtMode});
   }

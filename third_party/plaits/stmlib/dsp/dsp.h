@@ -67,6 +67,9 @@ inline float InterpolateHermite(const float* table, float index, float size) {
 
 inline float InterpolateWrap(const float* table, float index, float size) {
   index -= static_cast<float>(static_cast<int32_t>(index));
+  // ion: truncation leaves a negative index negative (-0.3 stays -0.3), which
+  // read before the table (Plaits' wave terrain feeds Sine() negative phases).
+  if (index < 0.0f) index += 1.0f;
   index *= size;
   MAKE_INTEGRAL_FRACTIONAL(index)
   float a = table[index_integral];

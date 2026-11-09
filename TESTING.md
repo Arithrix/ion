@@ -1,38 +1,38 @@
-# Testing ion 0.10.0 — Phase 10: the chip synth
+# Testing ion 0.10.1 — faster, and the fixes from a full test sweep
 
-This checkpoint should show **CHIP**, a lo-fi wave synth in the spirit of the M8's WavSynth: a little wave you shape as it plays, crunchy on purpose.
-
-Allow about 15 minutes. If you haven't tried 0.9.0 (ACID and Drive), its checklist is in `~/ion/releases/v0.9.0/TESTING.md`.
+Three builds landed overnight. Try them in this order:
+1. **0.9.0: ACID, a 303-style bass, and the Drive effect.** Checklist: `~/ion/releases/v0.9.0/TESTING.md` (15 min).
+2. **0.10.0: CHIP, a lo-fi wave synth in the M8's spirit.** Checklist: `~/ion/releases/v0.10.0/TESTING.md` (15 min).
+3. **0.10.1: this one.** It's 0.10.0, faster, with the bugs a full test sweep found fixed. Both checklists above work on it (use `demo v0.10.1`).
 
 ## 0. Before you start
-1. `ion --version` → `ion 0.10.0 (…)`.
-2. `ion --project "demo v0.10.0"`
+1. `ion --version` → `ion 0.10.1 (…)`.
+2. `ion --project "demo v0.10.1"`
 
-## 1. CHIP (10 min)
-1. Track 3 (channel 3) is CHIP. `3`, then `I`. At the top, **the wave as it is now**, drawn from its table; under it the eight settings that make it.
-2. Play it (OXI channel 3, or `` ` `` and the keys). Each note has a blip of pitch: envelope 1 is on **tune** (`O` shows the route).
-3. Shape the wave while it plays:
-   - **Shape:** pulses 12–75%, saw, triangle, sine, **noise tone** (pitched noise: it plays the note) and **noise**.
-   - **Size:** 4–256 steps; low is crude and buzzy.
-   - **Mult:** repeats the wave inside itself: a hard-sync sound.
-   - **Warp:** squashes it to one side. **Mirror:** folds it back on itself.
-   - **Amp** pushes it into the **Limit** (clip, sine, fold, wrap); fold and wrap at high amp are the wild ones.
-   - **Bits:** 8 down to 1.
-4. **Filter** (low/high/band-pass, notch) with cutoff and resonance; **Rate** brings the whole track's sample rate down for crunch.
-5. The amp envelope sits beside the filter, as on the other instruments; Vel→amp is 50% here.
-6. `v` on any of them modulates it (warp and mult with an LFO are fun).
+## 1. Nothing should sound different (5 min)
+The speed-up comes from building ion for this laptop's CPU generation. A full render of the demo differs from 0.10.0 by about −100 dB, which is far below anything audible. Play the demo's tracks and tell me if anything changed.
 
-## What to send back
-- Does it feel like the M8's WavSynth territory? What's missing?
-- Which shapes and limits are useful, and is anything just noise?
-- Levels next to the other tracks.
+## 2. Less CPU (2 min)
+- With nothing playing and nothing moving, the screen redraws 4 times a second instead of 30. ion's `cpu` in the header and the system monitor should both be lower, and so should xfce4-terminal's.
+- Play something and it's back to 30 straight away. Meters, the clock and modulation all move smoothly.
+- Moving the mouse over ion no longer makes it redraw.
+
+## 3. The fixes, if you want to poke at them (5 min)
+- **FM:** set Voices low (Instrument screen, voice section) and play more notes than that, fast: it steals the oldest note cleanly. (Before, this could corrupt memory.)
+- **Plaits Wavetable** (green, 6th) with Harmonics, Timbre and Morph all at the top: it plays. (Before, it could crash ion.)
+- **Plaits Speech** (green, 8th): sweep Harmonics from the words back to the vowels while a word plays.
+- **Plaits 6-op FM** at full velocity: fine. (It read past a table on every such note.)
+- **Plaits Wave terrain** (orange, 6th): sweep all three knobs while playing; nothing changes in the sound, but it no longer reads outside its sine table.
+- **Glide** on CHIP or Plaits: set a long glide, play, and turn glide off mid-note: the pitch lands where it should.
+- **Sampler, LP24 filter, resonance at maximum:** strong, but no longer dangerous. Below about 30% resonance it's exactly as before.
+- **Master glue compressor:** remove it (`F`, the master's slot 1, `x`), save, quit, reopen: it stays removed.
+- **Undo after moving a switched-off effect** between slots: it stays off.
 
 ## Known issues
-- The wave is read without interpolation, so high notes alias: that's the chip sound, on purpose.
-- Rate and the filter are per track and per voice respectively; there's no per-voice rate.
+- ion now needs an x86-64 CPU from 2013 or later (AVX2). On an older one it says so and stops. `ION_PORTABLE` builds one that runs anywhere.
 
 ## Rolling back
 ```
-~/projects/ion/scripts/use-version.sh 0.9.0
+~/projects/ion/scripts/use-version.sh 0.10.0
 ```
-Projects saved by 0.10.0 are format 10, and 0.9.x won't open them.
+Project files are the same format as 0.10.0 (10).

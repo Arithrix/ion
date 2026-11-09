@@ -51,6 +51,26 @@ void Session::commitEdit() {
   }
   step.at = std::chrono::steady_clock::now();
   if (docChanged) {
+    // Where the step changes what a slot holds or what engine a track runs,
+    // every value there is part of the step, changed or not: values of an
+    // empty slot or a gone engine mean nothing, and can drift (the audio
+    // thread's echo of a reset) between this step and its redo.
+    std::vector<bool> have(values_.size(), false);
+    for (const ValueChange& v : step.values) have[v.index] = true;
+    auto whole = [&](int scope, int from, int count) {
+      for (int k = 0; k < count; ++k) {
+        const auto i = static_cast<uint32_t>(ParamStore::index({static_cast<uint8_t>(scope), static_cast<uint16_t>(from + k)}));
+        if (!have[i]) step.values.push_back({i, undoValues_[i], values_[i]});
+      }
+    };
+    for (int scope = 0; scope < kScopeCount; ++scope)
+      for (int slot = 0; slot < kInsertSlots; ++slot)
+        if (undoDoc_.inserts[static_cast<std::size_t>(scope)][static_cast<std::size_t>(slot)] !=
+            inserts_[static_cast<std::size_t>(scope)][static_cast<std::size_t>(slot)])
+          whole(scope, kInsertBase + slot * kInsertStride, kInsertStride);
+    for (int t = 0; t < kTrackCount; ++t)
+      if (undoDoc_.tracks[static_cast<std::size_t>(t)].engine != tracks_[static_cast<std::size_t>(t)].engine)
+        whole(t, kEngineParamBase, kMaxEngineParams);
     step.before = std::move(undoDoc_);
     step.after = doc();
   }

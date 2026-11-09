@@ -147,7 +147,8 @@ inline void LFODelay(int delay, float increments[2]) {
 inline float NormalizeVelocity(float velocity) {
   // float cube_root = stmlib::Sqrt(
   //     0.7f * stmlib::Sqrt(velocity) + 0.3f * velocity);
-  const float cube_root = stmlib::Interpolate(lut_cube_root, velocity, 16);
+  // ion: at velocity 1.0 the interpolation read one past the 17-entry table.
+  const float cube_root = stmlib::Interpolate(lut_cube_root, std::min(std::max(velocity, 0.0f), 0.99999f), 16);
   return 16.0f * (cube_root - 0.918f);
 }
 

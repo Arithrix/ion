@@ -22,16 +22,16 @@ syx::Voice voice(uint32_t seed, const char* name) {
   syx::Voice v{};
   for (std::size_t i = 0; i < syx::kNameOffset; ++i) v[i] = static_cast<uint8_t>(rng() % 100);
   v = syx::normalize(v);
-  char padded[11];
-  std::snprintf(padded, sizeof padded, "%-10s", name);
-  std::memcpy(v.data() + syx::kNameOffset, padded, syx::kNameLength);
+  std::string padded = name;
+  padded.resize(syx::kNameLength, ' ');  // a DX7 name is exactly 10 characters, space-padded
+  std::memcpy(v.data() + syx::kNameOffset, padded.data(), syx::kNameLength);
   return v;
 }
 
 syx::Voice renamed(syx::Voice v, const char* name) {
-  char padded[11];
-  std::snprintf(padded, sizeof padded, "%-10s", name);
-  std::memcpy(v.data() + syx::kNameOffset, padded, syx::kNameLength);
+  std::string padded = name;
+  padded.resize(syx::kNameLength, ' ');  // a DX7 name is exactly 10 characters, space-padded
+  std::memcpy(v.data() + syx::kNameOffset, padded.data(), syx::kNameLength);
   return v;
 }
 

@@ -5,6 +5,29 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-11-09
+
+### Faster
+- **The sound engine runs 12–45% faster** depending on what's playing (the reverb nearly twice as fast), from building ion for this laptop's generation of CPU. Nothing sounds different. ion now needs a CPU from 2013 or later (yours qualifies); it says so plainly on an older one.
+- **ion uses far less CPU when nothing's moving on screen:** the screen redraws 4 times a second instead of 30 until something moves, and moving the mouse no longer redraws everything. Idle, the interface went from 7–11% of a core to 2% (and the terminal app's own work drops too).
+- **Drive** is 3.6× cheaper, with the same sound.
+
+### Fixed (found by a full test sweep)
+- **FM could corrupt memory** when you played more notes than its polyphony (a bug in Synth_Dexed's voice stealing). It also stole the wrong note sometimes; it now always steals the oldest.
+- **Plaits' Wavetable model could crash ion** with Harmonics turned right up, **its Speech model** could read outside its tables (a crash, depending on timing), and **its 6-op FM models** read past a table on every full-velocity note. All three bugs were in Plaits' own code.
+- **Plaits could go silent with a burst of noise or NaN** right after switching to a 6-op model: it started on what the previous model left in their shared memory. ion clears it on every model switch.
+- **Plaits' Wave terrain model read before a table** when its path swung negative (Plaits' shared interpolation helper didn't wrap negative positions). Harmless-sounding, but it was reading memory it shouldn't. Fixed in the helper, so anything else in Plaits that uses it is covered too.
+- **Plaits** no longer gets painfully loud at extreme settings (Chords with Env→pitch at −100%): it clips at full scale, as the real module does.
+- **Undo/redo** could switch an effect back on that you had switched off, after moving it between slots.
+- **Removing the master's glue compressor** didn't survive saving and reopening the project. It does now.
+- **Glide** on CHIP and Plaits could send the pitch off the scale if you shortened the glide time while a note was gliding.
+- **The sampler's 24 dB low-pass** at high resonance could get dangerously loud (both of its stages resonated). Only the first one does now; below about 30% resonance it sounds exactly as before.
+- Smaller fixes inside Synth_Dexed and Open303 found by the memory checkers.
+
+### Also
+- `ion --ui-snapshot … --screen` knows the FX, Rec and Mod screens.
+- `ion-bench` also measures the interface and modulation.
+
 ## [0.10.0] - 2026-11-09
 
 ### Added (Phase 10: chip synth)

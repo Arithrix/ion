@@ -1,8 +1,13 @@
 # Status
 
-**Phase:** 10 done · 0.10.0 (chip synth) released. Michael asked (2026-11-08, overnight) for Phases 9 and 10, then a full test sweep and an efficiency pass, without stopping.
+**Phase:** 10 done · 0.10.1 (efficiency pass and full test sweep) released. Michael's overnight list (2026-11-08): Phases 9 and 10, a full test of everything, an efficiency pass — all done. Michael asked (2026-11-08, overnight) for Phases 9 and 10, then a full test sweep and an efficiency pass, without stopping.
 **Branch:** `main`
 **Updated:** 2026-11-08
+
+## Done (0.10.1: efficiency and the test sweep)
+- **Efficiency** (D-62): -O3, no math errno/traps and AVX2/FMA for every target (reverb ~45% faster, drums ~30%, idle mixer ~35%, Plaits ~12%; a demo render differs by −98.5 dB); a CPU check at start-up and `ION_PORTABLE`; the UI redraws at 4 fps when nothing moves and FTXUI no longer reports bare mouse motion (idle UI 7–11% → 2% of a core); Drive 3.6× cheaper.
+- **Test sweep** (D-63): randomised editing with undo/redo invariants, save/load round trips, every engine and effect under random settings, random MIDI with a take, random UI input at three sizes, a real-time allocation guard, app flows, a live pty tour and soak. 212 cases, clean under ASan + UBSan.
+- **Bugs fixed:** Synth_Dexed voice-steal heap overflow (+3 smaller); Plaits wavetable overrun (crash) and two speech-table overruns, output clip; Open303 overrun; undo of effect moves; master glue compressor after save/load; glide runaway (CHIP, Plaits); sampler LP24 double resonance.
 
 ## Done (Phase 10)
 - **CHIP** (D-61): ion's own lo-fi wave synth after the M8's WavSynth idea (its manual read for the idea; nothing copied). Table of 4–256 steps from 7 shapes plus two NES-style noises; mult, warp, mirror, amp into clip/sine/fold/wrap, 1–8 bits; read without interpolation. Per-voice SVF (new shared `dsp/svf.h`), uniform amp envelope, track-wide sample-rate reduction, 8 voices, glide, tune (modulatable). 4.2 µs per buffer for six voices.
@@ -164,7 +169,7 @@
 
 ## Next
 - **Phase 8 (Comet) is on hold until Michael has the device** (his call, 2026-11-08): aarch64 build, ALSA tuning, narrow-layout polish, CPU guard, autostart, measured voice limits.
-- **The efficiency pass, then the full test sweep** (Michael's overnight list), as 0.10.1.
+- Michael's checkpoint on 0.9.0 (ACID, Drive), 0.10.0 (CHIP) and 0.10.1 (faster, the fixes). The Comet stays on hold until he has it.
 
 ## Known gaps carried forward
 - Recording: no audio input yet; a take's source settings are saved in its sidecar but there's no "bring the sources back" command yet; editing the Rec setup doesn't mark the project unsaved.

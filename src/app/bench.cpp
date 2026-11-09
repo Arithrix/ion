@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <filesystem>
 #include <memory>
 #include <cstdio>
 #include <cstdlib>
@@ -20,6 +21,9 @@
 #include "engine/fx/effects.h"
 #include "engine/module.h"
 #include "engine/acid/acid_engine.h"
+#include "project/config.h"
+#include "project/session.h"
+#include "ui/app.h"
 #include "engine/chip/chip_engine.h"
 #include "engine/plaits/plaits_engine.h"
 #include "library/syx.h"
@@ -331,6 +335,51 @@ int main(int argc, char** argv) {
     } w(lim);
     const double us = benchEffect(w, seconds);
     std::printf("  %-24s  %23.1f   %11.2f%%\n", "limiter (master)", us, us / 2666.7 * 100.0);
+  }
+
+  // The UI: one frame of each screen at 130×36 (building and laying it out;
+  // the terminal output isn't counted). At 30 frames a second, 1 ms a frame
+  // is 3% of a core.
+  {
+    namespace fs = std::filesystem;
+    const fs::path root = fs::temp_directory_path() / "ion-bench-ui";
+    fs::remove_all(root);
+    fs::create_directories(root);
+    {
+      ion::Module m;
+      ion::Config config;
+      config.autosaveMinutes = 0;
+      ion::Session s(m, ion::Paths::under(root), config);
+      s.newProject("bench");
+      s.setEngine(0, ion::EngineType::Fm);
+      s.setEngine(1, ion::EngineType::Acid);
+      s.setEngine(2, ion::EngineType::Chip);
+      s.setEngine(3, ion::EngineType::Drum);
+      s.setEngine(5, ion::EngineType::Sampler);
+      s.setEngine(6, ion::EngineType::Plaits);
+      s.setInsert(0, 0, ion::EffectType::Compressor);
+      s.setModTarget(6, 0, ion::engineParamRef(6, ion::PlaitsEngine::kTimbre));
+      std::vector<float> buf(2 * 256);
+      m.process(buf.data(), 256);
+      s.tick();
+      std::printf("\nUI (one frame at 130×36, µs; 30 frames a second)\n");
+      struct Shot {
+        const char* label;
+        ion::ui::ScreenId id;
+        int track;
+      };
+      for (const Shot& sh : {Shot{"tracks", ion::ui::ScreenId::Tracks, 0}, Shot{"mixer", ion::ui::ScreenId::Mixer, 0},
+                             Shot{"fx", ion::ui::ScreenId::Fx, 0}, Shot{"mod", ion::ui::ScreenId::Mod, 6},
+                             Shot{"rec", ion::ui::ScreenId::Rec, 0}, Shot{"library", ion::ui::ScreenId::Library, 0},
+                             Shot{"settings", ion::ui::ScreenId::Settings, 0}, Shot{"instr: FM", ion::ui::ScreenId::Instrument, 0},
+                             Shot{"instr: ACID", ion::ui::ScreenId::Instrument, 1}, Shot{"instr: CHIP", ion::ui::ScreenId::Instrument, 2},
+                             Shot{"instr: drum", ion::ui::ScreenId::Instrument, 3}, Shot{"instr: sampler", ion::ui::ScreenId::Instrument, 5},
+                             Shot{"instr: Plaits", ion::ui::ScreenId::Instrument, 6}}) {
+        const double us = ion::ui::frameMicros(s, m, sh.id, 130, 36, sh.track, 200);
+        std::printf("  %-16s %8.0f µs   %5.1f%% of a core at 30 fps\n", sh.label, us, us * 30 / 1e4);
+      }
+    }
+    fs::remove_all(root);
   }
   return 0;
 }

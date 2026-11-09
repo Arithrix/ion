@@ -58,7 +58,7 @@ void printUsage() {
       "  --headless        run without the UI; Ctrl+C to stop\n"
       "  --list-midi       list MIDI inputs and exit\n"
       "  --ui-snapshot WxH print one UI frame as text and exit (for bug reports)\n"
-      "  --screen NAME     with --ui-snapshot: tracks, instrument, mixer, library, settings, help, piano\n"
+      "  --screen NAME     with --ui-snapshot: tracks, instrument, mod, mixer, fx, rec, library, settings, help, piano\n"
       "  --track N         with --ui-snapshot: the selected track, 1-8 (default 1)\n"
       "  --version         print the version and exit");
 }
@@ -132,6 +132,9 @@ ion::ui::ScreenId screenFromName(const std::string& n) {
   if (n == "instrument") return ion::ui::ScreenId::Instrument;
   if (n == "library") return ion::ui::ScreenId::Library;
   if (n == "settings") return ion::ui::ScreenId::Settings;
+  if (n == "fx") return ion::ui::ScreenId::Fx;
+  if (n == "rec") return ion::ui::ScreenId::Rec;
+  if (n == "mod") return ion::ui::ScreenId::Mod;
   return ion::ui::ScreenId::Tracks;
 }
 
@@ -140,6 +143,15 @@ volatile std::sig_atomic_t g_stop = 0;
 }  // namespace
 
 int main(int argc, char** argv) {
+#if defined(__x86_64__) && defined(__AVX2__)
+  // Built for AVX2/FMA CPUs (D-62): say so plainly on an older one instead of crashing.
+  __builtin_cpu_init();
+  if (!__builtin_cpu_supports("avx2") || !__builtin_cpu_supports("fma")) {
+    std::fprintf(stderr, "ion: this build needs a CPU with AVX2 and FMA (Intel 2013 / AMD 2015 or newer).\n"
+                         "Build it with -DION_PORTABLE=ON for older machines.\n");
+    return 1;
+  }
+#endif
   Args args;
   if (!parseArgs(argc, argv, args)) return 2;
   if (args.help) {

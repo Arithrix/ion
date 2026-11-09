@@ -380,7 +380,7 @@ class Dexed
     bool sustain;
     bool sostenuto;
     bool hold;
-    bool monoMode;
+    bool monoMode = false;  // ion: was uninitialised, and setMonoMode() reads it first
     bool noteRefreshMode;
     bool refreshVoice;
     uint8_t engineType;

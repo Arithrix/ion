@@ -31,6 +31,7 @@ class Piano {
   std::vector<uint8_t> releaseAll();
 
   bool isPianoKey(char key) const;
+  bool holding() const { return !held_.empty(); }  // notes waiting for their gate to end
   void octaveDown() { octave_ = std::max(0, octave_ - 1); }
   void octaveUp() { octave_ = std::min(8, octave_ + 1); }
   void cycleVelocity();

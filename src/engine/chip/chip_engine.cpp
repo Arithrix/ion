@@ -222,10 +222,13 @@ void ChipEngine::render(float* left, float* right, std::size_t frames) {
     // Pitch once per call (≤ 64 frames): glide moves in steps that small.
     float pitch = v.pitch;
     if (v.glideLeft > 0) {
-      pitch = v.pitch + (v.glideFrom - v.pitch) * static_cast<float>(v.glideLeft) / std::max(1.0f, glideTotal);
+      // The fraction still to go, at most 1: the glide time can be shortened mid-glide.
+      const float left = std::min(1.0f, static_cast<float>(v.glideLeft) / std::max(1.0f, glideTotal));
+      pitch = v.pitch + (v.glideFrom - v.pitch) * left;
       v.glideLeft = std::max(0, v.glideLeft - static_cast<int>(frames));
     }
-    const double inc = 440.0 * std::exp2((pitch + offset - 69.0) / 12.0) / kSampleRate;
+    // Notes 0–140 (8 Hz – 26 kHz): beyond that there's nothing to play and the phase maths runs away.
+    const double inc = 440.0 * std::exp2((std::clamp(static_cast<double>(pitch + offset), 0.0, 140.0) - 69.0) / 12.0) / kSampleRate;
     for (std::size_t i = 0; i < frames; ++i) {
       float s;
       if (noise) {
