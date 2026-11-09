@@ -1,4 +1,4 @@
- ion  Tracks Instr Mixer Fx Rec Library  ↶ undo ↷ redo                                    snapshot ● no clock   cpu 0%   no audio
+ ion  Tracks Instr Mod Mixer Fx Rec Library  ↶ undo ↷ redo                                snapshot ● no clock   cpu 0%   no audio
 ╭ Tracks ───────────────────────────────────────────────────────────────────────╮╭ Track 3 · FM ─────────────────────────────────╮
 │ #  ch  engine  sound                                    level       dB        ││SYN-BAS 4                                      │
 │ 1  01  FM      SNAP TEST                                 ░░░░░░░░░░   0.0  ·  ││from cart_17 · ● edited                        │

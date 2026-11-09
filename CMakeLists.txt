@@ -95,6 +95,7 @@ add_library(ion_ui STATIC
   src/ui/instrument_screen.cpp
   src/ui/library_screen.cpp
   src/ui/mixer_screen.cpp
+  src/ui/mod_screen.cpp
   src/ui/piano.cpp
   src/ui/plaits_screen.cpp
   src/ui/rec_screen.cpp

@@ -294,7 +294,7 @@ class TracksScreen final : public Screen {
           const ParamInfo* pi = s.paramInfo(*r.param);
           const float v = s.param(*r.param);
           value = pi ? formatValue(*pi, v) : "?";
-          if (pi && (pi->curve == Curve::Fader || pi->curve == Curve::Linear)) bar = valueBar(toNormalized(*pi, v), 10, palette::value);
+          if (pi && (pi->curve == Curve::Fader || pi->curve == Curve::Linear)) bar = valueBar(toNormalized(*pi, v), 10, palette::value, false, modulatedAt(ctx, *r.param));
           break;
         }
       }

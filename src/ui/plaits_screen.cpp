@@ -302,7 +302,7 @@ class PlaitsScreen final : public Screen {
                         text(fit(pi.label, labelW)) | size(WIDTH, EQUAL, labelW) | color(on ? palette::accent : palette::text)};
       if (macro) {
         const int barW = std::clamp(w - labelW - 30, 8, 16);
-        cells.push_back(valueBar(v, barW, on ? palette::accent : palette::green));
+        cells.push_back(valueBar(v, barW, on ? palette::accent : palette::green, false, modulatedAt(ctx, engineParamRef(t, param))));
         std::string value = formatValue(pi, v);
         if (r == 0) {
           const std::string pick = harmonicsPick(ctx, m);

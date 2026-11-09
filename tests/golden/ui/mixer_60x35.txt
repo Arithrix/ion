@@ -1,4 +1,4 @@
- ion Trk Ins Mix Fx Rec Lib ↶ ↷                 0% no audio
+ ion Trk Ins Mod Mix Fx Rec Lib ↶ ↷             0% no audio
 ╭ Channels ────────────────────────────────────────────────╮
 │ 1 FM     ░░░░░░ 0.0 dB   L30  ▄▅▆▅▅▅                     │
 │ 2 —      ░░░░░░ 0.0 dB   C    ▅▅▅▅▅▅                     │

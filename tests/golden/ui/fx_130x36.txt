@@ -1,4 +1,4 @@
- ion  Tracks Instr Mixer Fx Rec Library  ↶ undo ↷ redo                                    snapshot ● no clock   cpu 0%   no audio
+ ion  Tracks Instr Mod Mixer Fx Rec Library  ↶ undo ↷ redo                                snapshot ● no clock   cpu 0%   no audio
 ╭ Signal chain ──────────────────────────────────────╮╭ REVERB · send B ─────────────────────────────────────────────────────────╮
 │track 3 · SYN-BAS 4                                 ││ Plate  Hall  Room                                                        │
 │   EQ          flat                               ● ││                                                                          │

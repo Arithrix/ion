@@ -42,7 +42,7 @@ namespace {
 using namespace ftxui;
 using Clock = std::chrono::steady_clock;
 
-constexpr int kScreenCount = 7;
+constexpr int kScreenCount = 8;
 constexpr uint8_t kAuditionNote = 60;  // C3
 
 std::string describeMidi(const MidiMessage& m) {
@@ -86,6 +86,7 @@ class App {
     screens_[static_cast<int>(ScreenId::Rec)] = makeRecScreen();
     screens_[static_cast<int>(ScreenId::Library)] = makeLibraryScreen();
     screens_[static_cast<int>(ScreenId::Settings)] = makeSettingsScreen();
+    screens_[static_cast<int>(ScreenId::Mod)] = makeModScreen();
   }
 
   ~App() {
@@ -212,6 +213,7 @@ class App {
         switch (c[0]) {
           case 'T': show(ScreenId::Tracks); return true;
           case 'I': show(ScreenId::Instrument); return true;
+          case 'O': show(ScreenId::Mod); return true;
           case 'M': show(ScreenId::Mixer); return true;
           case 'F': show(ScreenId::Fx); return true;
           case 'R': show(ScreenId::Rec); return true;
@@ -231,6 +233,7 @@ class App {
           case 'w': save(); return true;
           case 'W': startSaveAs(); return true;
           case 'l': startLearn(); return true;
+          case 'v': startModulate(); return true;
           case 'm':
           case 's': {
             const int scope = screen().focusedScope(ctx_).value_or(ctx_.track);
@@ -442,6 +445,25 @@ class App {
       return;
     }
     ctx_.session.learn(*p);
+  }
+
+  // `v`: a route from LFO 1 onto the focused value (D-58).
+  void startModulate() {
+    Session& s = ctx_.session;
+    const auto p = screen().focusedParam(ctx_);
+    if (!p || !s.modulatable(*p)) {
+      flash(p ? "that can't be modulated (switches, choices and other tracks' values can't)" : "nothing to modulate here: move to a value first");
+      return;
+    }
+    const int route = s.addModRoute(*p);
+    if (route < 0) {
+      flash("track " + std::to_string(p->scope + 1) + " has all 8 routes in use: O to change one");
+      return;
+    }
+    const auto src = static_cast<int>(std::lround(s.param(routeRef(p->scope, route, kRouteSource))));
+    char depth[16];
+    std::snprintf(depth, sizeof depth, "%+.0f%%", static_cast<double>(s.param(routeRef(p->scope, route, kRouteDepth)) * 100));
+    flash(std::string(modSourceName(src)) + " → " + s.paramLabel(*p) + " " + depth + " (route " + std::to_string(route + 1) + ") · O edits it");
   }
 
   // ---- path completion in prompts ----
@@ -695,7 +717,7 @@ class App {
         rows.push_back(hbox({text(k) | bold | color(palette::value) | size(WIDTH, EQUAL, 13), text(label) | color(palette::text)}));
       return vbox(rows);
     };
-    Element global = section("Everywhere", {{"T I M F R L", "Tracks · Instrument · Mixer · FX · Rec · Library"},
+    Element global = section("Everywhere", {{"T I O M F R L", "Tracks · Instr · Mod · Mixer · FX · Rec · Library"},
                                             {",", "Settings"},
                                             {"1 – 8", "select track"},
                                             {"↑ ↓ ← →", "move · change the value (Shift = coarse)"},
@@ -705,6 +727,7 @@ class App {
                                             {"Space", "audition the selected track (or pad)"},
                                             {"m  s", "mute · solo the selected track"},
                                             {"l", "MIDI-learn the focused value"},
+                                            {"v", "modulate the focused value (LFO 1)"},
                                             {"p", "panic: all notes off"},
                                             {"^Z  ^Y", "undo · redo (or click ↶ ↷)"},
                                             {"w  W", "save · save as"},
@@ -762,16 +785,24 @@ class App {
   Element header() {
     const ModuleStatus& st = ctx_.module.status();
     const bool wide = ctx_.wide(), narrow = ctx_.narrow();
-    static const char* longNames[][2] = {{"T", "racks"}, {"I", "nstr"}, {"M", "ixer"}, {"F", "x"}, {"R", "ec"}, {"L", "ibrary"}};
-    static const char* shortNames[][2] = {{"T", "rk"}, {"I", "ns"}, {"M", "ix"}, {"F", "x"}, {"R", "ec"}, {"L", "ib"}};
+    // Each tab: its name split around its key (Mod's key is the O inside it).
+    struct Tab {
+      ScreenId id;
+      char key;
+      const char *before, *keyText, *after, *shortAfter;
+    };
+    static const Tab kTabs[] = {{ScreenId::Tracks, 'T', "", "T", "racks", "rk"}, {ScreenId::Instrument, 'I', "", "I", "nstr", "ns"},
+                                {ScreenId::Mod, 'O', "M", "o", "d", "d"},         {ScreenId::Mixer, 'M', "", "M", "ixer", "ix"},
+                                {ScreenId::Fx, 'F', "", "F", "x", "x"},           {ScreenId::Rec, 'R', "", "R", "ec", "ec"},
+                                {ScreenId::Library, 'L', "", "L", "ibrary", "ib"}};
     Elements tabs;
-    for (int i = 0; i < 6; ++i) {
-      const bool on = static_cast<int>(current_) == i;
-      const auto& n = narrow ? shortNames[i] : longNames[i];
-      static const char keys[] = {'T', 'I', 'M', 'F', 'R', 'L'};
-      tabs.push_back(ctx_.button(hbox({text(n[0]) | bold | color(on ? palette::bg : palette::accent), text(n[1]) | color(on ? palette::bg : palette::dim)}) |
+    for (const Tab& tb : kTabs) {
+      const bool on = current_ == tb.id;
+      const Color dimC = on ? palette::bg : palette::dim;
+      tabs.push_back(ctx_.button(hbox({text(tb.before) | color(dimC), text(tb.keyText) | bold | color(on ? palette::bg : palette::accent),
+                                       text(narrow ? tb.shortAfter : tb.after) | color(dimC)}) |
                                      bgcolor(on ? palette::accent : palette::bg),
-                                 Event::Character(keys[i])));
+                                 Event::Character(tb.key)));
       tabs.push_back(text(" "));
     }
     // Undo and redo, for the mouse (Ctrl+Z, Ctrl+Y on the keyboard).

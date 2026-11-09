@@ -12,7 +12,7 @@ class AlsaSeqInput;
 
 namespace ion::ui {
 
-enum class ScreenId { Tracks, Instrument, Mixer, Fx, Rec, Library, Settings };
+enum class ScreenId { Tracks, Instrument, Mixer, Fx, Rec, Library, Settings, Mod };
 
 struct RunOptions {
   PipeWireOutput* audio = nullptr;

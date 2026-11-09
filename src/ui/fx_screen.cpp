@@ -324,7 +324,7 @@ class FxScreen final : public Screen {
       const bool on = pane_ == 1 && r == row_;
       Element bar = text(std::string(static_cast<std::size_t>(barW), ' '));
       if (barW >= 4 && pi->curve != Curve::Toggle && pi->curve != Curve::Choice) {
-        bar = std::string(pi->key) == "pan" ? centredBar(v, barW, on) : valueBar(toNormalized(*pi, v), barW, palette::value);
+        bar = std::string(pi->key) == "pan" ? centredBar(v, barW, on) : valueBar(toNormalized(*pi, v), barW, palette::value, false, modulatedAt(ctx, ref));
       }
       Element line = hbox({text(on ? "▸ " : "  ") | color(palette::accent),
                            text(pi->label) | size(WIDTH, EQUAL, labelW) | color(on ? palette::accent : palette::text), text(" "),

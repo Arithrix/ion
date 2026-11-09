@@ -1,8 +1,8 @@
- ion Trk Ins Mix Fx Rec Lib ↶ ↷                 0% no audio
+ ion Trk Ins Mod Mix Fx Rec Lib ↶ ↷             0% no audio
 ╭ Track 7 · PLTS · String machine ─────────────────────────╮
 │  Harmonics  █████▊░░░░░░░░░ m7        chord              │
-│▸ Timbre     ██████████▎░░░░ 68%       chorus · filter    │
-│  Morph      ██████░░░░░░░░░ 40%       waveform           │
+│▸ Timbre     ██████████┃░░░░ 68%       chorus · filter    │
+│  Morph      ██████┃░░░░░░░░ 40%       waveform           │
 │LPG gate: opens while the key is held, closes after it    │
 │                                                          │
 │amp █████████████████████    low-pass gate                │
