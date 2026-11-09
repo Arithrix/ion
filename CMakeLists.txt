@@ -73,6 +73,7 @@ add_library(ion_engine STATIC
   src/project/paths.cpp
   src/project/session.cpp
   src/project/session_rec.cpp
+  src/project/session_undo.cpp
 )
 add_dependencies(ion_engine ion_version_header)
 target_include_directories(ion_engine PUBLIC src ${ION_GENERATED_DIR})

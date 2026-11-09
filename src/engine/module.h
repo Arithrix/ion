@@ -32,6 +32,7 @@ struct CcMapping {
   ParamRef target{};
   float lo = 0.0f;
   float hi = 1.0f;
+  bool operator==(const CcMapping&) const = default;
 };
 
 // How live MIDI is timed (HANDOFF §5, DECISIONS D-19).

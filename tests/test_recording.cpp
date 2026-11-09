@@ -497,19 +497,31 @@ TEST_CASE("session: a take sliced on its chord changes goes onto drum pads, and 
   CHECK(readJson(sidecarPath(wavFile))["sent_to"] == "drum · track 2 · pads 5–8");
   CHECK(s.recordings().size() == 1);
 
-  // Undo: the pads are empty again, the source plays, the files are gone.
-  REQUIRE(s.canUndoTake());
-  REQUIRE(s.undoTake(error));
+  // Undo, a step at a time: the slices come off the pads, then the take's
+  // mute goes. The recording itself stays in recordings/.
+  CHECK(s.undoLabel() == "slices → Track 2 pads 5–8");
+  CHECK(s.undo() == "slices → Track 2 pads 5–8");
   REQUIRE(s.waitForSamples());
   r.run(512);
   CHECK(s.track(1).engine == EngineType::Drum);
   for (int pad = 4; pad < 8; ++pad) CHECK(s.padStatus(1, pad) == Session::PadStatus::Empty);
+  CHECK(s.param({0, static_cast<uint16_t>(kMute)}) == 1.0f);
+  CHECK(s.undo().rfind("take ", 0) == 0);
   CHECK(s.param({0, static_cast<uint16_t>(kMute)}) == 0.0f);
-  CHECK_FALSE(fs::exists(wavFile));
-  CHECK_FALSE(fs::exists(sidecarPath(wavFile)));
-  CHECK_FALSE(fs::exists(wavFile.parent_path() / wavFile.stem()));
-  CHECK(s.recordings().empty());
-  CHECK_FALSE(s.canUndoTake());
+  CHECK(fs::exists(wavFile));
+  CHECK(s.recordings().size() == 1);
+
+  // Redo puts it all back.
+  CHECK(s.redo().rfind("take ", 0) == 0);
+  CHECK(s.redo() == "slices → Track 2 pads 5–8");
+  REQUIRE(s.waitForSamples());
+  r.run(512);
+  CHECK(s.param({0, static_cast<uint16_t>(kMute)}) == 1.0f);
+  for (int i = 0; i < 4; ++i) {
+    CHECK(s.padStatus(1, 4 + i) == Session::PadStatus::Ready);
+    CHECK(s.param(engineParamRef(1, DrumEngine::param(4 + i, DrumEngine::kChoke))) == 1.0f);
+  }
+  CHECK_FALSE(s.canRedo());
 }
 
 TEST_CASE("session: a take for the sampler loops from C3 on its track, which isn't muted with the others") {
@@ -546,8 +558,9 @@ TEST_CASE("session: a take for the sampler loops from C3 on its track, which isn
   CHECK(fs::exists(s.recordingsDir() / recs[0].path.filename()));
 
   // Undo brings the FM track back.
-  REQUIRE(s.undoTake(error));
+  CHECK(s.undo().rfind("take tracks-1-3_120bpm_1bar", 0) == 0);
   CHECK(s.track(2).engine == EngineType::Fm);
+  CHECK(s.param({0, static_cast<uint16_t>(kMute)}) == 0.0f);
 }
 
 TEST_CASE("session: arming checks the setup; a cancelled take leaves nothing") {
@@ -573,7 +586,7 @@ TEST_CASE("session: arming checks the setup; a cancelled take leaves nothing") {
   r.run(512);
   CHECK(s.recState() == Session::RecState::Idle);
   CHECK(s.recordings().empty());
-  CHECK_FALSE(s.canUndoTake());
+  CHECK(s.undoLabel().rfind("take ", 0) != 0);
 
   // Free, at once: stops when told, and keeps what it has.
   REQUIRE(s.arm(error));

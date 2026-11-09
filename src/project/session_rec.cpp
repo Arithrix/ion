@@ -260,10 +260,7 @@ void Session::finishTake(Take* done) {
   side["settings"] = settings;
   const fs::path sidecar = sidecarPath(file);
 
-  undo_ = TakeUndo{};
-  undo_->name = stem;
-  undo_->files = {file, sidecar};
-  undo_->sidecar = sidecar;
+  editLabel("take " + stem);
 
   const RecSetup::Dest dest = rec_.dest;
   const int dt = std::clamp(rec_.destTrack, 0, kTrackCount - 1);
@@ -272,7 +269,6 @@ void Session::finishTake(Take* done) {
     for (int t = 0; t < kTrackCount; ++t) {
       if (!(take->tracks >> t & 1) || (dest != RecSetup::Dest::Library && t == dt)) continue;
       const ParamRef m = mixer(t, kMute);
-      undo_->mutes.emplace_back(t, param(m));
       if (param(m) < 0.5f) setParam(m, 1);
     }
 
@@ -282,7 +278,6 @@ void Session::finishTake(Take* done) {
   std::snprintf(secs, sizeof secs, "%.1f s", static_cast<double>(frames) / kSampleRate);
   const std::string len = bars > 0 ? barsText(bars) : std::string(secs);
   if (dest == RecSetup::Dest::Sampler) {
-    undo_->tracks.emplace_back(dt, trackJson(dt).dump());
     sendToSampler(dt, stored);
     sentTo = "sampler · track " + std::to_string(dt + 1);
     message_ = "recorded " + stem + " (" + len + ") → sampler on track " + std::to_string(dt + 1) + ", looped, root C3";
@@ -388,6 +383,7 @@ bool Session::commitSlices(std::string& error) {
   const SliceReview& r = *review_;
   const int t = r.track;
   const int n = std::min(static_cast<int>(r.slices.size()), r.maxSlices());
+  editLabel("slices → Track " + std::to_string(t + 1) + " pads " + std::to_string(r.firstPad + 1) + "–" + std::to_string(r.firstPad + n));
   const Sample& whole = *r.sample;
 
   // Each slice as its own file, beside the recording: recordings/<take>/slice 01.wav …
@@ -403,13 +399,6 @@ bool Session::commitSlices(std::string& error) {
       return false;
     stored.push_back("recordings/" + r.file.stem().string() + "/" + name);
   }
-  if (undo_) {
-    undo_->files.push_back(folder);
-    bool have = false;
-    for (const auto& [ut, js] : undo_->tracks) have |= ut == t;
-    if (!have) undo_->tracks.emplace_back(t, trackJson(t).dump());
-  }
-
   if (tracks_[static_cast<std::size_t>(t)].engine != EngineType::Drum) setEngine(t, EngineType::Drum);
   // A choke group no other pad on the track uses, so the slices cut each other off and nothing else.
   std::array<bool, 5> used{};
@@ -451,32 +440,6 @@ bool Session::commitSlices(std::string& error) {
                 r.firstPad + n, t + 1, static_cast<char>('A' + group - 1));
   message_ = msg;
   review_.reset();
-  markDirty();
-  return true;
-}
-
-// ---- undo -----------------------------------------------------------------------------------
-
-bool Session::undoTake(std::string& error) {
-  if (take_) {
-    error = "a take is running: Esc cancels it";
-    return false;
-  }
-  if (!undo_) {
-    error = "no take to undo";
-    return false;
-  }
-  const TakeUndo u = std::move(*undo_);
-  undo_.reset();
-  review_.reset();
-  for (const auto& [t, text] : u.tracks) {
-    const json jt = json::parse(text, nullptr, false);
-    if (jt.is_object()) trackFromJson(t, jt);
-  }
-  for (const auto& [t, mute] : u.mutes) setParam(mixer(t, kMute), mute);
-  std::error_code ec;
-  for (const fs::path& f : u.files) fs::remove_all(f, ec);
-  message_ = "undid " + u.name + ": its files are gone and the tracks are back as they were";
   markDirty();
   return true;
 }

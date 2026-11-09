@@ -149,6 +149,7 @@ Session::Session(Module& module, Paths paths, Config& config)
   defaultValues();
   lastStore_ = values_;
   saved_ = autosaved_ = values_;
+  clearHistory();
   Command c;
   c.type = Command::Type::SetTiming;
   c.value = config_.timing == MidiTiming::Immediate ? 1.0f : 0.0f;
@@ -187,6 +188,7 @@ EffectType Session::insert(int scope, int slot) const {
 
 void Session::setInsert(int scope, int slot, EffectType type) {
   if (scope < 0 || scope >= kScopeCount || slot < 0 || slot >= kInsertSlots || insertFixed(scope, slot)) return;
+  editLabel(scopeLabel(scope) + " · insert " + std::to_string(slot + 1) + ": " + (type == EffectType::None ? "empty" : effectLabel(type)));
   inserts_[static_cast<std::size_t>(scope)][static_cast<std::size_t>(slot)] = type;
   Command c;
   c.type = Command::Type::SetInsert;
@@ -213,6 +215,7 @@ void Session::moveInsert(int scope, int slot, int delta) {
     return v;
   };
   const EffectType a = insert(scope, slot), b = insert(scope, to);
+  editLabel(scopeLabel(scope) + " · move insert " + std::to_string(slot + 1) + " → " + std::to_string(to + 1));
   const auto va = settings(slot), vb = settings(to);
   auto place = [&](int sl, EffectType type, const std::array<float, kInsertStride>& v) {
     setInsert(scope, sl, type);
@@ -252,6 +255,7 @@ void Session::setValue(ParamRef ref, float value) {
 
 void Session::setEngine(int t, EngineType type) {
   TrackState& tr = tracks_[static_cast<std::size_t>(t)];
+  editLabel("Track " + std::to_string(t + 1) + " · " + (type == EngineType::None ? std::string("cleared") : std::string("engine ") + engineLabel(type)));
   Command c;
   c.type = Command::Type::SetEngine;
   c.track = static_cast<uint8_t>(t);
@@ -295,6 +299,7 @@ void Session::setEngine(int t, EngineType type) {
 
 void Session::setVoice(int t, const syx::Voice& voice, const std::string& source) {
   TrackState& tr = tracks_[static_cast<std::size_t>(t)];
+  editLabel("Track " + std::to_string(t + 1) + " · patch " + syx::name(voice));
   tr.hasVoice = true;
   tr.voice = syx::normalize(voice);
   tr.voiceSource = source;
@@ -312,6 +317,7 @@ void Session::setVoice(int t, const syx::Voice& voice, const std::string& source
 
 void Session::setChannel(int t, int channel) {
   channel = std::clamp(channel, 0, 15);
+  editLabel("Track " + std::to_string(t + 1) + " · channel " + std::to_string(channel + 1));
   tracks_[static_cast<std::size_t>(t)].channel = channel;
   Command c;
   c.type = Command::Type::SetChannel;
@@ -453,6 +459,7 @@ int Session::addMapping(uint8_t channel, uint8_t cc, ParamRef target, float lo, 
     const CcMapping& m = cc_[static_cast<std::size_t>(i)];
     if (m.used && ((m.cc == cc && m.channel == channel) || m.target == target)) removeMapping(i);
   }
+  editLabel("CC map: cc " + std::to_string(cc) + " → " + paramLabel(target));
   for (int i = 0; i < kMaxCcMappings; ++i) {
     if (cc_[static_cast<std::size_t>(i)].used) continue;
     const CcMapping m{true, channel, cc, target, std::clamp(lo, 0.0f, 1.0f), std::clamp(hi, 0.0f, 1.0f)};
@@ -470,6 +477,7 @@ int Session::addMapping(uint8_t channel, uint8_t cc, ParamRef target, float lo, 
 
 void Session::removeMapping(int slot) {
   if (slot < 0 || slot >= kMaxCcMappings) return;
+  editLabel("CC map: remove cc " + std::to_string(cc_[static_cast<std::size_t>(slot)].cc));
   cc_[static_cast<std::size_t>(slot)] = {};
   Command c;
   c.type = Command::Type::SetCcMapping;
@@ -482,6 +490,7 @@ void Session::removeMapping(int slot) {
 void Session::setMappingRange(int slot, float lo, float hi) {
   if (slot < 0 || slot >= kMaxCcMappings || !cc_[static_cast<std::size_t>(slot)].used) return;
   CcMapping& m = cc_[static_cast<std::size_t>(slot)];
+  editLabel("CC map: cc " + std::to_string(m.cc) + " range");
   m.lo = std::clamp(lo, 0.0f, 1.0f);
   m.hi = std::clamp(hi, 0.0f, 1.0f);
   Command c;
@@ -541,6 +550,7 @@ dx7::Macros Session::macros(int t) const {
 }
 
 void Session::resetMacros(int t) {
+  editLabel("Track " + std::to_string(t + 1) + " · reset macros");
   for (int i = 0; i < dx7::kMacroCount; ++i) setParam(engineRef(t, FmEngine::kFirstMacro + i), 0.0f);
 }
 
@@ -609,6 +619,7 @@ int Session::programIndex(const syx::Voice& voice) const {
 }
 
 bool Session::toggleProgram(const syx::Voice& voice, const std::string& source) {
+  editLabel("program list: " + syx::name(voice));
   if (const int i = programIndex(voice); i >= 0) {
     programs_.erase(programs_.begin() + i);
   } else {
@@ -623,6 +634,7 @@ bool Session::toggleProgram(const syx::Voice& voice, const std::string& source) 
 void Session::moveProgram(int index, int delta) {
   const int to = index + delta;
   if (index < 0 || to < 0 || index >= static_cast<int>(programs_.size()) || to >= static_cast<int>(programs_.size())) return;
+  editLabel("program list: move " + syx::name(programs_[static_cast<std::size_t>(index)].voice));
   std::swap(programs_[static_cast<std::size_t>(index)], programs_[static_cast<std::size_t>(to)]);
   sendPrograms();
   markDirty();
@@ -656,6 +668,8 @@ void Session::setPadSample(int t, int pad, const std::string& path) {
   if (t < 0 || t >= kTrackCount || pad < 0 || pad >= DrumEngine::kPads) return;
   TrackState& tr = tracks_[static_cast<std::size_t>(t)];
   if (tr.engine != EngineType::Drum && !(tr.engine == EngineType::Sampler && pad == 0)) return;
+  editLabel("Track " + std::to_string(t + 1) + (tr.engine == EngineType::Sampler ? std::string(" · sample") : " · pad " + std::to_string(pad + 1)) +
+            (path.empty() ? std::string(" cleared") : ": " + fs::path(path).stem().string()));
   tr.pads[static_cast<std::size_t>(pad)].sample = path;
   requestPad(t, pad);
   markDirty();
@@ -811,6 +825,7 @@ int Session::collectSamples(std::string& error) {
     error = "the project has no name";
     return -1;
   }
+  editLabel("collect samples");
   const fs::path dir = paths_.projectDir(name_) / "samples";
   std::map<fs::path, std::string> copied;  // source → new stored path
   int count = 0, missing = 0;
@@ -886,6 +901,7 @@ bool Session::loadKit(int t, const fs::path& file, std::string& error) {
     error = "not a drum track";
     return false;
   }
+  editLabel("Track " + std::to_string(t + 1) + " · kit " + file.stem().string());
   std::string text;
   if (!readFile(file, text)) {
     error = "can't read " + file.string();
@@ -959,6 +975,7 @@ Session::KitSummary Session::kitSummary(const std::string& name) const {
 // ---- tick ----------------------------------------------------------------------------
 
 void Session::tick() {
+  commitEdit();  // edits made without the UI (headless, tests) are steps too
   while (auto n = module_.popNotification()) {
     switch (n->type) {
       case Notification::Type::EngineRetired:
@@ -990,12 +1007,14 @@ void Session::tick() {
           tr.voiceSource = programs_[n->program].source;
           linkLibrary(tr);
           loadedAt_[n->track] = std::chrono::steady_clock::now();
+          undoDoc_.tracks[n->track] = tr;  // playing, not an edit: not a step
           markDirty();
           message_ = "program " + std::to_string(n->program + 1) + " → track " + std::to_string(n->track + 1) + ": " +
                      syx::name(tr.voice);
         }
         break;
       case Notification::Type::CcLearned: {
+        editLabel("learn cc " + std::to_string(n->cc) + " → " + paramLabel(n->param));
         if (addMapping(n->channel, n->cc, n->param) >= 0)
           message_ = "learned: cc " + std::to_string(n->cc) + " ch " + std::to_string(n->channel + 1) + " → " +
                      paramLabel(n->param);
@@ -1016,8 +1035,10 @@ void Session::tick() {
     if (s != lastStore_[i]) {
       lastStore_[i] = s;
       values_[i] = s;
+      undoValues_[i] = s;  // a CC move is playing, not an edit
     }
   }
+  commitEdit();  // what a take or a learned CC changed
 
   // A patch that has stayed on a track for a few seconds counts as used.
   if (library_) {
@@ -1094,7 +1115,6 @@ void Session::reset() {
   cancelTake();
   takeAbandoned_ = take_ != nullptr;
   review_.reset();
-  undo_.reset();
   for (int t = 0; t < kTrackCount; ++t) {
     if (tracks_[static_cast<std::size_t>(t)].engine != EngineType::None) {
       Command c;
@@ -1137,6 +1157,7 @@ void Session::newProject(const std::string& name) {
   name_ = name;
   saved_ = autosaved_ = values_;
   dirty_ = autosavedDirty_ = false;
+  clearHistory();
 }
 
 namespace {
@@ -1383,8 +1404,10 @@ bool Session::fromJson(const std::string& text, std::string& error) {
     if (j.contains("rec") && j["rec"].is_object()) recFromJson(j["rec"]);
   } catch (const json::exception& e) {
     error = std::string("bad project file: ") + e.what();
+    clearHistory();
     return false;
   }
+  clearHistory();
   return true;
 }
 

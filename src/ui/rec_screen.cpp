@@ -74,12 +74,6 @@ class RecScreen final : public Screen {
       pane_ = 1 - pane_;
       return true;
     }
-    if (e == Event::Character('u')) {
-      if (s.undoTake(error)) slice_ = 0;
-      else ctx.flash = error;
-      return true;
-    }
-
     if (st == Session::RecState::Review) return reviewEvent(ctx, e);
 
     if (e == Event::Character('r')) {
@@ -144,7 +138,6 @@ class RecScreen final : public Screen {
       case Session::RecState::Idle:
         h = {{"r", "Record"}, {"↑↓", "Option"}, {"←→", "Change"}};
         if (s.recSetup().source == RecSource::Tracks) h.push_back({"⏎", "Toggle track"});
-        if (s.canUndoTake()) h.push_back({"u", "Undo take"});
         h.push_back({"Esc", "Back"});
         break;
     }
@@ -444,7 +437,9 @@ class RecScreen final : public Screen {
                           text(fit(len, lenW)) | size(WIDTH, EQUAL, lenW) | color(palette::dim), text(" "),
                           text(fit(e.info.sentTo.empty() ? "library" : e.info.sentTo, destW)) | color(palette::dim)}));
     }
-    if (s.canUndoTake()) out.push_back(text(fit("u undoes " + s.undoName(), inner)) | color(palette::faint));
+    // The last take (or its slices) is undone like any edit.
+    if (const std::string u = s.undoLabel(); u.rfind("take ", 0) == 0 || u.rfind("slices ", 0) == 0)
+      out.push_back(text(fit("^Z undoes " + u, inner)) | color(palette::faint));
 
     const Color border = hot ? palette::record : st == Session::RecState::Review ? palette::accent : palette::border;
     return pane("Recording", vbox(out), border);
