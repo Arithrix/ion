@@ -259,6 +259,7 @@ void SamplerEngine::renderVoice(Voice& v, float* left, float* right, std::size_t
   // Filter, at the start of the block: envelope, key tracking, velocity, LFO, in octaves.
   const int filter = static_cast<int>(std::lround(v_[kFilter]));
   float a1 = 0, a2 = 0, a3 = 0, k = 2;
+  float b1 = 0, b2 = 0, b3 = 0;  // LP24's second stage
   if (filter != kFilterOff) {
     const float octaves = v_[kEnvAmount] * 5.0f * v.filt.level() + v_[kKeyTrack] * (v.pitch - v_[kRoot]) / 12.0f +
                           v_[kLfoCutoff] * 4.0f * lfo - v_[kVelFilter] * 4.0f * (1.0f - v.velocity);
@@ -268,6 +269,14 @@ void SamplerEngine::renderVoice(Voice& v, float* left, float* right, std::size_t
     a1 = 1.0f / (1.0f + g * (g + k));
     a2 = g * a1;
     a3 = g * a2;
+    // LP24's second stage resonates no further than flat (Butterworth, k = √2):
+    // only the first one carries the resonance. Both resonating squared the
+    // peak (Q 16 → ~270, +49 dB) and could drive the track far past full
+    // scale (found by the 0.10.1 sweep). Below about 30% resonance nothing changes.
+    const float k2 = std::max(k, std::numbers::sqrt2_v<float>);
+    b1 = 1.0f / (1.0f + g * (g + k2));
+    b2 = g * b1;
+    b3 = g * b2;
   }
   const int stages = filter == kLp24 ? 2 : 1;
 
@@ -308,9 +317,10 @@ void SamplerEngine::renderVoice(Voice& v, float* left, float* right, std::size_t
           float& s1 = v.s1[st][c];
           float& s2 = v.s2[st][c];
           const float in = x[c];
+          const float c1 = st == 0 ? a1 : b1, c2 = st == 0 ? a2 : b2, c3 = st == 0 ? a3 : b3;
           const float v3 = in - s2;
-          const float v1 = a1 * s1 + a2 * v3;
-          const float v2 = s2 + a2 * s1 + a3 * v3;
+          const float v1 = c1 * s1 + c2 * v3;
+          const float v2 = s2 + c2 * s1 + c3 * v3;
           s1 = 2 * v1 - s1;
           s2 = 2 * v2 - s2;
           x[c] = filter == kHp ? in - k * v1 - v2 : filter == kBp ? k * v1 : v2;

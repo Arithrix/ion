@@ -34,6 +34,7 @@ Two upstream changes, marked `ion:` in the source:
   - `rosic_MipMappedWaveTable.cpp`, `initPrototypeTable`: zeroed 4 entries past the end of the 2048-entry table (into the next member); found by UBSan in the 0.10.1 test sweep.
   Only `Source/DSPCode/` is copied (no VST plug-in), with `License.txt` as `LICENSE`. Open303 never sets itself idle; ion's engine stops calling it after 200 ms of silence with no key down.
 
+- **Plaits `plaits/dsp/speech/lpc_speech_synth.h`, `PlayFrame`:** a triggered consonant (one frame, no blend) still read the frame after it, past the end of the phoneme table for the last consonant. It now reads the same frame twice. Found by the deep sweep (AddressSanitizer). Marked `ion:`.
 - **Plaits `plaits/dsp/engine/wavetable_engine.cc`: the wave coordinates are kept under 7.0** (marked `ion:`). With Harmonics high (the quantised banks), the quantisation could make a coordinate exactly 7.0, and the reads went past the end of the 256-entry wave map: garbage pointers. Silent on the module, a crash on a computer. Found by the 0.10.1 sweep (random settings, AddressSanitizer).
 
 - **Synth_Dexed: fixes from the 0.10.1 sweep** (marked `ion:`):

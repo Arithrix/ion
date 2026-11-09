@@ -58,7 +58,7 @@ void printUsage() {
       "  --headless        run without the UI; Ctrl+C to stop\n"
       "  --list-midi       list MIDI inputs and exit\n"
       "  --ui-snapshot WxH print one UI frame as text and exit (for bug reports)\n"
-      "  --screen NAME     with --ui-snapshot: tracks, instrument, mixer, library, settings, help, piano\n"
+      "  --screen NAME     with --ui-snapshot: tracks, instrument, mod, mixer, fx, rec, library, settings, help, piano\n"
       "  --track N         with --ui-snapshot: the selected track, 1-8 (default 1)\n"
       "  --version         print the version and exit");
 }
@@ -132,6 +132,9 @@ ion::ui::ScreenId screenFromName(const std::string& n) {
   if (n == "instrument") return ion::ui::ScreenId::Instrument;
   if (n == "library") return ion::ui::ScreenId::Library;
   if (n == "settings") return ion::ui::ScreenId::Settings;
+  if (n == "fx") return ion::ui::ScreenId::Fx;
+  if (n == "rec") return ion::ui::ScreenId::Rec;
+  if (n == "mod") return ion::ui::ScreenId::Mod;
   return ion::ui::ScreenId::Tracks;
 }
 

@@ -75,9 +75,11 @@ class LPCSpeechSynth {
     if (!interpolate) {
       frame_fractional = 0.0f;
     }
+    // ion: without interpolation the next frame isn't used (blend 0), and for
+    // the last consonant it's past the end of the phoneme table: don't read it.
     PlayFrame(
         frames[frame_integral],
-        frames[frame_integral + 1],
+        frames[interpolate ? frame_integral + 1 : frame_integral],
         frame_fractional);
   }
 

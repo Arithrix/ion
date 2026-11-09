@@ -262,7 +262,9 @@ TEST_CASE("sweep: every engine under random settings and notes stays finite, bou
           peak = std::max(peak, std::max(std::fabs(l[i]), std::fabs(rr[i])));
         }
       }
-      CHECK(peak < 16.0f);
+      // Bounded: a runaway filter or envelope goes to hundreds or more. Heavy
+      // but legitimate settings (+24 dB of sampler level on 16 voices) reach ~20.
+      CHECK(peak < 48.0f);
       // Every note off, then time to finish: nothing left sounding.
       for (int n = 0; n < 128; ++n) e->noteOff(static_cast<uint8_t>(n));
       e->setParam(static_cast<int>(table.size()) - 2, 200);  // a finite release where it's the amp release (most engines)
@@ -440,5 +442,114 @@ TEST_CASE("regression: shortening the glide time mid-glide (CHIP's pitch ran to 
     std::fill(l.begin(), l.end(), 0.0f);
     e.render(l.data(), r.data(), 64);
     for (float s : l) REQUIRE(std::isfinite(s));
+  }
+}
+
+TEST_CASE("sweep-debug: find the redo step that diverges" * doctest::skip(std::getenv("ION_SWEEP_SEED") == nullptr)) {
+  const unsigned seed = static_cast<unsigned>(std::atoi(std::getenv("ION_SWEEP_SEED")));
+  Rig r;
+  Session& s = *r.session;
+  std::mt19937 rng(seed);
+  r.run();
+  std::vector<std::string> states = {doc(s)};
+  std::vector<std::string> labels = {""};
+  for (int i = 0; i < 250; ++i) {
+    randomEdit(r, rng);
+    const int before = s.undoSteps();
+    s.commitEdit();
+    if (s.undoSteps() != before) {
+      states.push_back(doc(s));
+      labels.push_back(s.undoLabel());
+    } else if (!states.empty()) {
+      states.back() = doc(s);  // merged into the last step
+    }
+    if (i % 5 == 0) randomPlay(r, rng);
+    if (i % 3 == 0) r.run(1);
+  }
+  s.sendMidi({0xB0, 123, 0});
+  s.panic();
+  r.run(4);
+  s.waitForSamples();
+  r.run(2);
+  states.back() = doc(s);
+  int steps = 0;
+  while (s.canUndo()) {
+    s.undo();
+    if (++steps % 7 == 0) r.run(1);
+  }
+  r.run(2);
+  if (doc(s) != states[0]) MESSAGE("undo-all doesn't reach the start");
+  for (std::size_t k = 1; k < states.size(); ++k) {
+    s.redo();
+    r.run(1);
+    if (doc(s) != states[k]) {
+      const auto a = doc(s), b = states[k];
+      std::size_t at = 0;
+      while (at < a.size() && at < b.size() && a[at] == b[at]) ++at;
+      MESSAGE("got:  …" << a.substr(at > 80 ? at - 80 : 0, 200));
+      MESSAGE("want: …" << b.substr(at > 80 ? at - 80 : 0, 200));
+      MESSAGE("diverges at redo " << k << ": " << labels[k]);
+      MESSAGE("previous step: " << labels[k - 1]);
+      FAIL("");
+    }
+  }
+}
+
+TEST_CASE("regression: redo of moving a switched-off effect keeps it off") {
+  Rig r;
+  Session& s = *r.session;
+  // The master's glue compressor is in slot 1, switched off. Move it to slot 2.
+  REQUIRE(s.param(insertOnRef(kMasterScope, 0)) == 0.0f);
+  s.moveInsert(kMasterScope, 0, 1);
+  s.commitEdit();
+  CHECK(s.param(insertOnRef(kMasterScope, 1)) == 0.0f);
+  s.undo();
+  r.run(2);  // the audio thread echoes the emptied slot's reset back
+  s.redo();
+  r.run(2);
+  CHECK(s.insert(kMasterScope, 1) == EffectType::Compressor);
+  CHECK(s.param(insertOnRef(kMasterScope, 1)) == 0.0f);
+}
+
+TEST_CASE("regression: the sampler's 24 dB low-pass at full resonance stays near the 12 dB one's peak") {
+  auto peakWith = [](int filter) {
+    SamplerEngine e;
+    Sample smp;
+    smp.channels = 1;
+    smp.frames = 48000;
+    smp.data.assign(static_cast<std::size_t>(smp.frames + 2 * Sample::kGuard), 0.0f);
+    std::mt19937 rng(7);
+    for (int64_t i = 0; i < smp.frames; ++i) smp.data[static_cast<std::size_t>(i + Sample::kGuard)] = static_cast<float>(static_cast<int>(rng() % 2001) - 1000) / 2000.0f;
+    e.setSample(0, &smp);
+    e.setParam(SamplerEngine::kFilter, static_cast<float>(filter));
+    e.setParam(SamplerEngine::kReso, 1);
+    e.setParam(SamplerEngine::kCutoff, 800);
+    e.noteOn(60, 127);
+    std::vector<float> l(64), r(64);
+    float pk = 0;
+    for (int b = 0; b < 600; ++b) {
+      std::fill(l.begin(), l.end(), 0.0f);
+      e.render(l.data(), r.data(), 64);
+      for (float v : l) pk = std::max(pk, std::fabs(v));
+    }
+    return pk;
+  };
+  CHECK(peakWith(SamplerEngine::kLp24) < 2.0f * peakWith(SamplerEngine::kLp12));
+}
+
+TEST_CASE("regression: Plaits' speech model, struck at every address (read past the phoneme table)") {
+  PlaitsEngine e;
+  e.setParam(PlaitsEngine::kModel, 7);  // Speech
+  e.setParam(PlaitsEngine::kHarmonics, 0.1f);  // the LPC vowels and consonants
+  std::vector<float> l(64), r(64);
+  for (int i = 0; i <= 40; ++i) {
+    e.setParam(PlaitsEngine::kMorph, static_cast<float>(i) / 40.0f);
+    e.setParam(PlaitsEngine::kTimbre, static_cast<float>(i % 7) / 6.0f);
+    e.noteOn(static_cast<uint8_t>(30 + i), 100);
+    for (int b = 0; b < 20; ++b) {
+      e.render(l.data(), r.data(), 64);
+      for (float v : l) REQUIRE(std::isfinite(v));
+    }
+    e.noteOff(static_cast<uint8_t>(30 + i));
   }
 }
