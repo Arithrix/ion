@@ -79,11 +79,31 @@ inline constexpr int kInsertStride = 20;
 inline constexpr uint16_t kEngineParamBase = 128;
 inline constexpr int kMaxEngineParams = 320;
 
+// Modulation (DECISIONS D-58): on each track, two LFOs, two envelopes and
+// eight routes, numbered from kModBase. A route's source and depth are values
+// like any other (saved, undone, CC-learnable); its target is part of the
+// track (Session's TrackState::modTargets).
+inline constexpr uint16_t kModBase = kEngineParamBase + kMaxEngineParams;  // 448
+inline constexpr int kLfos = 2, kModEnvs = 2, kModRoutes = 8;
+enum LfoParam : uint8_t { kLfoShape, kLfoRate, kLfoSync, kLfoDivision, kLfoRestart, kLfoPhase, kLfoParamCount };
+enum ModEnvParam : uint8_t { kMEnvAttack, kMEnvHold, kMEnvDecay, kMEnvSustain, kMEnvRelease, kMEnvTrigger, kModEnvParamCount };
+enum RouteParam : uint8_t { kRouteSource, kRouteDepth, kRouteParamCount };
+inline constexpr int kModParamCount = kLfos * kLfoParamCount + kModEnvs * kModEnvParamCount + kModRoutes * kRouteParamCount;  // 40
+inline constexpr int kModRange = 64;  // room kept for more
+enum LfoShape : uint8_t { kLfoSine, kLfoTriangle, kLfoSawUp, kLfoSawDown, kLfoSquare, kLfoSampleHold, kLfoSmooth, kLfoShapeCount };
+enum LfoRestart : uint8_t { kRestartFree, kRestartNote, kRestartBar };
+// What a route reads. LFOs and the random source are bipolar (−1…1); the rest 0…1.
+enum ModSource : uint8_t { kSrcNone, kSrcLfo1, kSrcLfo2, kSrcEnv1, kSrcEnv2, kSrcVelocity, kSrcModWheel, kSrcAftertouch, kSrcKey,
+                           kSrcRandom, kModSourceCount };
+const char* modSourceName(int source);
+bool modSourceBipolar(int source);
+
 struct ParamRef {
   uint8_t scope = 0;   // track 0-7, kMasterScope, kDelayScope, kReverbScope
   uint16_t index = 0;  // MixerParam, an insert parameter, or kEngineParamBase + engine param
   bool operator==(const ParamRef&) const = default;
-  bool isEngine() const { return index >= kEngineParamBase; }
+  bool isEngine() const { return index >= kEngineParamBase && index < kModBase; }
+  bool isMod() const { return index >= kModBase && index < kModBase + kModRange; }
   bool isInsert() const { return index >= kInsertBase && index < kInsertBase + kInsertSlots * kInsertStride; }
   int slot() const { return (index - kInsertBase) / kInsertStride; }       // for isInsert()
   int slotIndex() const { return (index - kInsertBase) % kInsertStride; }  // 0 = on, then the effect's
@@ -101,6 +121,22 @@ const ParamInfo& insertOnInfo();
 // "Track 3", "Master", "Delay return"; "track3", "master", "delay" in keys.
 std::string scopeLabel(int scope);
 std::string scopeKey(int scope);
+
+// Modulation parameters of track t.
+constexpr ParamRef lfoRef(int track, int lfo, int p) {
+  return {static_cast<uint8_t>(track), static_cast<uint16_t>(kModBase + lfo * kLfoParamCount + p)};
+}
+constexpr ParamRef modEnvRef(int track, int env, int p) {
+  return {static_cast<uint8_t>(track), static_cast<uint16_t>(kModBase + kLfos * kLfoParamCount + env * kModEnvParamCount + p)};
+}
+constexpr ParamRef routeRef(int track, int route, int p) {
+  return {static_cast<uint8_t>(track),
+          static_cast<uint16_t>(kModBase + kLfos * kLfoParamCount + kModEnvs * kModEnvParamCount + route * kRouteParamCount + p)};
+}
+// The modulation table (indices are ParamRef::index − kModBase): "lfo1.rate", "env2.decay", "mod3.depth".
+std::span<const ParamInfo> modParams();
+// Synced LFO periods (Choice values of kLfoDivision), in quarter notes.
+double lfoDivisionBeats(int division);
 
 // Engine parameter `index` (into the engine's table) of track t.
 constexpr ParamRef engineParamRef(int track, int index) {

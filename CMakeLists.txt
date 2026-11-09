@@ -66,6 +66,7 @@ add_library(ion_engine STATIC
   src/engine/plaits/plaits_engine.cpp
   src/engine/plaits/plaits_voice.cpp
   src/engine/module.cpp
+  src/engine/modulation.cpp
   src/audio/pipewire_out.cpp
   src/audio/wav.cpp
   src/midi/alsa_seq_in.cpp

@@ -134,7 +134,22 @@ void Session::applyStep(const Step& step, bool forward) {
   markDirty();
 }
 
+void Session::syncModTargets(int t, const TrackState& want) {
+  TrackState& tr = tracks_[static_cast<std::size_t>(t)];
+  for (int r = 0; r < kModRoutes; ++r)
+    if (tr.modTargets[static_cast<std::size_t>(r)] != want.modTargets[static_cast<std::size_t>(r)]) {
+      tr.modTargets[static_cast<std::size_t>(r)] = want.modTargets[static_cast<std::size_t>(r)];
+      sendModTarget(t, r);
+    }
+}
+
 void Session::restoreDoc(const Doc& d) {
+  // Inserts first: changing one lets go of routes onto it, and the tracks
+  // below put back the routes the step wants.
+  for (int scope = 0; scope < kScopeCount; ++scope)
+    for (int slot = 0; slot < kInsertSlots; ++slot)
+      if (insert(scope, slot) != d.inserts[static_cast<std::size_t>(scope)][static_cast<std::size_t>(slot)])
+        setInsert(scope, slot, d.inserts[static_cast<std::size_t>(scope)][static_cast<std::size_t>(slot)]);
   for (int t = 0; t < kTrackCount; ++t) {
     TrackState& tr = tracks_[static_cast<std::size_t>(t)];
     const TrackState& want = d.tracks[static_cast<std::size_t>(t)];
@@ -144,7 +159,8 @@ void Session::restoreDoc(const Doc& d) {
     // fresh engine, which loads the voice or the pads it's given.
     if (tr.engine != want.engine || (tr.hasVoice && !want.hasVoice)) {
       tr = want;
-      setEngine(t, want.engine);
+      setEngine(t, want.engine);  // lets go of routes onto engine values…
+      syncModTargets(t, want);    // …which the step may want back
       continue;
     }
     if (want.hasVoice && (tr.voice != want.voice || tr.voiceSource != want.voiceSource || !tr.hasVoice))
@@ -160,11 +176,8 @@ void Session::restoreDoc(const Doc& d) {
       tr.plaitsPatches = want.plaitsPatches;
       sendPlaitsBank(t);
     }
+    syncModTargets(t, want);
   }
-  for (int scope = 0; scope < kScopeCount; ++scope)
-    for (int slot = 0; slot < kInsertSlots; ++slot)
-      if (insert(scope, slot) != d.inserts[static_cast<std::size_t>(scope)][static_cast<std::size_t>(slot)])
-        setInsert(scope, slot, d.inserts[static_cast<std::size_t>(scope)][static_cast<std::size_t>(slot)]);
   for (int i = 0; i < kMaxCcMappings; ++i) {
     if (cc_[static_cast<std::size_t>(i)] == d.cc[static_cast<std::size_t>(i)]) continue;
     cc_[static_cast<std::size_t>(i)] = d.cc[static_cast<std::size_t>(i)];

@@ -81,6 +81,7 @@ ParamRef engineRef(int track, int index) {
 //          Attack and Release macros are gone (their values and CCs drop).
 //   5 → 6: the Rec setup ("rec"), optional: older files get the defaults.
 //   6 → 7: Plaits tracks ("plaits", with its patch list). Nothing to convert.
+//   7 → 8: each track's modulation ("mod"), optional: older tracks keep the defaults, routed nowhere.
 // A drum pad's settings from before the uniform envelope (0.3, 0.4), in place.
 // `prefix` is "padN." in a project, "" in a kit.
 void upgradePadParams(json& params, const std::string& prefix) {
@@ -171,6 +172,10 @@ void Session::defaultValues() {
   for (int s = 0; s < ParamStore::kScopes; ++s)
     for (int i = 0; i < kMixerParamCount; ++i)
       values_[static_cast<std::size_t>(ParamStore::index(mixerRef(s, i)))] = mixerParams()[static_cast<std::size_t>(i)].def;
+  for (int t = 0; t < kTrackCount; ++t)
+    for (int i = 0; i < kModParamCount; ++i)
+      values_[static_cast<std::size_t>(ParamStore::index({static_cast<uint8_t>(t), static_cast<uint16_t>(kModBase + i)}))] =
+          modParams()[static_cast<std::size_t>(i)].def;
   // The returns' own effects (the Module makes them at these defaults).
   for (int scope : {kDelayScope, kReverbScope}) {
     values_[static_cast<std::size_t>(ParamStore::index(insertOnRef(scope, 0)))] = 1;
@@ -192,6 +197,7 @@ EffectType Session::insert(int scope, int slot) const {
 void Session::setInsert(int scope, int slot, EffectType type) {
   if (scope < 0 || scope >= kScopeCount || slot < 0 || slot >= kInsertSlots || insertFixed(scope, slot)) return;
   editLabel(scopeLabel(scope) + " · insert " + std::to_string(slot + 1) + ": " + (type == EffectType::None ? "empty" : effectLabel(type)));
+  if (scope < kTrackCount) dropModTargets(scope, false, slot);
   inserts_[static_cast<std::size_t>(scope)][static_cast<std::size_t>(slot)] = type;
   Command c;
   c.type = Command::Type::SetInsert;
@@ -228,8 +234,21 @@ void Session::moveInsert(int scope, int slot, int delta) {
       if (paramInfo(ref) && param(ref) != v[static_cast<std::size_t>(i)]) setParam(ref, v[static_cast<std::size_t>(i)]);
     }
   };
+  // Routes onto either slot follow their effect.
+  std::array<int16_t, kModRoutes> targets{};
+  if (scope < kTrackCount) targets = tracks_[static_cast<std::size_t>(scope)].modTargets;
   place(to, a, va);
   place(slot, b, vb);
+  if (scope < kTrackCount)
+    for (int r = 0; r < kModRoutes; ++r) {
+      const int16_t was = targets[static_cast<std::size_t>(r)];
+      if (was < kInsertBase || was >= kInsertBase + kInsertSlots * kInsertStride) continue;
+      const int from = (was - kInsertBase) / kInsertStride;
+      if (from != slot && from != to) continue;
+      const int16_t now = static_cast<int16_t>(was + (from == slot ? to - slot : slot - to) * kInsertStride);
+      tracks_[static_cast<std::size_t>(scope)].modTargets[static_cast<std::size_t>(r)] = now;
+      sendModTarget(scope, r);
+    }
 }
 
 void Session::send(const Command& c) {
@@ -286,6 +305,7 @@ void Session::setEngine(int t, EngineType type) {
   }
   if (type == EngineType::Plaits) sendPlaitsBank(t);
   else tr.plaitsPatches.clear();
+  dropModTargets(t, true, -1);  // the old engine's values are gone
   // The new engine has empty pads: load the track's samples onto it (or, for
   // another engine, forget them).
   padLoads_[static_cast<std::size_t>(t)] = {};
@@ -345,6 +365,10 @@ const ParamInfo* Session::paramInfo(ParamRef ref) const {
     const std::size_t i = static_cast<std::size_t>(ref.slotIndex() - 1);
     return i < table.size() ? &table[i] : nullptr;
   }
+  if (ref.isMod()) {
+    const std::size_t i = ref.index - kModBase;
+    return ref.scope < kTrackCount && i < static_cast<std::size_t>(kModParamCount) ? &modParams()[i] : nullptr;
+  }
   if (!ref.isEngine()) return ref.index < kMixerParamCount ? &mixerParams()[ref.index] : nullptr;
   if (ref.scope >= kTrackCount) return nullptr;
   const auto table = engineParams(tracks_[ref.scope].engine);
@@ -374,6 +398,19 @@ std::string Session::paramLabel(ParamRef ref) const {
   if (ref.isEngine() && ref.scope < kTrackCount) {
     s += engineLabel(tracks_[ref.scope].engine);
     s += ' ';
+  }
+  if (ref.isMod()) {
+    // "LFO 1 rate", "Env 2 decay", "Mod 3 depth"
+    const int i = ref.index - kModBase;
+    if (i < kLfos * kLfoParamCount) s += "LFO " + std::to_string(i / kLfoParamCount + 1) + " ";
+    else if (i < kLfos * kLfoParamCount + kModEnvs * kModEnvParamCount)
+      s += "Env " + std::to_string((i - kLfos * kLfoParamCount) / kModEnvParamCount + 1) + " ";
+    else s += "Mod " + std::to_string((i - kLfos * kLfoParamCount - kModEnvs * kModEnvParamCount) / kRouteParamCount + 1) + " ";
+    if (pi) {
+      std::string l = pi->label;
+      l[0] = static_cast<char>(std::tolower(static_cast<unsigned char>(l[0])));
+      return s + l;
+    }
   }
   s += pi ? pi->label : "?";
   return s;
@@ -408,6 +445,10 @@ std::optional<ParamRef> Session::parseParamKey(const std::string& key) const {
   }
   for (int i = 0; i < kMixerParamCount; ++i)
     if (rest == mixerParams()[static_cast<std::size_t>(i)].key) return mixerRef(scope, i);
+  if (scope < kTrackCount)
+    for (int i = 0; i < kModParamCount; ++i)
+      if (rest == modParams()[static_cast<std::size_t>(i)].key)
+        return ParamRef{static_cast<uint8_t>(scope), static_cast<uint16_t>(kModBase + i)};
   // "fx2.ratio", "fx1.on"
   if (rest.size() > 4 && rest.rfind("fx", 0) == 0 && rest[3] == '.' && rest[2] >= '1' && rest[2] < '1' + kInsertSlots) {
     const int slot = rest[2] - '1';
@@ -960,6 +1001,67 @@ std::vector<std::string> Session::listKits() const {
   return out;
 }
 
+// ---- modulation (D-58) -------------------------------------------------------------------
+
+bool Session::modulatable(ParamRef ref) const {
+  if (ref.scope >= kTrackCount || ref.isMod()) return false;
+  const ParamInfo* pi = paramInfo(ref);
+  return pi && pi->curve != Curve::Toggle && pi->curve != Curve::Choice;
+}
+
+void Session::sendModTarget(int t, int route) {
+  Command c;
+  c.type = Command::Type::SetModTarget;
+  c.track = static_cast<uint8_t>(t);
+  c.slot = route;
+  c.value = tracks_[static_cast<std::size_t>(t)].modTargets[static_cast<std::size_t>(route)];
+  send(c);
+}
+
+std::optional<ParamRef> Session::modTarget(int t, int route) const {
+  const int16_t i = tracks_[static_cast<std::size_t>(t)].modTargets[static_cast<std::size_t>(route)];
+  if (i < 0) return std::nullopt;
+  return ParamRef{static_cast<uint8_t>(t), static_cast<uint16_t>(i)};
+}
+
+void Session::setModTarget(int t, int route, std::optional<ParamRef> target) {
+  if (t < 0 || t >= kTrackCount || route < 0 || route >= kModRoutes) return;
+  if (target && (target->scope != t || !modulatable(*target))) return;
+  const int16_t index = target ? static_cast<int16_t>(target->index) : int16_t{-1};
+  int16_t& slot = tracks_[static_cast<std::size_t>(t)].modTargets[static_cast<std::size_t>(route)];
+  if (slot == index) return;
+  editLabel("Track " + std::to_string(t + 1) + " · mod " + std::to_string(route + 1) + (target ? " → " + paramLabel(*target) : std::string(" cleared")));
+  slot = index;
+  sendModTarget(t, route);
+  markDirty();
+}
+
+int Session::addModRoute(ParamRef target) {
+  if (!modulatable(target)) return -1;
+  const int t = target.scope;
+  for (int r = 0; r < kModRoutes; ++r) {
+    if (modTarget(t, r)) continue;
+    setModTarget(t, r, target);
+    if (param(routeRef(t, r, kRouteSource)) == static_cast<float>(kSrcNone)) setParam(routeRef(t, r, kRouteSource), static_cast<float>(kSrcLfo1));
+    if (param(routeRef(t, r, kRouteDepth)) == 0.0f) setParam(routeRef(t, r, kRouteDepth), 0.25f);
+    return r;
+  }
+  return -1;
+}
+
+void Session::dropModTargets(int t, bool engine, int insertSlot) {
+  TrackState& tr = tracks_[static_cast<std::size_t>(t)];
+  for (int r = 0; r < kModRoutes; ++r) {
+    const int16_t i = tr.modTargets[static_cast<std::size_t>(r)];
+    if (i < 0) continue;
+    const ParamRef ref{static_cast<uint8_t>(t), static_cast<uint16_t>(i)};
+    const bool gone = engine ? ref.isEngine() : (ref.isInsert() && ref.slot() == insertSlot);
+    if (!gone) continue;
+    tr.modTargets[static_cast<std::size_t>(r)] = -1;
+    sendModTarget(t, r);
+  }
+}
+
 // ---- Plaits ------------------------------------------------------------------------------
 
 void Session::setPlaitsPatches(int t, std::vector<syx::Voice> patches) {
@@ -1228,6 +1330,7 @@ void Session::reset() {
     }
     tracks_[static_cast<std::size_t>(t)] = {};
     setChannel(t, t);
+    for (int r = 0; r < kModRoutes; ++r) sendModTarget(t, r);
   }
   for (int i = 0; i < kMaxCcMappings; ++i)
     if (cc_[static_cast<std::size_t>(i)].used) removeMapping(i);
@@ -1363,6 +1466,20 @@ json Session::trackJson(int t) const {
     }
     jt[engineKey(tr.engine)] = je;
   }
+  // Modulation: its settings, and each route's target by its key within the track ("sampler.cutoff", "fader").
+  json jm, mp;
+  for (int i = 0; i < kModParamCount; ++i)
+    mp[modParams()[static_cast<std::size_t>(i)].key] = param({static_cast<uint8_t>(t), static_cast<uint16_t>(kModBase + i)});
+  jm["params"] = mp;
+  json routes = json::array();
+  const std::string prefix = scopeKey(t) + ".";
+  for (int r = 0; r < kModRoutes; ++r)
+    if (const auto target = modTarget(t, r)) {
+      const std::string key = paramKey(*target);
+      if (key.rfind(prefix, 0) == 0) routes.push_back({{"route", r + 1}, {"target", key.substr(prefix.size())}});
+    }
+  jm["routes"] = routes;
+  jt["mod"] = jm;
   return jt;
 }
 
@@ -1407,12 +1524,18 @@ void Session::trackFromJson(int t, const json& jt) {
   tr.pads = {};
   tr.kit.clear();
   tr.plaitsPatches.clear();
+  for (int r = 0; r < kModRoutes; ++r)
+    if (tr.modTargets[static_cast<std::size_t>(r)] >= 0) {
+      tr.modTargets[static_cast<std::size_t>(r)] = -1;
+      sendModTarget(t, r);
+    }
   setChannel(t, jt.value("channel", t + 1) - 1);
   if (jt.contains("mixer")) mixerFromJson(t, jt["mixer"]);
   if (jt.contains("inserts")) insertsFromJson(t, jt["inserts"]);
   const EngineType type = engineFromKey(jt.value("engine", std::string("none")).c_str());
   if (type == EngineType::None) {
     if (tr.engine != EngineType::None) setEngine(t, EngineType::None);
+    modFromJson(t, jt);
     return;
   }
   const json je = jt.contains(engineKey(type)) ? jt[engineKey(type)] : json::object();
@@ -1451,6 +1574,26 @@ void Session::trackFromJson(int t, const json& jt) {
         if (v != param(engineRef(t, static_cast<int>(i)))) setParam(engineRef(t, static_cast<int>(i)), v);
       }
   }
+  modFromJson(t, jt);
+}
+
+// A track's modulation as saved (format 8); older files have none and keep the defaults.
+void Session::modFromJson(int t, const json& jt) {
+  if (!jt.contains("mod") || !jt["mod"].is_object()) return;
+  const json& jm = jt["mod"];
+  if (jm.contains("params") && jm["params"].is_object())
+    for (int i = 0; i < kModParamCount; ++i) {
+      const char* key = modParams()[static_cast<std::size_t>(i)].key;
+      if (jm["params"].contains(key) && jm["params"][key].is_number())
+        setIfDifferent({static_cast<uint8_t>(t), static_cast<uint16_t>(kModBase + i)}, jm["params"][key].get<float>());
+    }
+  if (jm.contains("routes") && jm["routes"].is_array())
+    for (const json& jr : jm["routes"]) {
+      const int r = jr.value("route", 0) - 1;
+      if (r < 0 || r >= kModRoutes) continue;
+      if (const auto target = parseParamKey(scopeKey(t) + "." + jr.value("target", std::string())))
+        setModTarget(t, r, target);
+    }
 }
 
 bool Session::fromJson(const std::string& text, std::string& error) {

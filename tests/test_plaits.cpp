@@ -304,5 +304,5 @@ TEST_CASE("plaits session: a format 6 project (v0.6.0) still opens") {
   REQUIRE(r.session->fromJson(old, error));
   CHECK(r.session->track(0).engine == EngineType::Fm);
   CHECK(r.session->recSetup().bars == 2);
-  CHECK(r.session->toJson().find("\"format\": 7") != std::string::npos);
+  CHECK(r.session->toJson().find("\"format\": " + std::to_string(kProjectFormat)) != std::string::npos);
 }
