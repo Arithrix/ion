@@ -19,6 +19,7 @@ add_executable(ion-tests
   test_plaits.cpp
   test_modulation.cpp
   test_acid.cpp
+  test_chip.cpp
   test_render.cpp
   test_ui.cpp
   test_version.cpp

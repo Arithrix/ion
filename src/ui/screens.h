@@ -178,6 +178,7 @@ std::unique_ptr<Screen> makeDrumScreen();     // the Instrument screen for DRUM 
 std::unique_ptr<Screen> makeSamplerScreen();  // …and for SAMPLER tracks
 std::unique_ptr<Screen> makePlaitsScreen();   // …and for PLAITS tracks
 std::unique_ptr<Screen> makeAcidScreen();     // …and for ACID tracks
+std::unique_ptr<Screen> makeChipScreen();     // …and for CHIP tracks
 std::unique_ptr<Screen> makeRecScreen();       // Rec (R): resampling
 std::unique_ptr<Screen> makeModScreen();       // Mod (O): modulation
 

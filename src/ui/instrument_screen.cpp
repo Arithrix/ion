@@ -80,7 +80,7 @@ class InstrumentScreen final : public Screen {
     const std::string title = "Track " + std::to_string(ctx.track + 1) + " · " + engineLabel(tr.engine);
     if (tr.engine == EngineType::None)
       return pane(title, vbox({text("This track is empty.") | color(palette::dim),
-                               paragraph("⏎ chooses an engine: FM, Drum, Sampler, Plaits or Acid.") |
+                               paragraph("⏎ chooses an engine: FM, Drum, Sampler, Plaits, Acid or Chip.") |
                                    color(palette::faint)}),
                   true) |
              flex;
@@ -88,6 +88,7 @@ class InstrumentScreen final : public Screen {
     if (tr.engine == EngineType::Sampler) return sampler_->render(ctx);
     if (tr.engine == EngineType::Plaits) return plaits_->render(ctx);
     if (tr.engine == EngineType::Acid) return acid_->render(ctx);
+    if (tr.engine == EngineType::Chip) return chip_->render(ctx);
     if (tr.engine != EngineType::Fm) return pane(title, text("not built yet") | color(palette::faint), true) | flex;
 
     if (ctx.narrow()) return (pane_ == 0 ? list(ctx) : macroPane(ctx)) | flex;
@@ -109,6 +110,7 @@ class InstrumentScreen final : public Screen {
     if (tr.engine == EngineType::Sampler) return sampler_->onEvent(ctx, e);
     if (tr.engine == EngineType::Plaits) return plaits_->onEvent(ctx, e);
     if (tr.engine == EngineType::Acid) return acid_->onEvent(ctx, e);
+    if (tr.engine == EngineType::Chip) return chip_->onEvent(ctx, e);
     if (tr.engine != EngineType::Fm) return false;
     FmBrowse& fm = *ctx.fm;
 
@@ -223,6 +225,7 @@ class InstrumentScreen final : public Screen {
     if (tr.engine == EngineType::Sampler) return sampler_->hints(ctx);
     if (tr.engine == EngineType::Plaits) return plaits_->hints(ctx);
     if (tr.engine == EngineType::Acid) return acid_->hints(ctx);
+    if (tr.engine == EngineType::Chip) return chip_->hints(ctx);
     if (tr.engine != EngineType::Fm) return {{"Esc", "Back"}};
     if (ctx.fm->typing) return {{"type", "Filter"}, {"⏎", "Done"}, {"Esc", "Clear"}, {"↑↓", "Browse"}};
     if (pane_ == 1)
@@ -244,6 +247,7 @@ class InstrumentScreen final : public Screen {
     if (ctx.session.track(ctx.track).engine == EngineType::Sampler) return sampler_->focusedParam(ctx);
     if (ctx.session.track(ctx.track).engine == EngineType::Plaits) return plaits_->focusedParam(ctx);
     if (ctx.session.track(ctx.track).engine == EngineType::Acid) return acid_->focusedParam(ctx);
+    if (ctx.session.track(ctx.track).engine == EngineType::Chip) return chip_->focusedParam(ctx);
     if (pane_ != 1 || ctx.session.track(ctx.track).engine != EngineType::Fm) return std::nullopt;
     return param(ctx);
   }
@@ -585,6 +589,7 @@ class InstrumentScreen final : public Screen {
   std::unique_ptr<Screen> sampler_ = makeSamplerScreen();
   std::unique_ptr<Screen> plaits_ = makePlaitsScreen();
   std::unique_ptr<Screen> acid_ = makeAcidScreen();
+  std::unique_ptr<Screen> chip_ = makeChipScreen();
 };
 
 }  // namespace

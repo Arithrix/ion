@@ -598,7 +598,7 @@ class App {
         return true;
       case Overlay::EnginePicker: {
         static const EngineType options[] = {EngineType::Fm, EngineType::Drum, EngineType::Sampler, EngineType::Plaits,
-                                             EngineType::Acid, EngineType::None};
+                                             EngineType::Acid, EngineType::Chip, EngineType::None};
         constexpr int kOptions = static_cast<int>(sizeof options / sizeof options[0]);
         if (e == Event::Escape) overlay_ = Overlay::None;
         else if (e == Event::ArrowUp) picker_ = (picker_ + kOptions - 1) % kOptions;
@@ -668,6 +668,7 @@ class App {
         static const char* labels[] = {"FM      DX7-compatible 6-operator", "DRUM    16-pad drum sampler",
                                        "SMPL    keymapped sampler", "PLTS    Plaits: 24 models",
                                        "ACID    303-style bass",
+                                       "CHIP    lo-fi wave synth",
                                        "empty   clear the track"};
         Elements rows;
         for (int i = 0; i < static_cast<int>(sizeof labels / sizeof labels[0]); ++i) {

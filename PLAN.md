@@ -74,14 +74,14 @@ Port all 24 models (1.2 is public, confirmed), N-voice polyphony, per-model macr
 ### Phase 8 · Modulation — `v0.8.0` · M (agreed with Michael 2026-11-08)
 Per track: 2 LFOs, 2 envelopes, velocity / mod wheel / aftertouch / key / random, and 8 routes onto any continuous value on the track. Applied in the Module each block over the value set. Mod screen (`O`), `v` on any value, live markers on bars. See D-58.
 
-### Phase 9 · 303-style bass — `v0.9.0` · S–M (agreed)
+### Phase 9 · 303-style bass — `v0.9.0` · S–M (done: D-60)
 - Engine: **Open303** (Robin Schmidt; C++; the engine is MIT according to its ports JC303 and esp32_open303: **verify at source**). Proven in JC303, Zynthian and on an ESP32.
 - Named "ACID" / "303-style", not "TB-303" (Roland's trademark).
 - Mono; **slide** when notes overlap (the OXI's ties), **accent** from velocity over a settable threshold. Check the OXI manual for how it sends both.
 - Tune, cutoff, resonance, env mod, decay, accent, saw ↔ square, slide time; a **drive** after it, probably as a general insert effect.
 - The OXI is the sequencer. Modulation (Phase 8) works on it from day one.
 
-### Phase 10 · Chip synth — `v0.10.0` · M (agreed; direction D-59)
+### Phase 10 · Chip synth — `v0.10.0` · M (done: D-59, D-61)
 An ion-native lo-fi wave synth in the spirit of the M8's WavSynth: pulse (12.5/25/50/75%), triangle, saw, sine, noise, and a set of our own small wavetables; low bit depth and sample rate as character controls; wave shaping ideas (size, multiply, warp, scan through a table); ion's filter and the uniform envelope; polyphonic. No chip emulator. Read the M8 manual at the start; take the idea, not its tables.
 
 ## Where the hard parts are

@@ -2,7 +2,7 @@
 ╭ Tracks ──────────────────────────────────────────────────╮
 │ #  ch  engine  sound                          level      │
 │ 1  01  FM      SNAP TEST                       ░░░░░░ ·  │
-│ 2  02  —       — empty —                       ░░░░░░ ·  │
+│ 2  02  CHIP    chip · pulse 25%                ░░░░░░ ·  │
 │ 3  03  FM      SYN-BAS 4                       ░░░░░░ · M│
 │ 4  04  DRUM    Garage 02                       ░░░░░░ ·  │
 │ 5  05  ACID    303-style bass                  ░░░░░░ ·  │
@@ -29,7 +29,7 @@
 │                                                          │
 │                                                          │
 ├──────────────────────────────────────────────────────────┤
-│ 6 of 8 tracks in use · 0 voices                          │
+│ 7 of 8 tracks in use · 0 voices                          │
 ╰──────────────────────────────────────────────────────────╯
  midi MIDI off · nothing yet
  1-8  Track   ↑↓  Move   ←→  Fader   Tab  Pane   ⏎  Edit

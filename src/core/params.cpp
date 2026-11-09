@@ -244,7 +244,9 @@ std::string formatValue(const ParamInfo& info, float v) {
     case Unit::Offset:
     case Unit::Note:
     case Unit::Cents:
-      std::snprintf(buf, sizeof buf, info.max - info.min > 20 ? "%.0f" : "%.2f", static_cast<double>(v));
+      // Whole-number settings (stepped by 1) read as whole numbers: "4", not "4.00".
+      std::snprintf(buf, sizeof buf, info.max - info.min > 20 || (info.curve == Curve::Linear && info.fineStep >= 1.0f) ? "%.0f" : "%.2f",
+                    static_cast<double>(std::round(v * 100.0f) / 100.0f));
       break;
   }
   return buf;

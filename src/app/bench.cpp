@@ -20,6 +20,7 @@
 #include "engine/fx/effects.h"
 #include "engine/module.h"
 #include "engine/acid/acid_engine.h"
+#include "engine/chip/chip_engine.h"
 #include "engine/plaits/plaits_engine.h"
 #include "library/syx.h"
 
@@ -225,6 +226,33 @@ int main(int argc, char** argv) {
     const std::chrono::duration<double> wall = std::chrono::steady_clock::now() - start;
     const double us = wall.count() * 1e6 / (static_cast<double>(blocks * ion::kBlockSize) / 128.0);
     std::printf("\nACID (Open303, one mono voice playing 16ths)\n  %.1f µs per 128-frame buffer (%.2f%%)\n", us, us / 2666.7 * 100.0);
+  }
+
+  {
+    // CHIP: six voices of a 32-step pulse, filtered, at a crunched rate; and
+    // the same with a table rebuilt every block (as when modulation moves its shape).
+    auto chip = [&](bool rebuild) {
+      ion::ChipEngine e;
+      e.setParam(ion::ChipEngine::kFilter, ion::ChipEngine::kLowPass);
+      e.setParam(ion::ChipEngine::kRate, 16000);
+      for (uint8_t n : std::initializer_list<uint8_t>{48, 52, 55, 60, 64, 67}) e.noteOn(n, 100);
+      const auto blocks = static_cast<std::size_t>(seconds * ion::kSampleRate / ion::kBlockSize);
+      float left[ion::kBlockSize], right[ion::kBlockSize];
+      volatile float sink = 0;
+      const auto start = std::chrono::steady_clock::now();
+      for (std::size_t b = 0; b < blocks; ++b) {
+        if (rebuild) e.setParam(ion::ChipEngine::kWarp, static_cast<float>(b % 100) / 100.0f);
+        std::fill(std::begin(left), std::end(left), 0.0f);
+        std::fill(std::begin(right), std::end(right), 0.0f);
+        e.render(left, right, ion::kBlockSize);
+        sink = sink + left[0];
+      }
+      const std::chrono::duration<double> wall = std::chrono::steady_clock::now() - start;
+      return wall.count() * 1e6 / (static_cast<double>(blocks * ion::kBlockSize) / 128.0);
+    };
+    const double plain = chip(false), moving = chip(true);
+    std::printf("\nCHIP (6 voices, low-pass, 16 kHz rate)\n  %.1f µs per 128-frame buffer (%.2f%%); %.1f µs with the table rebuilt every block\n", plain,
+                plain / 2666.7 * 100.0, moving);
   }
 
   std::printf("\nPlaits (6 voices, every model)\n");

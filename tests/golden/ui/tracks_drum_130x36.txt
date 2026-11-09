@@ -2,7 +2,7 @@
 ╭ Tracks ───────────────────────────────────────────────────────────────────────╮╭ Track 4 · DRUM ───────────────────────────────╮
 │ #  ch  engine  sound                                    level       dB        ││Garage 02                                      │
 │ 1  01  FM      SNAP TEST                                 ░░░░░░░░░░   0.0  ·  ││11 of 16 pads loaded                           │
-│ 2  02  —       — empty —                                 ░░░░░░░░░░        ·  ││                                               │
+│ 2  02  CHIP    chip · pulse 25%                          ░░░░░░░░░░   0.0  ·  ││                                               │
 │ 3  03  FM      SYN-BAS 4                                 ░░░░░░░░░░  -9.0  · M││engine     DRUM                                │
 │ 4  04  DRUM    Garage 02                                 ░░░░░░░░░░   0.0  ·  ││pad        ◀ 1 · kick_tight_03 ▶               │
 │ 5  05  ACID    303-style bass                            ░░░░░░░░░░   0.0  ·  ││level      ██████░░░░ -3.0 dB                  │
@@ -30,7 +30,7 @@
 │                                                                               ││                                               │
 │                                                                               ││                                               │
 ├───────────────────────────────────────────────────────────────────────────────┤├───────────────────────────────────────────────┤
-│ 6 of 8 tracks in use · 0 voices                                               ││midi ch 04 · 0 voices                          │
+│ 7 of 8 tracks in use · 0 voices                                               ││midi ch 04 · 0 voices                          │
 ╰───────────────────────────────────────────────────────────────────────────────╯╰───────────────────────────────────────────────╯
  midi MIDI off  ·  last: nothing yet
  1-8  Track   ↑↓  Move   ←→  Fader   Tab  Pane   ⏎  Edit   m  Mute   s  Solo   Spc  Audition   ?  Help   q  Quit

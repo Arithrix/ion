@@ -1,39 +1,38 @@
-# Testing ion 0.9.0 — Phase 9: a 303-style bass
+# Testing ion 0.10.0 — Phase 10: the chip synth
 
-This checkpoint should show:
-- **ACID** playing acid lines from the OXI: **slides** on held-over notes, **accents** on loud ones;
-- the **Drive** insert, on ACID or anything else.
+This checkpoint should show **CHIP**, a lo-fi wave synth in the spirit of the M8's WavSynth: a little wave you shape as it plays, crunchy on purpose.
 
-Allow about 15 minutes. Wired headphones or speakers. The OXI on channel 2.
+Allow about 15 minutes. If you haven't tried 0.9.0 (ACID and Drive), its checklist is in `~/ion/releases/v0.9.0/TESTING.md`.
 
 ## 0. Before you start
-1. `ion --version` → `ion 0.9.0 (…)`.
-2. `ion --project "demo v0.9.0"`
+1. `ion --version` → `ion 0.10.0 (…)`.
+2. `ion --project "demo v0.10.0"`
 
-## 1. ACID (10 min)
-1. Track 2 (channel 2) is ACID. `2`, then `I`: the 303's knobs in its order (waveform, cutoff, resonance, env mod, decay, accent), the amp envelope under them, and "play" beside it.
-2. Program a 16-step line on the OXI on channel 2. Then:
-   - **Slides:** tie a step into the next (or set its length past 100%). The pitch glides instead of jumping and the filter doesn't retrigger. Slide sets how long the glide takes.
-   - **Accents:** steps at velocity **100 or more** hit harder and brighter. If the OXI's velocities don't land there, change **Accent at**.
-3. cc **74** is cutoff, cc **71** resonance. A synced LFO is nudging the cutoff a little (`O` to see it, or turn its depth down).
-4. Turn the knobs while it plays: cutoff, resonance, env mod and decay are the classic four.
-5. A new ACID track: an empty track, ⏎, **ACID**.
-
-## 2. Drive (5 min)
-1. Track 2 has a **Drive** in insert 1. `F`, then the slot: drive, shape (soft / hard / fold), bias, tone, level, mix.
-2. Put one on any other track (`F`, an empty slot, `a`, **DRIVE**): drums and Plaits are good tests. Fold at high drive is the wild one.
+## 1. CHIP (10 min)
+1. Track 3 (channel 3) is CHIP. `3`, then `I`. At the top, **the wave as it is now**, drawn from its table; under it the eight settings that make it.
+2. Play it (OXI channel 3, or `` ` `` and the keys). Each note has a blip of pitch: envelope 1 is on **tune** (`O` shows the route).
+3. Shape the wave while it plays:
+   - **Shape:** pulses 12–75%, saw, triangle, sine, **noise tone** (pitched noise: it plays the note) and **noise**.
+   - **Size:** 4–256 steps; low is crude and buzzy.
+   - **Mult:** repeats the wave inside itself: a hard-sync sound.
+   - **Warp:** squashes it to one side. **Mirror:** folds it back on itself.
+   - **Amp** pushes it into the **Limit** (clip, sine, fold, wrap); fold and wrap at high amp are the wild ones.
+   - **Bits:** 8 down to 1.
+4. **Filter** (low/high/band-pass, notch) with cutoff and resonance; **Rate** brings the whole track's sample rate down for crunch.
+5. The amp envelope sits beside the filter, as on the other instruments; Vel→amp is 50% here.
+6. `v` on any of them modulates it (warp and mult with an LFO are fun).
 
 ## What to send back
-- Does it feel like a 303 from the OXI? Do slides and accents come out where you programmed them?
-- Levels: is ACID too loud or quiet next to the other tracks, especially with accents?
-- Drive: the sound of soft vs hard vs fold; anything harsh or fizzy at high drive.
+- Does it feel like the M8's WavSynth territory? What's missing?
+- Which shapes and limits are useful, and is anything just noise?
+- Levels next to the other tracks.
 
 ## Known issues
-- ACID is one voice (as a 303 is): chords play as slides between their notes.
-- Accent comes from velocity only: there's no separate accent control from the OXI.
+- The wave is read without interpolation, so high notes alias: that's the chip sound, on purpose.
+- Rate and the filter are per track and per voice respectively; there's no per-voice rate.
 
 ## Rolling back
 ```
-~/projects/ion/scripts/use-version.sh 0.8.0
+~/projects/ion/scripts/use-version.sh 0.9.0
 ```
-Projects saved by 0.9.0 are format 9, and 0.8.x won't open them.
+Projects saved by 0.10.0 are format 10, and 0.9.x won't open them.

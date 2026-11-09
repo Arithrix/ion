@@ -401,6 +401,18 @@ Michael wants "something like what Dirtywave uses on the M8". As far as I can te
 - **Drive** (a new insert effect, for any track; a 303 lives through distortion): soft (tanh), hard (clip) or fold, 0–48 dB, bias (asymmetry, with a DC blocker), tone (a low-pass after it), level and mix. 2× oversampled with a 47-tap half-band, done polyphase (24 multiplies each way), plus first-order antiderivative anti-aliasing: a hard-clipped 4.7 kHz sine's aliases are 40 dB under its harmonics. ≈ 17 µs per buffer.
 - **Project format 9.** Nothing to convert, but 0.8 would load an ACID track as empty and a Drive slot as empty, and lose them on save; the bump makes it refuse the file instead ("saved by a newer ion").
 
+## Decided during Phase 10
+
+### D-61 · decided · CHIP: ion's lo-fi wave synth
+- **Idea** (D-59): the M8's WavSynth, as its manual describes it: "a wave table synthesizer and noise generator… an 8-bit sample buffer that is generated in realtime from one of 9 basic shapes that can be repeated, skewed/biased, mirrored, filtered and overdriven." ion's is its own code, shapes and choices; nothing of the M8's is copied.
+- **The wave:** a table of 4–256 steps rebuilt from a basic shape (pulse 12/25/50/75%, saw, triangle, sine) whenever a setting that shapes it changes, at most once a block, shared by every voice. Then: **mult** repeats it (1–16, a hard-sync sound), **warp** pushes it to one side (a power curve on the phase), **mirror** runs it back on itself past a point, **amp** (0–24 dB) drives it into a **limiter** (clip, sine, fold, wrap), and **bits** (1–8) quantises it. It's read **without interpolation**: it steps and aliases the way chip sound does; that's the character, not a bug.
+- **Noise:** two 15-bit shift registers, as the NES's: **noise tone** (the short 93-step loop, clocked 93× a cycle, so it's pitched at the note) and **noise** (the long one, clocked 8× a cycle: higher notes are brighter). Both go through amp, limiter and bits like the table.
+- **After the wave:** a per-voice filter (off, low-pass, high-pass, band-pass, notch; a new shared `dsp::Svf`, Simper's TPT form, stable under modulation), the uniform amp envelope (D-50; release 40 ms by default because the oscillator never ends; with release "off" a note-off fades it in 5 ms), velocity → amp (50% by default), and a track-wide **rate** (1–48 kHz, a sample-and-hold) for crunch.
+- **Playing:** 1–8 voices (6), glide, tune ±24 (continuous, so an envelope on it makes chip pitch sweeps), fine, bend range, level. Each voice −9 dB: full-scale squares are loud.
+- **Cost:** six voices with the filter and a reduced rate, 4.2 µs per 128-frame buffer (0.16%); 5.9 µs with the table rebuilt every block (as when modulation moves warp).
+- **Screen:** the wave drawn from the table, the eight wave settings, the amp envelope beside the filter and rate (as FM and Plaits place it), then playing.
+- **Project format 10** (0.9 would load a CHIP track as empty).
+
 ## Proposed (waiting for Michael)
 
 ### D-01 · implemented in Phase 0 · Direct ALSA sequencer instead of RtMidi

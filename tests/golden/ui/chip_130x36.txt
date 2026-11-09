@@ -1,0 +1,36 @@
+ ion  Tracks Instr Mod Mixer Fx Rec Library  ↶ undo ↷ redo                                snapshot ● no clock   cpu 0%   no audio
+╭ Track 2 · CHIP · lo-fi wave synth ─────────────────────────────────────────────────────────────────────────────────────────────╮
+│███                                                                                                                             │
+│███                                                                                                                             │
+│███                                                                                                                             │
+│███                                                                                                                             │
+│wave · 24 steps · 4 bits                                                                                                        │
+│                                                                                                                                │
+│▸ Shape      pulse 25%                                            Mirror     ░░░░░░░░░░░░ off                                   │
+│  Size       █░░░░░░░░░░░ 24                                      Amp        ░░░░░░░░░░░░ 0.0 dB                                │
+│  Mult       ░░░░░░░░░░░░ 1                                       Limit      clip                                               │
+│  Warp       ████████▍░░░ 40%                                     Bits       █████▏░░░░░░ 4                                     │
+│                                                                                                                                │
+│amp ████████████████████████████████████████████████▇▃▁         filter · rate                                                   │
+│  Attack     0                                                    Filter     off                                                │
+│  Hold       full                                                 Cutoff     ██████████░░ 6.00 kHz                              │
+│  Decay      500 ms                                               Resonance  ██▍░░░░░░░░░ 20%                                   │
+│  Sustain    100%                                                 Rate       ████████▋░░░ 16.00 kHz                             │
+│  Release    40.0 ms                                                                                                            │
+│  Vel→amp    50%                                                                                                                │
+│                                                                                                                                │
+│play                                                                                                                            │
+│  Tune       +0 st                                                                                                              │
+│  Fine       0 ct                                                                                                               │
+│  Glide      off                                                                                                                │
+│  Voices     6                                                                                                                  │
+│  Bend range 2                                                                                                                  │
+│  Level      0.0 dB                                                                                                             │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+├────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│l learns a CC · v modulates a value (an envelope on tune makes a pitch sweep)                                                   │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ midi MIDI off  ·  last: nothing yet
+ ↑↓  Setting   ←→  Change   l  Learn   v  Modulate   ⏎  Play   Esc  Back   ?  Help

@@ -5,6 +5,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-09
+
+### Added (Phase 10: chip synth)
+- **CHIP tracks: a lo-fi wave synth**, in the spirit of the M8's WavSynth (ion's own, not a copy). Choose CHIP in the engine picker.
+  - **The wave** is a little table you shape as it plays: a basic **shape** (pulses 12–75%, saw, triangle, sine, or two kinds of chip noise), its **size** (4–256 steps: fewer is cruder), **mult** (repeats it: a hard-sync sound), **warp** (pushes it to one side), **mirror**, **amp** into a **limiter** (clip, sine, fold or wrap) and **bits** (1–8). The screen draws the wave as it is.
+  - **Noise tone** is pitched noise (it plays the note); **noise** gets brighter as you go up.
+  - A **filter** (low-, high-, band-pass, notch), the same **amp envelope** as every instrument, and a **rate** for the whole track (down to 1 kHz) for crunch.
+  - Up to 8 voices, glide, tune, bend. **Tune** can be modulated: an envelope on it gives the classic chip pitch blip (`v` on Tune, then set the source to env 1 on the Mod screen).
+- **The demo** ("demo v0.10.0"): **track 3 is now CHIP** on channel 3 (it was FM BRASS 1): a 25% pulse, 4-bit, at 22 kHz, with an envelope blipping its pitch on every note.
+
+### Changed (Phase 10)
+- Projects are now format 10; 0.9.x can't open projects saved by 0.10.0.
+- Whole-number settings read as whole numbers ("4", not "4.00").
+
 ## [0.9.0] - 2026-11-09
 
 ### Added (Phase 9: 303-style bass)

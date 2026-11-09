@@ -64,6 +64,7 @@ add_library(ion_engine STATIC
   src/engine/fx/effects.cpp
   src/engine/sampler/sampler_engine.cpp
   src/engine/acid/acid_engine.cpp
+  src/engine/chip/chip_engine.cpp
   src/engine/plaits/plaits_engine.cpp
   src/engine/plaits/plaits_voice.cpp
   src/engine/module.cpp
@@ -90,6 +91,7 @@ add_library(ion_ui STATIC
   src/ui/acid_screen.cpp
   src/ui/algorithm_diagram.cpp
   src/ui/app.cpp
+  src/ui/chip_screen.cpp
   src/ui/drum_screen.cpp
   src/ui/envelope_view.cpp
   src/ui/fm_browse.cpp

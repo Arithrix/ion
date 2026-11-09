@@ -1,8 +1,15 @@
 # Status
 
-**Phase:** 9 done · 0.9.0 (303-style bass, Drive) released. Michael asked (2026-11-08, overnight) for Phases 9 and 10, then a full test sweep and an efficiency pass, without stopping.
+**Phase:** 10 done · 0.10.0 (chip synth) released. Michael asked (2026-11-08, overnight) for Phases 9 and 10, then a full test sweep and an efficiency pass, without stopping.
 **Branch:** `main`
 **Updated:** 2026-11-08
+
+## Done (Phase 10)
+- **CHIP** (D-61): ion's own lo-fi wave synth after the M8's WavSynth idea (its manual read for the idea; nothing copied). Table of 4–256 steps from 7 shapes plus two NES-style noises; mult, warp, mirror, amp into clip/sine/fold/wrap, 1–8 bits; read without interpolation. Per-voice SVF (new shared `dsp/svf.h`), uniform amp envelope, track-wide sample-rate reduction, 8 voices, glide, tune (modulatable). 4.2 µs per buffer for six voices.
+- **Screen:** the wave drawn live; settings laid out like the other instruments.
+- **Demo:** track 3 is CHIP with an envelope on tune.
+- **Tests:** 188 cases (CHIP: tuning, the table's size/bits/mult/warp/mirror/limits, tonal vs plain noise, the rate hold, voices, release, every setting at its extremes; snapshots at three sizes).
+- Project format 10.
 
 ## Done (Phase 9)
 - **ACID** (D-60): Open303 vendored (MIT, verified at source) with four local changes (allocation-free note list, settable accent threshold, slide-back tuning fix, includes). Mono; overlapping notes slide; velocity ≥ threshold accents. The 303 front panel, playing settings, and the uniform amp envelope. Sleeps after 200 ms of silence. ACID screen laid out like FM/Plaits.
@@ -157,7 +164,7 @@
 
 ## Next
 - **Phase 8 (Comet) is on hold until Michael has the device** (his call, 2026-11-08): aarch64 build, ALSA tuning, narrow-layout polish, CPU guard, autostart, measured voice limits.
-- **Phase 10: the chip synth**, ion's own in the spirit of the M8's WavSynth (D-59). Then the full test sweep and the efficiency pass (Michael's overnight list).
+- **The efficiency pass, then the full test sweep** (Michael's overnight list), as 0.10.1.
 
 ## Known gaps carried forward
 - Recording: no audio input yet; a take's source settings are saved in its sidecar but there's no "bring the sources back" command yet; editing the Rec setup doesn't mark the project unsaved.

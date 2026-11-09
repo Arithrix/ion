@@ -13,6 +13,7 @@
 
 #include "audio/wav.h"
 #include "engine/acid/acid_engine.h"
+#include "engine/chip/chip_engine.h"
 #include "engine/drum/drum_engine.h"
 #include "engine/fm/fm_engine.h"
 #include "engine/fx/effects.h"
@@ -167,8 +168,25 @@ int main(int argc, char** argv) {
   }
   set(1, kFader, -4.0f);
 
-  fm(2, 0, 2);  // BRASS 1 on ch 3
-  set(2, kFader, -8.0f);
+  // Track 3 (ch 3): CHIP (0.10.0), a 25% pulse with a little warp, 4-bit, at
+  // 22 kHz, with envelope 1 on tune for a blip of pitch at each note.
+  s.setEngine(2, EngineType::Chip);
+  s.setChannel(2, 2);
+  {
+    auto cp = [&](int p, float v) { s.setParam(engineParamRef(2, p), v); };
+    cp(ChipEngine::kShape, ChipEngine::kPulse25);
+    cp(ChipEngine::kSize, 32);
+    cp(ChipEngine::kWarp, 0.25f);
+    cp(ChipEngine::kBits, 4);
+    cp(ChipEngine::kRate, 22050);
+    cp(ChipEngine::kAmpDecay, 300);
+    cp(ChipEngine::kAmpSustain, 0.6f);
+    s.setModTarget(2, 0, engineParamRef(2, ChipEngine::kTune));
+    s.setParam(routeRef(2, 0, kRouteSource), kSrcEnv1);
+    s.setParam(routeRef(2, 0, kRouteDepth), 0.25f);  // a quarter of ±24 semitones: up an octave, falling back
+    s.setParam(modEnvRef(2, 0, kMEnvDecay), 60);
+  }
+  set(2, kFader, -10.0f);
   set(2, kPan, 0.25f);
 
   fm(3, 3, 0);  // STRINGS 1 layered under the piano, also ch 1

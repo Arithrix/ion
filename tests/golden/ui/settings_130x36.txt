@@ -2,7 +2,7 @@
  /tmp/ion-ui-snapshot/config/config.toml
 ╭ Audio ─────────────────────────────────────────────────────────────────────╮╭ Track ↔ channel ─────────────────────────────────╮
 │backend        PipeWire (native)                                            ││track 1        ch 1   FM                          │
-│device         default output · follows the system                          ││track 2        ch 2   empty                       │
+│device         default output · follows the system                          ││track 2        ch 2   CHIP                        │
 │sample rate    48000                                                        ││track 3        ch 3   FM                          │
 │buffer         128 frames                                                   ││track 4        ch 4   DRUM                        │
 │running        no audio                                                     ││track 5        ch 5   ACID                        │
