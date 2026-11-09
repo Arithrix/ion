@@ -21,10 +21,24 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(PIPEWIRE REQUIRED IMPORTED_TARGET libpipewire-0.3)
 pkg_check_modules(ALSA REQUIRED IMPORTED_TARGET alsa)
 
-# Release builds: -O2 with debug info (split out by release.sh), and the C++
-# runtime linked statically so the binary runs on other distros (the Comet).
-set(CMAKE_CXX_FLAGS_RELEASE "-O2 -g -DNDEBUG")
-set(CMAKE_C_FLAGS_RELEASE "-O2 -g -DNDEBUG")
+# Optimisation (DECISIONS D-62), for every target, vendored code included:
+# -O3, maths without errno or traps (nothing in ion reads either), and on
+# x86-64 the AVX2/FMA generation of CPUs (2013 on; this laptop's i7-1270P has
+# it). Measured with ion-bench: reverb ~45% faster, drums ~30%, the idle mixer
+# ~35%, Plaits ~12%. ION_PORTABLE builds for any 64-bit x86 instead. ion
+# checks the CPU at start-up rather than crashing on an older one.
+option(ION_PORTABLE "x86-64: build for any 64-bit CPU, not just AVX2/FMA ones" OFF)
+set(ION_OPT "-O3 -fno-math-errno -fno-trapping-math")
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64" AND NOT ION_PORTABLE)
+  string(APPEND ION_OPT " -march=x86-64-v3")
+endif()
+# Release: with debug info (split out by release.sh), and the C++ runtime
+# linked statically so the binary runs on other distros (the Comet). The dev
+# build (RelWithDebInfo) uses the same flags, so the tests test what ships.
+set(CMAKE_CXX_FLAGS_RELEASE "${ION_OPT} -g -DNDEBUG")
+set(CMAKE_C_FLAGS_RELEASE "${ION_OPT} -g -DNDEBUG")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${ION_OPT} -g -DNDEBUG")
+set(CMAKE_C_FLAGS_RELWITHDEBINFO "${ION_OPT} -g -DNDEBUG")
 add_link_options($<$<CONFIG:Release>:-static-libstdc++> $<$<CONFIG:Release>:-static-libgcc>)
 
 add_subdirectory(third_party)

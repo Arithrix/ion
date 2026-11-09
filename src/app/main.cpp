@@ -140,6 +140,15 @@ volatile std::sig_atomic_t g_stop = 0;
 }  // namespace
 
 int main(int argc, char** argv) {
+#if defined(__x86_64__) && defined(__AVX2__)
+  // Built for AVX2/FMA CPUs (D-62): say so plainly on an older one instead of crashing.
+  __builtin_cpu_init();
+  if (!__builtin_cpu_supports("avx2") || !__builtin_cpu_supports("fma")) {
+    std::fprintf(stderr, "ion: this build needs a CPU with AVX2 and FMA (Intel 2013 / AMD 2015 or newer).\n"
+                         "Build it with -DION_PORTABLE=ON for older machines.\n");
+    return 1;
+  }
+#endif
   Args args;
   if (!parseArgs(argc, argv, args)) return 2;
   if (args.help) {
