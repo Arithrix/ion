@@ -5,6 +5,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: HAND
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-12
+
 ### ion 1.0: the first public release
 - **ion is now open source, under the GNU GPL v3.** The code is on GitHub with a README covering what ion is, how to build it and how to start.
 - **The sound and the project files haven't changed since 0.10.1.** Projects are still format 10, and 0.10.1 opens projects saved by 1.0.0.
