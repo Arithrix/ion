@@ -444,6 +444,8 @@ Measured first, changed second, measured again; anything that didn't help or cha
 - **README.md** for the GitHub front page: what ion is, engines and features, requirements, building, getting started, keys, file locations, the third-party credits, and a note that ion isn't affiliated with the companies whose products it names.
 - **Release tarballs** now carry `LICENSE`, `README.md` and `licenses/` (every vendored license file), since the binary includes that code.
 - The working documents (HANDOFF, PLAN, STATUS, DECISIONS, TESTING) stay in the repo as they are.
+- **History rewritten once, before going public (Michael's choice, 2026-11-12):** every commit and tag had Michael's personal email, so all branches and tags were rewritten to his GitHub noreply address (`16479827+Arithrix@users.noreply.github.com`) and force-pushed. The file contents are identical (same trees) but every commit ID changed. A bundle of the old history is at `~/projects/ion-before-email-rewrite-2026-11-12.bundle`. The repo-local git email is now the noreply address. This is the only exception to never rewriting main.
+- **The GitHub Release's tarball** (`ion-1.0.0-linux-x86_64.tar.gz`) is built from the tag, without `demo/` (it holds Yamaha's ROM1A patches), the debug file or the test tools. `release.sh`'s local tarball still has them and stays local.
 
 ## Proposed (waiting for Michael)
 
