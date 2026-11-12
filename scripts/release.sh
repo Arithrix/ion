@@ -81,7 +81,13 @@ objcopy --only-keep-debug "$BIN" "$DEST/ion.debug"
 objcopy --strip-debug --add-gnu-debuglink="$DEST/ion.debug" "$BIN" "$DEST/ion"
 for tool in ion-bench ion-render; do objcopy --strip-debug "build-release/$tool" "$DEST/$tool"; done
 for tool in fake-oxi make-demo; do objcopy --strip-debug "build-release/tests/$tool" "$DEST/$tool"; done
-cp CHANGELOG.md TESTING.md "$DEST/"
+cp CHANGELOG.md TESTING.md LICENSE README.md "$DEST/"
+# The licenses of the vendored code ion's binaries include (GPL-3.0 and MIT
+# need their notices shipped with the binary; SQLite is public domain).
+for f in third_party/*/LICENSE* third_party/*/COPYING*; do
+  mkdir -p "$DEST/licenses/$(basename "$(dirname "$f")")"
+  cp "$f" "$DEST/licenses/$(basename "$(dirname "$f")")/"
+done
 echo "$BENCH_OUT" > "$DEST/bench.txt"
 
 # Demo project, built from the DX7 factory bank on this machine (it can't live

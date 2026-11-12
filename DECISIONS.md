@@ -436,6 +436,15 @@ Measured first, changed second, measured again; anything that didn't help or cha
   - **ion:** undo/redo of a step that changes what an effect slot holds or which engine a track runs could bring back a stale value (a moved, switched-off effect came back on); a removed master glue compressor came back after save and load; CHIP and Plaits glide ran away when the glide time was shortened mid-glide; the sampler's LP24 resonated in both stages (+49 dB at full resonance; now the second stage stops at Butterworth, unchanged below ~30%).
 - **Clean:** 214 test cases, all passing in the normal and Release builds and under AddressSanitizer + UBSan with no findings, vendored code included.
 
+## Decided for 1.0 (Michael, 2026-11-12: call it 1.0 and publish it)
+
+### D-64 · decided · 1.0.0, public on GitHub, GPL-3.0
+- **Version 1.0.0** is 0.10.1's code with a license and a README; the project format stays 10.
+- **License: GPL-3.0** (`LICENSE`, the FSF text, checked against Debian's `common-licenses/GPL-3`). Synth_Dexed is GPL-3.0, so ion as a whole must be; everything else vendored is compatible (third_party/README.md). Supersedes the "private" part of D-13.
+- **README.md** for the GitHub front page: what ion is, engines and features, requirements, building, getting started, keys, file locations, the third-party credits, and a note that ion isn't affiliated with the companies whose products it names.
+- **Release tarballs** now carry `LICENSE`, `README.md` and `licenses/` (every vendored license file), since the binary includes that code.
+- The working documents (HANDOFF, PLAN, STATUS, DECISIONS, TESTING) stay in the repo as they are.
+
 ## Proposed (waiting for Michael)
 
 ### D-01 · implemented in Phase 0 · Direct ALSA sequencer instead of RtMidi
