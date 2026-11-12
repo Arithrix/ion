@@ -1,8 +1,8 @@
 # Status
 
-**Phase:** 10 done · 0.10.1 (efficiency pass and full test sweep) released. Michael's overnight list (2026-11-08): Phases 9 and 10, a full test of everything, an efficiency pass — all done. Michael asked (2026-11-08, overnight) for Phases 9 and 10, then a full test sweep and an efficiency pass, without stopping.
+**Phase:** 1.0.0: first public release (GPL-3.0, README; D-64). Before that: 10 done · 0.10.1 (efficiency pass and full test sweep) released. Michael's overnight list (2026-11-08): Phases 9 and 10, a full test of everything, an efficiency pass — all done. Michael asked (2026-11-08, overnight) for Phases 9 and 10, then a full test sweep and an efficiency pass, without stopping.
 **Branch:** `main`
-**Updated:** 2026-11-08
+**Updated:** 2026-11-12
 
 ## Done (0.10.1: efficiency and the test sweep)
 - **Efficiency** (D-62): -O3, no math errno/traps and AVX2/FMA for every target (reverb ~45% faster, drums ~30%, idle mixer ~35%, Plaits ~12%; a demo render differs by −98.5 dB); a CPU check at start-up and `ION_PORTABLE`; the UI redraws at 4 fps when nothing moves and FTXUI no longer reports bare mouse motion (idle UI 7–11% → 2% of a core); Drive 3.6× cheaper.
